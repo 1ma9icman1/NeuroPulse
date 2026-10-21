@@ -90,8 +90,7 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     measurements: [{ parameter: 'T60', frequencyHz: 500, reportedValue: 2.86, unit: 's', method: '8-second logarithmic sine sweep, 20 Hz–24 kHz, repeated 10 times per microphone location' }],
     caveat: 'This record refers to Hagia Sophia in Thessaloniki, Greece—not Istanbul. T60 is reverberation time at the 500 Hz test band, not a natural resonance frequency.',
     sources: [{ label: 'Archaeoacoustics around the World: A Literature Review (2016–2022)', url: 'https://doi.org/10.3390/app13042361', year: 2023, publication: 'Applied Sciences 13(4), 2361; Table 2 measurement summary' }]
-  }
-
+  },
   {
     id: 'newgrange-chamber-resonance', name: 'Newgrange Passage Tomb — central chamber', lat: 53.6947, lon: -6.4756,
     region: 'County Meath, Ireland', period: 'Neolithic passage tomb, c. 3200 BCE',
@@ -100,13 +99,13 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     measurementContext: 'Reported chamber resonance: approximately 110 Hz. This is a site-specific acoustic report, not evidence of a universal or astronomical 110 Hz signal.',
     measurements: [{ parameter: 'Primary chamber resonance', frequencyHz: 110, reportedValue: 110, unit: 'Hz', method: 'Acoustic resonance measurements of chambered prehistoric monuments; value reported approximately in the published literature' }],
     caveat: 'Approximate reported value. Re-measurement under documented conditions would be needed to assess uncertainty and reproducibility.',
-    sources: [{ label: 'Jahn, Devereux & Ibison (1996), Resonance in ancient structures', url: 'https://doi.org/10.1121/1.415990', year: 1996, publication: 'Journal of the Acoustical Society of America 99, 649–658' },
+    sources: [{ label: 'Jahn, Devereux & Ibison (1996), Resonance in ancient structures', url: 'https://doi.org/10.1121/1.414642', year: 1996, publication: 'Journal of the Acoustical Society of America 99, 649–658' },
       { label: 'Cook, Pajot & Leuchter (2008), Ancient Architectural Acoustic Resonance Patterns and Regional Brain Activity', url: 'https://doi.org/10.2752/175169608783489099', year: 2008, publication: 'Time and Mind 1(1), 95–104' }]
   },
   {
     id: 'stonehenge-chamber-acoustics', name: 'Stonehenge — acoustic model / resonance study', lat: 51.1789, lon: -1.8262,
     region: 'Wiltshire, England', period: 'Late Neolithic to Bronze Age monument',
-    measuredFrequenciesHz: [114], status: 'published-measurement',
+    measuredFrequenciesHz: [114], status: 'candidate-only',
     summary: 'An exploratory acoustic modelling source reports an approximately 114 Hz relationship for Stonehenge; this is not a direct field measurement of an enclosed chamber.',
     measurementContext: 'The cited project compares predicted cavity dimensions with archaeological measurements and lists Stonehenge at approximately 114 Hz. This is model-based/exploratory evidence, not the same evidence class as a measured enclosed chamber resonance.',
     measurements: [{ parameter: 'Modelled acoustic frequency', frequencyHz: 114, reportedValue: 114, unit: 'Hz', method: 'Exploratory acoustic model compared against monument dimensions; not a controlled in-situ resonance measurement' }],
