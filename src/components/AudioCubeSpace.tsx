@@ -1,0 +1,1810 @@
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import {
+  CameraView,
+  SpatialPosition,
+  SpatialRoutingMode,
+  TopPlaneOverlay,
+  CelestialStar,
+  TriangleInteriorAngles,
+  EarthPoint,
+  EarthConfig,
+} from '../types';
+import {
+  Rotate3D,
+  ZoomIn,
+  ZoomOut,
+  RefreshCw,
+  Star,
+  Image as ImageIcon,
+  Eye,
+  EyeOff,
+  Trash2,
+  Sliders,
+  Compass,
+  Layers,
+  Maximize,
+  Minimize,
+  Lock,
+  Unlock,
+  Pin,
+  Check,
+  Triangle,
+  Globe,
+  Glasses,
+  MapPin,
+  Plus,
+  Play,
+  Pause,
+  X,
+  Sparkles,
+} from 'lucide-react';
+import {
+  REAL_CELESTIAL_STARS,
+  CONSTELLATION_EDGES,
+  STAR_ALIGNMENT_PRESETS,
+  compute711Relation,
+  computeTriangleInteriorAngles,
+  Relation711Result,
+} from '../data/celestialStars';
+import {
+  DEFAULT_EARTH_POINTS,
+  CONTINENTAL_COASTLINES,
+  latLonToCartesian,
+  cartesianToLatLon,
+} from '../data/earthData';
+
+
+interface AudioCubeSpaceProps {
+  aPos: SpatialPosition;
+  bPos: SpatialPosition;
+  cPos: SpatialPosition;
+  spatialMode: SpatialRoutingMode;
+  cameraView: CameraView;
+  cameraYaw: number;
+  cameraPitch: number;
+  cameraZoom: number;
+  aFreq: number;
+  bFreq: number;
+  cFreq: number;
+  isRunning: boolean;
+  onUpdateAPos: (pos: SpatialPosition) => void;
+  onUpdateBPos: (pos: SpatialPosition) => void;
+  onUpdateCPos: (pos: SpatialPosition) => void;
+  onUpdateSpatialMode: (mode: SpatialRoutingMode) => void;
+  onUpdateCameraView: (view: CameraView) => void;
+  onUpdateCameraAngles: (yaw: number, pitch: number) => void;
+  onUpdateCameraZoom: (zoom: number) => void;
+  onResetCamera: () => void;
+}
+
+export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
+  aPos,
+  bPos,
+  cPos,
+  spatialMode,
+  cameraView,
+  cameraYaw,
+  cameraPitch,
+  cameraZoom,
+  aFreq,
+  bFreq,
+  cFreq,
+  isRunning,
+  onUpdateAPos,
+  onUpdateBPos,
+  onUpdateCPos,
+  onUpdateSpatialMode,
+  onUpdateCameraView,
+  onUpdateCameraAngles,
+  onUpdateCameraZoom,
+  onResetCamera,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Star Celestial Alignment Mode
+  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(false);
+  const [selectedStarPreset, setSelectedStarPreset] = useState<string>('orion-sirius-meridian');
+  const [starAId, setStarAId] = useState<string>('betelgeuse');
+  const [starBId, setStarBId] = useState<string>('rigel');
+  const [starCId, setStarCId] = useState<string>('sirius');
+
+  // Active channel target for clicking and snapping to stars: 'a' | 'b' | 'c'
+  const [snapTargetChannel, setSnapTargetChannel] = useState<'a' | 'b' | 'c'>('a');
+
+  // Locked-to-star states: when true, channels stay firmly at their assigned celestial star positions
+  const [lockedChannels, setLockedChannels] = useState<{ a: boolean; b: boolean; c: boolean }>({
+    a: true,
+    b: true,
+    c: true,
+  });
+
+  const [hoveredStar, setHoveredStar] = useState<CelestialStar | null>(null);
+  const [clickedStar, setClickedStar] = useState<CelestialStar | null>(null);
+  const [snapFeedback, setSnapFeedback] = useState<string | null>(null);
+
+  // Fullscreen state for 3D Stage
+  const [isStageFullscreen, setIsStageFullscreen] = useState<boolean>(false);
+
+  // Top Plane Image Overlay
+  const [overlay, setOverlay] = useState<TopPlaneOverlay>({
+    imageUrl: null,
+    imageName: null,
+    opacity: 0.65,
+    scale: 1.0,
+    visible: true,
+  });
+  const overlayImageRef = useRef<HTMLImageElement | null>(null);
+  const [showOverlayControls, setShowOverlayControls] = useState<boolean>(false);
+
+  // Dragging states
+  const [activeDrag, setActiveDrag] = useState<'a' | 'b' | 'c' | 'camera' | null>(null);
+  const [hoverNode, setHoverNode] = useState<'a' | 'b' | 'c' | null>(null);
+
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const cameraStartAngle = useRef({ yaw: cameraYaw, pitch: cameraPitch });
+
+  // Star click tracking: tracks number of stars clicked (activates interior triangle angles after 3 stars)
+  const [clickedStarCount, setClickedStarCount] = useState<number>(3); // Initialized with 3 default celestial stars
+  const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(true);
+
+  // Compute 7-11 real-world astrometric relation on angles
+  const relation711: Relation711Result = compute711Relation(aPos, bPos, cPos);
+
+  // Compute authentic Euclidean 3D triangle interior angles at vertices A, B, and C (sum = 180.0°)
+  const interiorAngles: TriangleInteriorAngles = computeTriangleInteriorAngles(aPos, bPos, cPos);
+
+  // Monitor fullscreen change on stage
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsStageFullscreen(document.fullscreenElement === containerRef.current);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const handleToggleStageFullscreen = async () => {
+    if (!containerRef.current) return;
+    try {
+      if (document.fullscreenElement === containerRef.current) {
+        await document.exitFullscreen();
+      } else {
+        await containerRef.current.requestFullscreen();
+      }
+    } catch (err) {
+      console.warn('Stage fullscreen error:', err);
+    }
+  };
+
+  // Handle Image Upload for Top Plane
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const url = event.target?.result as string;
+      const img = new Image();
+      img.src = url;
+      img.onload = () => {
+        overlayImageRef.current = img;
+        setOverlay((prev) => ({
+          ...prev,
+          imageUrl: url,
+          imageName: file.name,
+          visible: true,
+        }));
+        setShowOverlayControls(true);
+      };
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleClearOverlay = () => {
+    overlayImageRef.current = null;
+    setOverlay({
+      imageUrl: null,
+      imageName: null,
+      opacity: 0.65,
+      scale: 1.0,
+      visible: true,
+    });
+    setShowOverlayControls(false);
+  };
+
+  // Snap channel to a star and lock it in place so it stays there
+  const handleSnapChannelToStar = (channel: 'a' | 'b' | 'c', star: CelestialStar) => {
+    const nextCount = clickedStarCount + 1;
+    setClickedStarCount(nextCount);
+    setShowTriangleAngles(true);
+
+    if (channel === 'a') {
+      setStarAId(star.id);
+      onUpdateAPos({ x: star.x, y: star.y, z: star.z });
+      setLockedChannels((prev) => ({ ...prev, a: true }));
+      setSnapTargetChannel('b'); // auto-advance to next channel
+    } else if (channel === 'b') {
+      setStarBId(star.id);
+      onUpdateBPos({ x: star.x, y: star.y, z: star.z });
+      setLockedChannels((prev) => ({ ...prev, b: true }));
+      setSnapTargetChannel('c'); // auto-advance to next channel
+    } else if (channel === 'c') {
+      setStarCId(star.id);
+      onUpdateCPos({ x: star.x, y: star.y, z: star.z });
+      setLockedChannels((prev) => ({ ...prev, c: true }));
+      setSnapTargetChannel('a'); // loop back to 'a'
+    }
+
+    if (nextCount >= 3) {
+      setSnapFeedback(`★ 3 STARS CLICKED! INTERIOR TRIANGLE ANGLES COMPUTED & DISPLAYED (∠A, ∠B, ∠C)`);
+    } else {
+      setSnapFeedback(
+        `★ [${nextCount}/3 STARS] CH-${channel.toUpperCase()} SNAPPED TO ${star.name.toUpperCase()} (CLICK ${
+          3 - nextCount
+        } MORE)`
+      );
+    }
+    window.setTimeout(() => setSnapFeedback(null), 3800);
+  };
+
+  // Apply Star Alignment Preset
+  const handleSelectStarPreset = (presetId: string) => {
+    setSelectedStarPreset(presetId);
+    const p = STAR_ALIGNMENT_PRESETS.find((x) => x.id === presetId);
+    if (!p) return;
+
+    setStarAId(p.starAId);
+    setStarBId(p.starBId);
+    setStarCId(p.starCId);
+
+    const starA = REAL_CELESTIAL_STARS.find((s) => s.id === p.starAId);
+    const starB = REAL_CELESTIAL_STARS.find((s) => s.id === p.starBId);
+    const starC = REAL_CELESTIAL_STARS.find((s) => s.id === p.starCId);
+
+    if (starA) onUpdateAPos({ x: starA.x, y: starA.y, z: starA.z });
+    if (starB) onUpdateBPos({ x: starB.x, y: starB.y, z: starB.z });
+    if (starC) onUpdateCPos({ x: starC.x, y: starC.y, z: starC.z });
+
+    // Lock all 3 to stay at the astrometric star positions
+    setLockedChannels({ a: true, b: true, c: true });
+    setClickedStarCount(3);
+    setShowTriangleAngles(true);
+    setSnapFeedback(`★ 3 STARS ALIGNED: ${p.name} — INTERIOR ANGLES COMPUTED`);
+    window.setTimeout(() => setSnapFeedback(null), 3800);
+  };
+
+  const updateCanvasDimensions = useCallback(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const rect = container.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.floor(rect.width);
+    const h = Math.floor(rect.height);
+
+    if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    }
+  }, []);
+
+  useEffect(() => {
+    updateCanvasDimensions();
+    window.addEventListener('resize', updateCanvasDimensions);
+    return () => window.removeEventListener('resize', updateCanvasDimensions);
+  }, [updateCanvasDimensions]);
+
+  // Project 3D coordinate (x: -8..8, y: -8..8, z: -8..8) to 2D screen
+  const project3D = useCallback(
+    (x: number, y: number, z: number, w: number, h: number) => {
+      const cx = w / 2;
+      const cy = h / 2;
+      const baseScale = Math.min(w, h) * 0.042 * cameraZoom;
+
+      if (cameraView === 'top') {
+        return {
+          sx: cx + x * baseScale * 1.25,
+          sy: cy + z * baseScale * 1.25,
+          depthScale: 1.0,
+        };
+      } else if (cameraView === 'front') {
+        return {
+          sx: cx + x * baseScale * 1.25,
+          sy: cy - y * baseScale * 1.25,
+          depthScale: 1.0,
+        };
+      } else {
+        const radYaw = (cameraYaw * Math.PI) / 180;
+        const radPitch = (cameraPitch * Math.PI) / 180;
+
+        // Rotate Y (Yaw)
+        const rx = x * Math.cos(radYaw) - z * Math.sin(radYaw);
+        const rz = x * Math.sin(radYaw) + z * Math.cos(radYaw);
+
+        // Rotate X (Pitch)
+        const ry = y * Math.cos(radPitch) - rz * Math.sin(radPitch);
+        const rz2 = y * Math.sin(radPitch) + rz * Math.cos(radPitch);
+
+        const cameraDist = 28;
+        const fov = 350;
+        const depth = cameraDist + rz2;
+        const factor = fov / Math.max(6, depth);
+
+        return {
+          sx: cx + rx * factor * baseScale * 0.065,
+          sy: cy - ry * factor * baseScale * 0.065,
+          depthScale: factor / (fov / cameraDist),
+        };
+      }
+    },
+    [cameraView, cameraYaw, cameraPitch, cameraZoom]
+  );
+
+  // Render 3D scene & Star Space & Top Plane Overlay
+  useEffect(() => {
+    let animId: number;
+
+    const render = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const width = canvas.width / dpr;
+      const height = canvas.height / dpr;
+      const cx = width / 2;
+      const cy = height / 2;
+      const baseScale = Math.min(width, height) * 0.042 * cameraZoom;
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      // Deep space background
+      ctx.fillStyle = isStarModeActive ? '#04060d' : '#060a12';
+      ctx.fillRect(0, 0, width, height);
+
+      const bound = 8.0;
+
+      // 1. Render Top Plane Uploaded Image Overlay (if active)
+      if (overlay.visible && overlayImageRef.current) {
+        ctx.save();
+        ctx.globalAlpha = overlay.opacity;
+
+        if (cameraView === 'top') {
+          // Precise 1:1 floor plan mapping in top-down view
+          const planeW = 2 * bound * baseScale * 1.25 * overlay.scale;
+          const planeH = 2 * bound * baseScale * 1.25 * overlay.scale;
+          ctx.drawImage(
+            overlayImageRef.current,
+            cx - planeW / 2,
+            cy - planeH / 2,
+            planeW,
+            planeH
+          );
+        } else {
+          // Perspective floor rendering: project 4 corners of horizontal plane
+          const pTL = project3D(-bound * overlay.scale, -bound, -bound * overlay.scale, width, height);
+          const pTR = project3D(bound * overlay.scale, -bound, -bound * overlay.scale, width, height);
+          const pBR = project3D(bound * overlay.scale, -bound, bound * overlay.scale, width, height);
+          const pBL = project3D(-bound * overlay.scale, -bound, bound * overlay.scale, width, height);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(pTL.sx, pTL.sy);
+          ctx.lineTo(pTR.sx, pTR.sy);
+          ctx.lineTo(pBR.sx, pBR.sy);
+          ctx.lineTo(pBL.sx, pBL.sy);
+          ctx.closePath();
+          ctx.clip();
+
+          const minX = Math.min(pTL.sx, pTR.sx, pBR.sx, pBL.sx);
+          const maxX = Math.max(pTL.sx, pTR.sx, pBR.sx, pBL.sx);
+          const minY = Math.min(pTL.sy, pTR.sy, pBR.sy, pBL.sy);
+          const maxY = Math.max(pTL.sy, pTR.sy, pBR.sy, pBL.sy);
+          ctx.drawImage(overlayImageRef.current, minX, minY, maxX - minX, maxY - minY);
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      // 2. Star Background Particles (When Star Mode is active)
+      if (isStarModeActive) {
+        ctx.save();
+        for (let i = 0; i < 60; i++) {
+          const fakeRa = (i * 37) % 360;
+          const fakeDec = ((i * 59) % 180) - 90;
+          const radR = (fakeRa * Math.PI) / 180;
+          const radD = (fakeDec * Math.PI) / 180;
+          const fx = 7.8 * Math.cos(radD) * Math.sin(radR);
+          const fy = 7.8 * Math.sin(radD);
+          const fz = 7.8 * Math.cos(radD) * Math.cos(radR);
+          const fp = project3D(fx, fy, fz, width, height);
+          ctx.fillStyle = i % 3 === 0 ? 'rgba(165, 201, 255, 0.4)' : 'rgba(255, 255, 255, 0.25)';
+          ctx.beginPath();
+          ctx.arc(fp.sx, fp.sy, (i % 2 === 0 ? 1.0 : 0.6) * fp.depthScale, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // 3. Draw 3D AudioCube Room Wireframe
+      ctx.lineWidth = 1;
+      const gridSteps = 4;
+      for (let i = -gridSteps; i <= gridSteps; i++) {
+        const posVal = (i / gridSteps) * bound;
+
+        // Lines along X
+        const p1 = project3D(-bound, -bound, posVal, width, height);
+        const p2 = project3D(bound, -bound, posVal, width, height);
+        ctx.beginPath();
+        ctx.moveTo(p1.sx, p1.sy);
+        ctx.lineTo(p2.sx, p2.sy);
+        ctx.strokeStyle = i === 0 ? 'rgba(168, 85, 247, 0.45)' : 'rgba(255, 255, 255, 0.06)';
+        ctx.stroke();
+
+        // Lines along Z
+        const p3 = project3D(posVal, -bound, -bound, width, height);
+        const p4 = project3D(posVal, -bound, bound, width, height);
+        ctx.beginPath();
+        ctx.moveTo(p3.sx, p3.sy);
+        ctx.lineTo(p4.sx, p4.sy);
+        ctx.strokeStyle = i === 0 ? 'rgba(168, 85, 247, 0.45)' : 'rgba(255, 255, 255, 0.06)';
+        ctx.stroke();
+      }
+
+      // Outer Cube Bounding Edges
+      if (cameraView === 'perspective') {
+        const corners = [
+          [-bound, -bound, -bound],
+          [bound, -bound, -bound],
+          [bound, -bound, bound],
+          [-bound, -bound, bound],
+          [-bound, bound, -bound],
+          [bound, bound, -bound],
+          [bound, bound, bound],
+          [-bound, bound, bound],
+        ];
+
+        const edges = [
+          [0, 1],
+          [1, 2],
+          [2, 3],
+          [3, 0], // Floor boundary
+          [4, 5],
+          [5, 6],
+          [6, 7],
+          [7, 4], // Ceiling boundary
+          [0, 4],
+          [1, 5],
+          [2, 6],
+          [3, 7], // Corner vertical pillars
+        ];
+
+        edges.forEach(([i1, i2]) => {
+          const c1 = corners[i1];
+          const c2 = corners[i2];
+          const pt1 = project3D(c1[0], c1[1], c1[2], width, height);
+          const pt2 = project3D(c2[0], c2[1], c2[2], width, height);
+
+          ctx.beginPath();
+          ctx.moveTo(pt1.sx, pt1.sy);
+          ctx.lineTo(pt2.sx, pt2.sy);
+          ctx.strokeStyle = isStarModeActive ? 'rgba(99, 102, 241, 0.18)' : 'rgba(168, 85, 247, 0.18)';
+          ctx.stroke();
+        });
+      }
+
+      // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
+      const centerPt = project3D(0, 0, 0, width, height);
+      const listenerFloor = project3D(0, -bound, 0, width, height);
+
+      // Floor Shadow & Drop line for Observer
+      ctx.beginPath();
+      ctx.ellipse(listenerFloor.sx, listenerFloor.sy, 16, 8, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(listenerFloor.sx, listenerFloor.sy);
+      ctx.lineTo(centerPt.sx, centerPt.sy);
+      ctx.strokeStyle = isStarModeActive ? 'rgba(99, 102, 241, 0.4)' : 'rgba(168, 85, 247, 0.3)';
+      ctx.setLineDash([2, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Universe Center Core
+      if (isStarModeActive) {
+        ctx.beginPath();
+        ctx.arc(centerPt.sx, centerPt.sy, 14, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 2]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.beginPath();
+        ctx.arc(centerPt.sx, centerPt.sy, 7, 0, Math.PI * 2);
+        ctx.fillStyle = '#1e1b4b';
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#fde047';
+        ctx.fillText('UNIVERSE CORE (0,0,0)', centerPt.sx - 52, centerPt.sy + 24);
+      } else {
+        ctx.beginPath();
+        ctx.arc(centerPt.sx, centerPt.sy, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#1e1b4b';
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = '9px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#c084fc';
+        ctx.fillText('LISTENER', centerPt.sx - 22, centerPt.sy + 20);
+      }
+
+      // 5. Render Real-World Stars and Constellation Edges (Star Mode)
+      if (isStarModeActive) {
+        // Draw Constellation Lines
+        ctx.save();
+        ctx.strokeStyle = 'rgba(147, 197, 253, 0.22)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 4]);
+
+        CONSTELLATION_EDGES.forEach(([s1Id, s2Id]) => {
+          const s1 = REAL_CELESTIAL_STARS.find((s) => s.id === s1Id);
+          const s2 = REAL_CELESTIAL_STARS.find((s) => s.id === s2Id);
+          if (s1 && s2) {
+            const p1 = project3D(s1.x, s1.y, s1.z, width, height);
+            const p2 = project3D(s2.x, s2.y, s2.z, width, height);
+            ctx.beginPath();
+            ctx.moveTo(p1.sx, p1.sy);
+            ctx.lineTo(p2.sx, p2.sy);
+            ctx.stroke();
+          }
+        });
+        ctx.setLineDash([]);
+        ctx.restore();
+
+        // Draw Real Stars
+        REAL_CELESTIAL_STARS.forEach((star) => {
+          const sp = project3D(star.x, star.y, star.z, width, height);
+          const isAssignedA = star.id === starAId;
+          const isAssignedB = star.id === starBId;
+          const isAssignedC = star.id === starCId;
+          const isHovered = hoveredStar?.id === star.id;
+          const isClicked = clickedStar?.id === star.id;
+
+          // Star glow
+          ctx.save();
+          const baseRadius = Math.max(2.5, (3.5 - star.mag * 0.4) * sp.depthScale);
+          ctx.beginPath();
+          ctx.arc(sp.sx, sp.sy, baseRadius, 0, Math.PI * 2);
+          ctx.fillStyle = star.color;
+          ctx.shadowColor = star.color;
+          ctx.shadowBlur = isAssignedA || isAssignedB || isAssignedC || isHovered || isClicked ? 16 : 5;
+          ctx.fill();
+
+          // Star label
+          ctx.font = isHovered || isClicked ? 'bold 10px "JetBrains Mono", monospace' : '9px "JetBrains Mono", monospace';
+          ctx.fillStyle = isHovered || isClicked ? '#ffffff' : 'rgba(255, 255, 255, 0.7)';
+          ctx.fillText(star.name, sp.sx + 7, sp.sy - 3);
+
+          // Indicator for assigned channels
+          if (isAssignedA || isAssignedB || isAssignedC) {
+            ctx.strokeStyle = isAssignedA ? '#00f0ff' : isAssignedB ? '#ff007f' : '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(sp.sx, sp.sy, baseRadius + 4, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Pin marker
+            ctx.fillStyle = isAssignedA ? '#00f0ff' : isAssignedB ? '#ff007f' : '#fbbf24';
+            ctx.font = 'bold 8px "JetBrains Mono", monospace';
+            const badge = isAssignedA ? 'A★' : isAssignedB ? 'B★' : 'C★';
+            ctx.fillText(badge, sp.sx - 6, sp.sy - baseRadius - 5);
+          }
+          ctx.restore();
+        });
+
+        // Celestial Tether Beams: Universe Center (0,0,0) -> Assigned Stars -> Channels
+        const drawTether = (starId: string, puckPos: SpatialPosition, color: string) => {
+          const star = REAL_CELESTIAL_STARS.find((s) => s.id === starId);
+          if (!star) return;
+          const sp = project3D(star.x, star.y, star.z, width, height);
+          const pp = project3D(puckPos.x, puckPos.y, puckPos.z, width, height);
+
+          // Ray from Center to Star
+          ctx.beginPath();
+          ctx.moveTo(centerPt.sx, centerPt.sy);
+          ctx.lineTo(sp.sx, sp.sy);
+          ctx.strokeStyle = `${color}40`;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([2, 4]);
+          ctx.stroke();
+
+          // Ray from Star to Channel Puck
+          ctx.beginPath();
+          ctx.moveTo(sp.sx, sp.sy);
+          ctx.lineTo(pp.sx, pp.sy);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([4, 2]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        };
+
+        drawTether(starAId, aPos, '#00f0ff');
+        drawTether(starBId, bPos, '#ff007f');
+        drawTether(starCId, cPos, '#fbbf24');
+      }
+
+      // 6. Draw 3D Sound Puck Helper
+      const drawPuck = (
+        pos: SpatialPosition,
+        freq: number,
+        label: string,
+        color: string,
+        fillColor: string,
+        channelId: 'a' | 'b' | 'c',
+        isActive: boolean
+      ) => {
+        const p = project3D(pos.x, pos.y, pos.z, width, height);
+        const pFloor = project3D(pos.x, -bound, pos.z, width, height);
+        const isLocked = lockedChannels[channelId];
+        const assignedStar = REAL_CELESTIAL_STARS.find(
+          (s) => s.id === (channelId === 'a' ? starAId : channelId === 'b' ? starBId : starCId)
+        );
+
+        // Vertical drop line to floor
+        ctx.beginPath();
+        ctx.moveTo(pFloor.sx, pFloor.sy);
+        ctx.lineTo(p.sx, p.sy);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.4;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Shadow ellipse on floor
+        ctx.beginPath();
+        ctx.ellipse(pFloor.sx, pFloor.sy, 13, 6, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `${color}25`;
+        ctx.fill();
+
+        // Origin to Puck vector
+        ctx.beginPath();
+        ctx.moveTo(centerPt.sx, centerPt.sy);
+        ctx.lineTo(p.sx, p.sy);
+        ctx.strokeStyle = `${color}40`;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Sound Source Puck Body
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = isRunning ? 16 : 6;
+        ctx.fillStyle = fillColor;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isActive ? 3 : 2;
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, 13 * p.depthScale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = color;
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.fillText(label, p.sx - 3.5, p.sy + 4);
+        ctx.restore();
+
+        // Label with Star Lock indicator
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.fillStyle = color;
+        const starText = isStarModeActive && assignedStar && isLocked ? ` ★ ${assignedStar.name} [LOCKED]` : '';
+        ctx.fillText(
+          `${label}${starText}: ${freq.toFixed(1)}Hz [${pos.y > 0 ? '+' : ''}${pos.y.toFixed(1)}m]`,
+          p.sx - 48,
+          p.sy - 18
+        );
+      };
+
+      // 7. Draw Trinaural Acoustic Triangular Web between A, B, and C
+      const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
+      const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
+      const pc = project3D(cPos.x, cPos.y, cPos.z, width, height);
+
+      ctx.beginPath();
+      ctx.moveTo(pa.sx, pa.sy);
+      ctx.lineTo(pb.sx, pb.sy);
+      ctx.lineTo(pc.sx, pc.sy);
+      ctx.closePath();
+      ctx.strokeStyle = isStarModeActive ? 'rgba(250, 204, 21, 0.35)' : 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = relation711.isHarmonic711 ? 1.8 : 1.2;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.fillStyle = relation711.isHarmonic711 ? 'rgba(250, 204, 21, 0.07)' : 'rgba(168, 85, 247, 0.04)';
+      ctx.fill();
+      ctx.setLineDash([]);
+
+      // 7b. Draw Interior Triangle Angles (Displayed when 3 stars are connected or showTriangleAngles is active)
+      const centroidX = (pa.sx + pb.sx + pc.sx) / 3;
+      const centroidY = (pa.sy + pb.sy + pc.sy) / 3;
+
+      if (showTriangleAngles) {
+        // Helper to draw interior corner angle arc and degree badge inside each triangle corner
+        const drawCornerInteriorAngle = (
+          v: { sx: number; sy: number },
+          adj1: { sx: number; sy: number },
+          adj2: { sx: number; sy: number },
+          angleDeg: number,
+          label: string,
+          color: string,
+          arcRadius = 24
+        ) => {
+          const t1 = Math.atan2(adj1.sy - v.sy, adj1.sx - v.sx);
+          const t2 = Math.atan2(adj2.sy - v.sy, adj2.sx - v.sx);
+
+          let diff = (t2 - t1) % (2 * Math.PI);
+          if (diff < -Math.PI) diff += 2 * Math.PI;
+          if (diff > Math.PI) diff -= 2 * Math.PI;
+
+          // Interior bisector directed towards triangle centroid
+          const bisector = t1 + diff / 2;
+          const dirCentroid = Math.atan2(centroidY - v.sy, centroidX - v.sx);
+          let bDiff = Math.abs((bisector - dirCentroid) % (2 * Math.PI));
+          if (bDiff > Math.PI) bDiff = 2 * Math.PI - bDiff;
+          const interiorBisector = bDiff < Math.PI / 2 ? bisector : bisector + Math.PI;
+
+          // Interior Arc Sector
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(v.sx, v.sy);
+          if (diff >= 0) {
+            ctx.arc(v.sx, v.sy, arcRadius, t1, t1 + diff, false);
+          } else {
+            ctx.arc(v.sx, v.sy, arcRadius, t1, t1 + diff, true);
+          }
+          ctx.closePath();
+          ctx.fillStyle = `${color}28`;
+          ctx.fill();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+
+          // Interior Ray toward centroid
+          ctx.beginPath();
+          ctx.moveTo(v.sx, v.sy);
+          ctx.lineTo(
+            v.sx + Math.cos(interiorBisector) * (arcRadius + 14),
+            v.sy + Math.sin(interiorBisector) * (arcRadius + 14)
+          );
+          ctx.strokeStyle = `${color}60`;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([2, 3]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Degree readout badge positioned inside the triangle
+          const labelDist = Math.max(34, arcRadius + 14);
+          const lx = v.sx + Math.cos(interiorBisector) * labelDist;
+          const ly = v.sy + Math.sin(interiorBisector) * labelDist;
+
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          const badgeText = `${label}: ${angleDeg.toFixed(1)}°`;
+          const badgeW = ctx.measureText(badgeText).width + 8;
+          const badgeH = 15;
+
+          ctx.fillStyle = 'rgba(6, 10, 18, 0.92)';
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(lx - badgeW / 2, ly - badgeH / 2, badgeW, badgeH, 3);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = color;
+          ctx.fillText(badgeText, lx - badgeW / 2 + 4, ly + 3.5);
+          ctx.restore();
+        };
+
+        // Draw 3 interior corner angles inside vertices A, B, and C
+        drawCornerInteriorAngle(pa, pb, pc, interiorAngles.angleA, '∠A', '#00f0ff');
+        drawCornerInteriorAngle(pb, pa, pc, interiorAngles.angleB, '∠B', '#ff007f');
+        drawCornerInteriorAngle(pc, pa, pb, interiorAngles.angleC, '∠C', '#fbbf24');
+
+        // Draw subtle dashed rays from vertices to the centroid inside triangle
+        ctx.save();
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.22)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 4]);
+        ctx.beginPath();
+        ctx.moveTo(pa.sx, pa.sy);
+        ctx.lineTo(centroidX, centroidY);
+        ctx.moveTo(pb.sx, pb.sy);
+        ctx.lineTo(centroidX, centroidY);
+        ctx.moveTo(pc.sx, pc.sy);
+        ctx.lineTo(centroidX, centroidY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Central Interior Triangle Angle Badge
+        const screenPerimeter =
+          Math.hypot(pb.sx - pa.sx, pb.sy - pa.sy) +
+          Math.hypot(pc.sx - pb.sx, pc.sy - pb.sy) +
+          Math.hypot(pa.sx - pc.sx, pa.sy - pc.sy);
+
+        if (screenPerimeter > 100) {
+          const badgeW = 210;
+          const badgeH = interiorAngles.has711AngleMatch ? 58 : 46;
+          const bx = centroidX - badgeW / 2;
+          const by = centroidY - badgeH / 2;
+
+          ctx.fillStyle = 'rgba(6, 10, 18, 0.94)';
+          ctx.strokeStyle = interiorAngles.has711AngleMatch ? '#facc15' : 'rgba(250, 204, 21, 0.5)';
+          ctx.lineWidth = interiorAngles.has711AngleMatch ? 1.6 : 1;
+          ctx.beginPath();
+          ctx.roundRect(bx, by, badgeW, badgeH, 6);
+          ctx.fill();
+          ctx.stroke();
+
+          // Header inside triangle badge
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#fde047';
+          ctx.fillText('△ TRIANGLE INTERIOR ANGLES', bx + 10, by + 12);
+
+          ctx.font = '8px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText('SUM: 180.0°', bx + badgeW - 54, by + 12);
+
+          // 3 Interior Angles: A, B, C
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#00f0ff';
+          ctx.fillText(`∠A: ${interiorAngles.angleA}°`, bx + 10, by + 26);
+          ctx.fillStyle = '#ff007f';
+          ctx.fillText(`∠B: ${interiorAngles.angleB}°`, bx + 78, by + 26);
+          ctx.fillStyle = '#fbbf24';
+          ctx.fillText(`∠C: ${interiorAngles.angleC}°`, bx + 146, by + 26);
+
+          // Subtitle: Area & Side lengths
+          ctx.font = '8px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#64748b';
+          ctx.fillText(`Area: ${interiorAngles.area}m² | P: ${interiorAngles.perimeter}m`, bx + 10, by + 38);
+
+          // 7:11 Harmonic Aspect Match highlight if present
+          if (interiorAngles.has711AngleMatch) {
+            ctx.fillStyle = '#facc15';
+            ctx.font = 'bold 8px "JetBrains Mono", monospace';
+            ctx.fillText(
+              `★ 7:11 SACRED ASPECT: ∠${interiorAngles.closestAngleTo711.vertex} ≈ 32.5° (${interiorAngles.closestAngleTo711.matchPct}%)`,
+              bx + 10,
+              by + 50
+            );
+          }
+        }
+        ctx.restore();
+      }
+
+      // Draw Channel A, B, C pucks
+      drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
+      drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
+      drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
+
+      // 8. Hovered Star Info Card (if hovered)
+      if (isStarModeActive && hoveredStar && !clickedStar) {
+        const hp = project3D(hoveredStar.x, hoveredStar.y, hoveredStar.z, width, height);
+        ctx.save();
+        ctx.fillStyle = 'rgba(6, 10, 18, 0.94)';
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(hp.sx + 12, hp.sy - 38, 160, 56, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#fde047';
+        ctx.fillText(`★ ${hoveredStar.name} (${hoveredStar.bayer})`, hp.sx + 18, hp.sy - 22);
+
+        ctx.font = '9px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`Const: ${hoveredStar.constellation} | Mag: ${hoveredStar.mag}`, hp.sx + 18, hp.sy - 10);
+        ctx.fillText(`RA: ${hoveredStar.raHours.toFixed(1)}h | Dec: ${hoveredStar.decDeg.toFixed(1)}°`, hp.sx + 18, hp.sy + 2);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText(`Click to snap CH-${snapTargetChannel.toUpperCase()}`, hp.sx + 18, hp.sy + 13);
+        ctx.restore();
+      }
+
+      ctx.restore();
+      animId = requestAnimationFrame(render);
+    };
+
+    animId = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(animId);
+  }, [
+    aPos,
+    bPos,
+    cPos,
+    cameraView,
+    cameraYaw,
+    cameraPitch,
+    cameraZoom,
+    aFreq,
+    bFreq,
+    cFreq,
+    isRunning,
+    isStarModeActive,
+    starAId,
+    starBId,
+    starCId,
+    snapTargetChannel,
+    lockedChannels,
+    hoveredStar,
+    clickedStar,
+    overlay,
+    relation711.isHarmonic711,
+    project3D,
+    activeDrag,
+    hoverNode,
+    showTriangleAngles,
+    interiorAngles,
+  ]);
+
+  // Pointer interactions
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const width = rect.width;
+    const height = rect.height;
+
+    // 1. Check if user clicked directly on any real star
+    if (isStarModeActive) {
+      for (const star of REAL_CELESTIAL_STARS) {
+        const sp = project3D(star.x, star.y, star.z, width, height);
+        if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
+          // Snap currently selected target channel to this star and stay there!
+          handleSnapChannelToStar(snapTargetChannel, star);
+          setClickedStar(star);
+          return;
+        }
+      }
+    }
+
+    // Dismiss clicked star modal if clicking elsewhere
+    if (clickedStar) {
+      setClickedStar(null);
+    }
+
+    const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
+    const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
+    const pc = project3D(cPos.x, cPos.y, cPos.z, width, height);
+
+    const distA = Math.hypot(x - pa.sx, y - pa.sy);
+    const distB = Math.hypot(x - pb.sx, y - pb.sy);
+    const distC = Math.hypot(x - pc.sx, y - pc.sy);
+
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+
+    if (distA < 22) {
+      // If locked to star, prevent accidental displacement unless shift is held
+      if (isStarModeActive && lockedChannels.a && !e.shiftKey) {
+        setSnapFeedback(`★ CH-A IS LOCKED TO STAR. Hold Shift to override.`);
+        window.setTimeout(() => setSnapFeedback(null), 2500);
+        return;
+      }
+      setActiveDrag('a');
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } else if (distB < 22) {
+      if (isStarModeActive && lockedChannels.b && !e.shiftKey) {
+        setSnapFeedback(`★ CH-B IS LOCKED TO STAR. Hold Shift to override.`);
+        window.setTimeout(() => setSnapFeedback(null), 2500);
+        return;
+      }
+      setActiveDrag('b');
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } else if (distC < 22) {
+      if (isStarModeActive && lockedChannels.c && !e.shiftKey) {
+        setSnapFeedback(`★ CH-C IS LOCKED TO STAR. Hold Shift to override.`);
+        window.setTimeout(() => setSnapFeedback(null), 2500);
+        return;
+      }
+      setActiveDrag('c');
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } else {
+      // Orbit Camera
+      setActiveDrag('camera');
+      cameraStartAngle.current = { yaw: cameraYaw, pitch: cameraPitch };
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const width = rect.width;
+    const height = rect.height;
+    const cx = width / 2;
+    const cy = height / 2;
+    const baseScale = Math.min(width, height) * 0.042 * cameraZoom;
+
+    if (activeDrag === 'camera') {
+      const dx = e.clientX - dragStartPos.current.x;
+      const dy = e.clientY - dragStartPos.current.y;
+      const newYaw = cameraStartAngle.current.yaw + dx * 0.5;
+      const newPitch = Math.max(-85, Math.min(85, cameraStartAngle.current.pitch + dy * 0.5));
+      onUpdateCameraAngles(Number(newYaw.toFixed(1)), Number(newPitch.toFixed(1)));
+    } else if (activeDrag === 'a') {
+      if (e.shiftKey) {
+        const dy = (dragStartPos.current.y - e.clientY) * 0.08;
+        const newY = Math.max(-8, Math.min(8, aPos.y + dy));
+        dragStartPos.current.y = e.clientY;
+        onUpdateAPos({ ...aPos, y: Number(newY.toFixed(1)) });
+      } else {
+        const newX = Math.max(-8, Math.min(8, (x - cx) / (baseScale * 1.25)));
+        const newZ = Math.max(-8, Math.min(8, (y - cy) / (baseScale * 1.25)));
+        onUpdateAPos({ ...aPos, x: Number(newX.toFixed(1)), z: Number(newZ.toFixed(1)) });
+      }
+    } else if (activeDrag === 'b') {
+      if (e.shiftKey) {
+        const dy = (dragStartPos.current.y - e.clientY) * 0.08;
+        const newY = Math.max(-8, Math.min(8, bPos.y + dy));
+        dragStartPos.current.y = e.clientY;
+        onUpdateBPos({ ...bPos, y: Number(newY.toFixed(1)) });
+      } else {
+        const newX = Math.max(-8, Math.min(8, (x - cx) / (baseScale * 1.25)));
+        const newZ = Math.max(-8, Math.min(8, (y - cy) / (baseScale * 1.25)));
+        onUpdateBPos({ ...bPos, x: Number(newX.toFixed(1)), z: Number(newZ.toFixed(1)) });
+      }
+    } else if (activeDrag === 'c') {
+      if (e.shiftKey) {
+        const dy = (dragStartPos.current.y - e.clientY) * 0.08;
+        const newY = Math.max(-8, Math.min(8, cPos.y + dy));
+        dragStartPos.current.y = e.clientY;
+        onUpdateCPos({ ...cPos, y: Number(newY.toFixed(1)) });
+      } else {
+        const newX = Math.max(-8, Math.min(8, (x - cx) / (baseScale * 1.25)));
+        const newZ = Math.max(-8, Math.min(8, (y - cy) / (baseScale * 1.25)));
+        onUpdateCPos({ ...cPos, x: Number(newX.toFixed(1)), z: Number(newZ.toFixed(1)) });
+      }
+    } else {
+      const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
+      const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
+      const pc = project3D(cPos.x, cPos.y, cPos.z, width, height);
+
+      const distA = Math.hypot(x - pa.sx, y - pa.sy);
+      const distB = Math.hypot(x - pb.sx, y - pb.sy);
+      const distC = Math.hypot(x - pc.sx, y - pc.sy);
+
+      if (distA < 22) setHoverNode('a');
+      else if (distB < 22) setHoverNode('b');
+      else if (distC < 22) setHoverNode('c');
+      else setHoverNode(null);
+
+      // Star Hover detection
+      if (isStarModeActive) {
+        let found: CelestialStar | null = null;
+        for (const star of REAL_CELESTIAL_STARS) {
+          const sp = project3D(star.x, star.y, star.z, width, height);
+          if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
+            found = star;
+            break;
+          }
+        }
+        setHoveredStar(found);
+      }
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    setActiveDrag(null);
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = -Math.sign(e.deltaY) * 0.08;
+    const newZoom = Math.max(0.6, Math.min(2.2, cameraZoom + delta));
+    onUpdateCameraZoom(Number(newZoom.toFixed(2)));
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={`relative w-full h-full bg-[#060a12] rounded-xl border border-slate-800 shadow-2xl overflow-hidden select-none flex flex-col ${
+        isStageFullscreen ? 'fixed inset-0 z-[100] rounded-none' : ''
+      }`}
+    >
+      {/* Hidden File Input for Top Plane Overlay */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileUpload}
+        className="hidden"
+      />
+
+      {/* Top 3D Deck Controls */}
+      <div className="absolute top-3 left-3 right-3 z-30 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
+        {/* Left: View Mode Switches & Orbit Reset */}
+        <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg">
+          <button
+            onClick={() => onUpdateCameraView('perspective')}
+            className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors ${
+              cameraView === 'perspective'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            3D Orbit Cube
+          </button>
+          <button
+            onClick={() => onUpdateCameraView('top')}
+            className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors ${
+              cameraView === 'top'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Top Plane
+          </button>
+          <button
+            onClick={() => onUpdateCameraView('front')}
+            className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors ${
+              cameraView === 'front'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Front Elevation
+          </button>
+
+          <button
+            onClick={onResetCamera}
+            className="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors ml-1"
+            title="Reset 3D Orbit Camera"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Center: Star Celestial Alignment Button + Snap Channel Selector + Top Plane Overlay Button */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* STAR BUTTON */}
+          <button
+            onClick={() => setIsStarModeActive((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold rounded-lg border transition-all shadow-md ${
+              isStarModeActive
+                ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-[0_0_15px_rgba(250,204,21,0.5)]'
+                : 'bg-[#0b1220]/90 backdrop-blur-md text-amber-300 border-amber-500/40 hover:bg-amber-950/40'
+            }`}
+            title="Show real celestial stars in 3D orbit and align channels A, B, C to astronomical coordinates"
+          >
+            <Star className={`w-3.5 h-3.5 ${isStarModeActive ? 'fill-current' : ''}`} />
+            <span>{isStarModeActive ? 'STARS: ON' : 'STAR ALIGNMENT'}</span>
+          </button>
+
+          {/* Quick Snap Target Channel Pills (When Star Mode is active) */}
+          {isStarModeActive && (
+            <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md px-2 py-0.5 rounded-lg border border-amber-500/40 text-xs font-mono">
+              <span className="text-[10px] text-amber-300/80 uppercase mr-0.5">Click Star Snaps:</span>
+              <button
+                onClick={() => setSnapTargetChannel('a')}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                  snapTargetChannel === 'a'
+                    ? 'bg-cyan-500 text-black shadow-[0_0_8px_#00f0ff]'
+                    : 'text-cyan-400 hover:bg-cyan-950/40'
+                }`}
+                title="Next star click will snap Channel A"
+              >
+                CH-A {lockedChannels.a ? '🔒' : ''}
+              </button>
+              <button
+                onClick={() => setSnapTargetChannel('b')}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                  snapTargetChannel === 'b'
+                    ? 'bg-pink-500 text-white shadow-[0_0_8px_#ff007f]'
+                    : 'text-pink-400 hover:bg-pink-950/40'
+                }`}
+                title="Next star click will snap Channel B"
+              >
+                CH-B {lockedChannels.b ? '🔒' : ''}
+              </button>
+              <button
+                onClick={() => setSnapTargetChannel('c')}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                  snapTargetChannel === 'c'
+                    ? 'bg-amber-400 text-black shadow-[0_0_8px_#fbbf24]'
+                    : 'text-amber-400 hover:bg-amber-950/40'
+                }`}
+                title="Next star click will snap Channel C"
+              >
+                CH-C {lockedChannels.c ? '🔒' : ''}
+              </button>
+            </div>
+          )}
+
+          {/* SHOW TRIANGLE INTERIOR ANGLES TOGGLE */}
+          <button
+            onClick={() => setShowTriangleAngles((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold rounded-lg border transition-all shadow-md ${
+              showTriangleAngles
+                ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-[0_0_12px_rgba(250,204,21,0.4)]'
+                : 'bg-[#0b1220]/90 backdrop-blur-md text-slate-300 border-slate-700 hover:text-white hover:border-slate-500'
+            }`}
+            title="Display interior triangle vertex angles (∠A, ∠B, ∠C) inside the 3D triangle (Sum: 180°)"
+          >
+            <Triangle className={`w-3.5 h-3.5 ${showTriangleAngles ? 'fill-current' : ''}`} />
+            <span>{showTriangleAngles ? '△ ANGLES: ON' : '△ ANGLES: OFF'}</span>
+            {clickedStarCount >= 3 && (
+              <span className="text-[9px] bg-black/25 px-1 rounded ml-0.5">3/3</span>
+            )}
+          </button>
+
+          {/* UPLOAD TOP PLANE OVERLAY BUTTON */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold rounded-lg border transition-all shadow-md ${
+              overlay.imageUrl
+                ? 'bg-cyan-950/90 text-cyan-300 border-cyan-400 shadow-[0_0_12px_rgba(0,240,255,0.25)]'
+                : 'bg-[#0b1220]/90 backdrop-blur-md text-slate-300 border-slate-700 hover:text-white hover:border-slate-500'
+            }`}
+            title="Upload blueprint or image to overlay on the top plane beneath the audio channels"
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            <span>{overlay.imageUrl ? 'OVERLAY LOADED' : 'UPLOAD OVERLAY'}</span>
+          </button>
+
+          {/* Quick Overlay Visibility / Controls Toggle */}
+          {overlay.imageUrl && (
+            <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800">
+              <button
+                onClick={() => setOverlay((prev) => ({ ...prev, visible: !prev.visible }))}
+                className="p-1 text-slate-400 hover:text-white rounded"
+                title={overlay.visible ? 'Hide Overlay' : 'Show Overlay'}
+              >
+                {overlay.visible ? <Eye className="w-3.5 h-3.5 text-cyan-400" /> : <EyeOff className="w-3.5 h-3.5 text-slate-500" />}
+              </button>
+              <button
+                onClick={() => setShowOverlayControls((prev) => !prev)}
+                className={`p-1 rounded ${showOverlayControls ? 'text-cyan-300 bg-cyan-950' : 'text-slate-400 hover:text-white'}`}
+                title="Adjust Overlay Opacity & Scale"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleClearOverlay}
+                className="p-1 text-slate-500 hover:text-red-400 rounded"
+                title="Remove Overlay"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Orbit Angles, Zoom & Stage Fullscreen */}
+        <div className="flex items-center gap-2 bg-[#0b1220]/90 backdrop-blur-md px-3 py-1 rounded-lg border border-slate-800 text-xs font-mono text-slate-400">
+          <Rotate3D className="w-3.5 h-3.5 text-purple-400" />
+          <span>
+            Yaw: <strong className="text-white">{cameraYaw.toFixed(0)}°</strong>
+          </span>
+          <span>·</span>
+          <span>
+            Pitch: <strong className="text-white">{cameraPitch.toFixed(0)}°</strong>
+          </span>
+
+          <div className="flex items-center gap-1 ml-2 border-l border-slate-700 pl-2">
+            <button
+              onClick={() => onUpdateCameraZoom(Math.max(0.6, +(cameraZoom - 0.1).toFixed(2)))}
+              className="p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800"
+              title="Zoom Out"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-[10px] text-slate-300 w-8 text-center">
+              {Math.round(cameraZoom * 100)}%
+            </span>
+            <button
+              onClick={() => onUpdateCameraZoom(Math.min(2.2, +(cameraZoom + 0.1).toFixed(2)))}
+              className="p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Stage Fullscreen Toggle */}
+          <button
+            onClick={handleToggleStageFullscreen}
+            className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-800 transition-colors ml-1 border-l border-slate-700 pl-2"
+            title={isStageFullscreen ? 'Exit 3D Stage Fullscreen' : 'Expand 3D Stage Fullscreen'}
+          >
+            {isStageFullscreen ? <Minimize className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Real-time Snap Feedback Banner */}
+      {snapFeedback && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-amber-400 text-slate-950 font-mono font-bold text-xs px-4 py-1.5 rounded-full shadow-[0_0_20px_rgba(250,204,21,0.6)] animate-bounce pointer-events-none">
+          {snapFeedback}
+        </div>
+      )}
+
+      {/* Interactive Clicked Star Action Modal (Direct Snap & Lock) */}
+      {isStarModeActive && clickedStar && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 bg-[#0b1220]/95 backdrop-blur-md p-3.5 rounded-xl border border-amber-400 shadow-2xl flex flex-col gap-2 min-w-[280px]">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+            <div className="flex items-center gap-1.5">
+              <Star className="w-4 h-4 text-amber-400 fill-current" />
+              <span className="text-xs font-mono font-bold text-amber-300">
+                {clickedStar.name} ({clickedStar.bayer})
+              </span>
+            </div>
+            <button
+              onClick={() => setClickedStar(null)}
+              className="text-slate-400 hover:text-white text-xs font-mono px-1.5"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="text-[10px] font-mono text-slate-400">
+            <span>Constellation: <strong className="text-slate-200">{clickedStar.constellation}</strong></span> ·{' '}
+            <span>RA: <strong className="text-slate-200">{clickedStar.raHours.toFixed(1)}h</strong></span> ·{' '}
+            <span>Dec: <strong className="text-slate-200">{clickedStar.decDeg.toFixed(1)}°</strong></span>
+          </div>
+
+          <span className="text-[10px] font-mono text-slate-400 mt-1">Snap and lock channel to this star position:</span>
+
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => {
+                handleSnapChannelToStar('a', clickedStar);
+                setClickedStar(null);
+              }}
+              className="py-1.5 text-xs font-mono font-bold bg-cyan-950 hover:bg-cyan-900 text-cyan-300 rounded border border-cyan-500 shadow-sm transition-all"
+            >
+              Snap CH-A
+            </button>
+            <button
+              onClick={() => {
+                handleSnapChannelToStar('b', clickedStar);
+                setClickedStar(null);
+              }}
+              className="py-1.5 text-xs font-mono font-bold bg-pink-950 hover:bg-pink-900 text-pink-300 rounded border border-pink-500 shadow-sm transition-all"
+            >
+              Snap CH-B
+            </button>
+            <button
+              onClick={() => {
+                handleSnapChannelToStar('c', clickedStar);
+                setClickedStar(null);
+              }}
+              className="py-1.5 text-xs font-mono font-bold bg-amber-950 hover:bg-amber-900 text-amber-300 rounded border border-amber-500 shadow-sm transition-all"
+            >
+              Snap CH-C
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Overlay Controls Popover (When toggled) */}
+      {overlay.imageUrl && showOverlayControls && (
+        <div className="absolute top-16 right-3 z-30 bg-[#0b1220]/95 backdrop-blur-md p-3 rounded-xl border border-cyan-500/40 shadow-2xl flex flex-col gap-2 min-w-[220px]">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+            <span className="text-[10px] font-mono text-cyan-300 font-bold uppercase flex items-center gap-1">
+              <Layers className="w-3 h-3 text-cyan-400" />
+              Top Plane Overlay
+            </span>
+            <span className="text-[9px] font-mono text-slate-500 truncate max-w-[100px]">
+              {overlay.imageName}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+              <span>Opacity:</span>
+              <span className="text-white">{Math.round(overlay.opacity * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0.1"
+              max="1.0"
+              step="0.05"
+              value={overlay.opacity}
+              onChange={(e) => setOverlay((prev) => ({ ...prev, opacity: parseFloat(e.target.value) }))}
+              className="accent-cyan-400 h-1 bg-slate-800 rounded cursor-pointer"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+              <span>Scale:</span>
+              <span className="text-white">{overlay.scale.toFixed(2)}x</span>
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.05"
+              value={overlay.scale}
+              onChange={(e) => setOverlay((prev) => ({ ...prev, scale: parseFloat(e.target.value) }))}
+              className="accent-cyan-400 h-1 bg-slate-800 rounded cursor-pointer"
+            />
+          </div>
+
+          <button
+            onClick={() => onUpdateCameraView('top')}
+            className="mt-1 py-1 text-[10px] font-mono text-cyan-300 bg-cyan-950/60 hover:bg-cyan-900/60 rounded border border-cyan-800 text-center"
+          >
+            Switch to Top View Alignment
+          </button>
+        </div>
+      )}
+
+      {/* Floating Celestial Star & 7-11 Astrometric Deck (When Star Mode is active) */}
+      {isStarModeActive && (
+        <div className="absolute top-16 left-3 z-30 max-w-sm w-full bg-[#0b1220]/95 backdrop-blur-md p-3.5 rounded-xl border border-amber-500/40 shadow-2xl flex flex-col gap-2.5">
+          {/* Header & 7-11 Match Badge */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5 text-amber-400" />
+              Real Celestial Star Alignment
+            </span>
+            <span
+              className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded ${
+                relation711.isHarmonic711
+                  ? 'bg-amber-400 text-black shadow-[0_0_8px_rgba(250,204,21,0.6)] animate-pulse'
+                  : 'bg-slate-800 text-slate-400'
+              }`}
+            >
+              7:11 MATCH: {relation711.matchPercentage}%
+            </span>
+          </div>
+
+          {/* Star Alignment Preset Selector */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-mono text-slate-400">7-11 Curated Astrometric Alignment:</span>
+            <select
+              value={selectedStarPreset}
+              onChange={(e) => handleSelectStarPreset(e.target.value)}
+              className="bg-slate-900 border border-amber-500/40 text-xs font-mono text-amber-200 rounded px-2.5 py-1.5 outline-none cursor-pointer"
+            >
+              {STAR_ALIGNMENT_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-300 leading-tight mt-0.5">
+              {STAR_ALIGNMENT_PRESETS.find((x) => x.id === selectedStarPreset)?.relation711Desc}
+            </p>
+          </div>
+
+          {/* Channel to Star Manual Pickers with Lock / Unlock buttons */}
+          <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-800/80">
+            {/* CH-A Star */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-mono font-bold text-cyan-400">CH-A (L)</span>
+                <button
+                  onClick={() => setLockedChannels((prev) => ({ ...prev, a: !prev.a }))}
+                  className="text-cyan-400 hover:text-white"
+                  title={lockedChannels.a ? 'Channel A is locked to star' : 'Channel A is free to drag'}
+                >
+                  {lockedChannels.a ? <Lock className="w-3 h-3 text-cyan-400" /> : <Unlock className="w-3 h-3 text-slate-500" />}
+                </button>
+              </div>
+              <select
+                value={starAId}
+                onChange={(e) => {
+                  const s = REAL_CELESTIAL_STARS.find((x) => x.id === e.target.value);
+                  if (s) handleSnapChannelToStar('a', s);
+                }}
+                className="bg-slate-900 border border-cyan-800 text-[10px] font-mono text-cyan-300 rounded px-1.5 py-1 outline-none"
+              >
+                {REAL_CELESTIAL_STARS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* CH-B Star */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-mono font-bold text-pink-400">CH-B (R)</span>
+                <button
+                  onClick={() => setLockedChannels((prev) => ({ ...prev, b: !prev.b }))}
+                  className="text-pink-400 hover:text-white"
+                  title={lockedChannels.b ? 'Channel B is locked to star' : 'Channel B is free to drag'}
+                >
+                  {lockedChannels.b ? <Lock className="w-3 h-3 text-pink-400" /> : <Unlock className="w-3 h-3 text-slate-500" />}
+                </button>
+              </div>
+              <select
+                value={starBId}
+                onChange={(e) => {
+                  const s = REAL_CELESTIAL_STARS.find((x) => x.id === e.target.value);
+                  if (s) handleSnapChannelToStar('b', s);
+                }}
+                className="bg-slate-900 border border-pink-800 text-[10px] font-mono text-pink-300 rounded px-1.5 py-1 outline-none"
+              >
+                {REAL_CELESTIAL_STARS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* CH-C Star */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-mono font-bold text-amber-400">CH-C (CTR)</span>
+                <button
+                  onClick={() => setLockedChannels((prev) => ({ ...prev, c: !prev.c }))}
+                  className="text-amber-400 hover:text-white"
+                  title={lockedChannels.c ? 'Channel C is locked to star' : 'Channel C is free to drag'}
+                >
+                  {lockedChannels.c ? <Lock className="w-3 h-3 text-amber-400" /> : <Unlock className="w-3 h-3 text-slate-500" />}
+                </button>
+              </div>
+              <select
+                value={starCId}
+                onChange={(e) => {
+                  const s = REAL_CELESTIAL_STARS.find((x) => x.id === e.target.value);
+                  if (s) handleSnapChannelToStar('c', s);
+                }}
+                className="bg-slate-900 border border-amber-800 text-[10px] font-mono text-amber-300 rounded px-1.5 py-1 outline-none"
+              >
+                {REAL_CELESTIAL_STARS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Real-time Angular Separation & 7:11 Telemetry */}
+          <div className="bg-[#060a12] p-2 rounded-lg border border-slate-800 flex flex-col gap-1 text-[10px] font-mono">
+            <div className="flex items-center justify-between text-slate-400">
+              <span>θ(A-B): <strong className="text-white">{relation711.thetaAB}°</strong></span>
+              <span>θ(B-C): <strong className="text-white">{relation711.thetaBC}°</strong></span>
+              <span>θ(C-A): <strong className="text-white">{relation711.thetaCA}°</strong></span>
+            </div>
+            <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-slate-400">
+              <span>Ratio: <strong className="text-amber-300">{relation711.bestRatio}</strong></span>
+              <span>Target: <strong className="text-slate-300">7/11 ({relation711.targetRatio})</strong></span>
+              <span>Aspect: <strong className="text-cyan-300">{relation711.aspectAngleDeg}°</strong></span>
+            </div>
+          </div>
+
+          {/* Real-time 3D Triangle Interior Angles Card (Inside △) */}
+          <div className="bg-[#060a12] p-2.5 rounded-lg border border-amber-500/40 flex flex-col gap-1.5 text-[10px] font-mono shadow-md">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-1">
+              <span className="text-amber-300 font-bold flex items-center gap-1.5">
+                <Triangle className="w-3.5 h-3.5 text-amber-400 fill-current" />
+                Interior Angles (Inside △)
+              </span>
+              <span className="text-slate-400 text-[9px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                Sum: 180.0°
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5 text-center">
+              <div className="bg-cyan-950/40 border border-cyan-800/60 rounded p-1">
+                <span className="text-slate-400 text-[9px] block truncate">
+                  ∠A ({REAL_CELESTIAL_STARS.find((s) => s.id === starAId)?.name || 'CH-A'})
+                </span>
+                <span className="text-cyan-300 font-bold text-xs">{interiorAngles.angleA}°</span>
+              </div>
+              <div className="bg-pink-950/40 border border-pink-800/60 rounded p-1">
+                <span className="text-slate-400 text-[9px] block truncate">
+                  ∠B ({REAL_CELESTIAL_STARS.find((s) => s.id === starBId)?.name || 'CH-B'})
+                </span>
+                <span className="text-pink-300 font-bold text-xs">{interiorAngles.angleB}°</span>
+              </div>
+              <div className="bg-amber-950/40 border border-amber-800/60 rounded p-1">
+                <span className="text-slate-400 text-[9px] block truncate">
+                  ∠C ({REAL_CELESTIAL_STARS.find((s) => s.id === starCId)?.name || 'CH-C'})
+                </span>
+                <span className="text-amber-300 font-bold text-xs">{interiorAngles.angleC}°</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-slate-400 text-[9px] pt-1 border-t border-slate-800/60">
+              <span>
+                Sides: {interiorAngles.sideAB}m · {interiorAngles.sideBC}m · {interiorAngles.sideCA}m
+              </span>
+              <span>
+                Area: <strong className="text-slate-200">{interiorAngles.area}m²</strong>
+              </span>
+            </div>
+
+            {interiorAngles.has711AngleMatch && (
+              <div className="bg-amber-400/10 border border-amber-400/40 rounded px-2 py-1 text-[9px] text-amber-300 flex items-center justify-between">
+                <span>★ 7:11 Sacred Aspect: ∠{interiorAngles.closestAngleTo711.vertex} ≈ 32.5°</span>
+                <span className="font-bold">{interiorAngles.closestAngleTo711.matchPct}% Match</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 3D Canvas */}
+      <canvas
+        ref={canvasRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
+        className={`w-full h-full touch-none ${
+          hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'
+        }`}
+      />
+
+      {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
+      <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
+        {/* CH-A Elevation */}
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[9px] font-mono font-bold text-cyan-400">CH-A ELEV</span>
+          <div className="h-20 flex items-center justify-center">
+            <input
+              type="range"
+              min="-8"
+              max="8"
+              step="0.1"
+              value={aPos.y}
+              onChange={(e) => {
+                onUpdateAPos({ ...aPos, y: parseFloat(e.target.value) });
+                setLockedChannels((prev) => ({ ...prev, a: false }));
+              }}
+              className="accent-cyan-400 -rotate-90 w-16 h-1.5 bg-slate-800 rounded cursor-pointer"
+            />
+          </div>
+          <span className="text-[11px] font-mono font-bold text-cyan-300 tabular-nums">
+            {aPos.y > 0 ? '+' : ''}
+            {aPos.y.toFixed(1)}m
+          </span>
+        </div>
+
+        <div className="w-full h-px bg-slate-800" />
+
+        {/* CH-B Elevation */}
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[9px] font-mono font-bold text-pink-400">CH-B ELEV</span>
+          <div className="h-20 flex items-center justify-center">
+            <input
+              type="range"
+              min="-8"
+              max="8"
+              step="0.1"
+              value={bPos.y}
+              onChange={(e) => {
+                onUpdateBPos({ ...bPos, y: parseFloat(e.target.value) });
+                setLockedChannels((prev) => ({ ...prev, b: false }));
+              }}
+              className="accent-pink-400 -rotate-90 w-16 h-1.5 bg-slate-800 rounded cursor-pointer"
+            />
+          </div>
+          <span className="text-[11px] font-mono font-bold text-pink-300 tabular-nums">
+            {bPos.y > 0 ? '+' : ''}
+            {bPos.y.toFixed(1)}m
+          </span>
+        </div>
+
+        <div className="w-full h-px bg-slate-800" />
+
+        {/* CH-C Elevation */}
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[9px] font-mono font-bold text-amber-400">CH-C ELEV</span>
+          <div className="h-20 flex items-center justify-center">
+            <input
+              type="range"
+              min="-8"
+              max="8"
+              step="0.1"
+              value={cPos.y}
+              onChange={(e) => {
+                onUpdateCPos({ ...cPos, y: parseFloat(e.target.value) });
+                setLockedChannels((prev) => ({ ...prev, c: false }));
+              }}
+              className="accent-amber-400 -rotate-90 w-16 h-1.5 bg-slate-800 rounded cursor-pointer"
+            />
+          </div>
+          <span className="text-[11px] font-mono font-bold text-amber-300 tabular-nums">
+            {cPos.y > 0 ? '+' : ''}
+            {cPos.y.toFixed(1)}m
+          </span>
+        </div>
+      </div>
+
+      {/* Bottom Status Deck */}
+      <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
+        {/* Positions Readouts */}
+        <div className="flex flex-wrap items-center gap-3 bg-[#0b1220]/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-mono">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#00f0ff]" />
+            <span className="text-cyan-400 font-bold">
+              A: ({aPos.x.toFixed(1)}, {aPos.y.toFixed(1)}, {aPos.z.toFixed(1)}m)
+              {isStarModeActive && lockedChannels.a && <span className="text-[10px] text-cyan-300 ml-1">★ LOCKED</span>}
+            </span>
+          </div>
+
+          <span className="text-slate-600">·</span>
+
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#ff007f]" />
+            <span className="text-pink-400 font-bold">
+              B: ({bPos.x.toFixed(1)}, {bPos.y.toFixed(1)}, {bPos.z.toFixed(1)}m)
+              {isStarModeActive && lockedChannels.b && <span className="text-[10px] text-pink-300 ml-1">★ LOCKED</span>}
+            </span>
+          </div>
+
+          <span className="text-slate-600">·</span>
+
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#fbbf24]" />
+            <span className="text-amber-400 font-bold">
+              C: ({cPos.x.toFixed(1)}, {cPos.y.toFixed(1)}, {cPos.z.toFixed(1)}m)
+              {isStarModeActive && lockedChannels.c && <span className="text-[10px] text-amber-300 ml-1">★ LOCKED</span>}
+            </span>
+          </div>
+        </div>
+
+        {/* Spatial Mode Switch */}
+        <div className="flex items-center gap-2 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800">
+          <button
+            onClick={() => onUpdateSpatialMode('trinaural-isolated')}
+            className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+              spatialMode === 'trinaural-isolated'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Trinaural Split (A:L, B:R, C:Ctr)
+          </button>
+          <button
+            onClick={() => onUpdateSpatialMode('3d-hrtf')}
+            className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+              spatialMode === '3d-hrtf'
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            3D HRTF Spatial Cube
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

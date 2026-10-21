@@ -1,0 +1,6 @@
+{
+  "name": "AudioCube Space: 3D Trinaural Spatial Synthesizer DAW",
+  "description": "Professional 3D spatializer and trinaural synthesizer DAW featuring 3 independent carrier channels (A, B, C), 3D room positioning, elevation control, and unified frequency matrix.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
