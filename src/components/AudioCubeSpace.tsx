@@ -170,7 +170,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   };
   const getEarthSiteDescription = (name: string) => {
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === name.toLowerCase() || name.toLowerCase().includes(point.name.toLowerCase()) || point.name.toLowerCase().includes(name.toLowerCase()));
-    if (known) return known.desc;
+    if (known?.desc) return known.desc;
     const descriptions: Record<string, string> = {
       'Göbekli Tepe': 'Pre-Pottery Neolithic archaeological site in southeastern Türkiye, known for monumental T-shaped pillars and carved stone enclosures. The plotted era is approximate.',
       'Stonehenge': 'Prehistoric monument in Wiltshire, England. Its solstitial axis is widely studied; a specific star or frequency link needs separate measured evidence.',
@@ -793,7 +793,26 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         { name: 'Nan Madol', lat: 6.844, lon: 158.333, era: 1200 },
       ];
       historicalSites.forEach((site) => {
-        if (timelineYear >= site.era) labelEarthPoint('ANCIENT · ' + site.name, site.lat, site.lon, '#fb923c');
+        if (timelineYear >= site.era) {
+          labelEarthPoint('ANCIENT · ' + site.name, site.lat, site.lon, '#fb923c');
+          if (show110HzResearchComets) {
+            const sitePos = earthPoint(site.lat, site.lon, earthRadius * 1.02);
+            if (cameraFront(sitePos)) {
+              const p = project3D(sitePos.x, sitePos.y, sitePos.z, width, height);
+              const phase = (performance.now() / 420 + Math.abs(site.lat * 11 + site.lon)) % 1;
+              const dx = 14 + phase * 34;
+              const dy = -10 - phase * 24;
+              ctx.save();
+              ctx.globalAlpha = Math.max(0.08, 1 - phase);
+              ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 2; ctx.shadowColor = '#f97316'; ctx.shadowBlur = 9;
+              ctx.beginPath(); ctx.moveTo(p.sx - dx * 0.7, p.sy - dy * 0.7); ctx.lineTo(p.sx + dx * 0.3, p.sy + dy * 0.3); ctx.stroke();
+              ctx.beginPath(); ctx.arc(p.sx, p.sy, 3 + phase * 2, 0, Math.PI * 2); ctx.fillStyle = '#ffedd5'; ctx.fill();
+              ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+              ctx.font = '8px "JetBrains Mono", monospace'; ctx.fillStyle = '#fed7aa'; ctx.fillText('110 Hz candidate*', p.sx + 5, p.sy - 6);
+              ctx.restore();
+            }
+          }
+        }
       });
       // Moon position shares the Earth origin and camera rotation. Orbit is compressed for visibility;
       // actual mean Earth-Moon distance is 384,400 km (about 60.3 Earth radii).
