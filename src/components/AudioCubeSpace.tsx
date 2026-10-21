@@ -148,6 +148,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [constellationsEnabled, setConstellationsEnabled] = useState<Record<string, boolean>>(() => Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, true])));
   const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
   const [show110HzResearchComets, setShow110HzResearchComets] = useState<boolean>(false);
+  const [showCities, setShowCities] = useState<boolean>(false);
+  const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
+  const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
   const setAllConstellations = (enabled: boolean) => setConstellationsEnabled(Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, enabled])));
   const normalizeConstellationName = (name: string) => name.toLowerCase().replace('ö', 'o');
   const isConstellationEnabled = (name: string) => constellationsEnabled[name === 'Boötes' ? 'Bootes' : name] !== false;
@@ -765,17 +768,20 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.shadowBlur = 0;
         // Keep the globe clean at orbital scale; reveal names once zoomed closer.
         if (cameraZoom >= (isCity ? 1.35 : 1.08)) {
-          const fontSize = isCity ? Math.max(8, Math.min(12, 8 + cameraZoom)) : Math.max(9, Math.min(13, 9 + cameraZoom));
-          ctx.font = `${isCity ? '500' : '600'} ${fontSize}px system-ui, sans-serif`;
+          const isMeasuredAcousticSite = name.includes('MEASURED') || ACOUSTIC_SITE_EVIDENCE.some((site) => name.includes(site.name));
+          const isAncientStructure = name.includes('ANCIENT') || isMeasuredAcousticSite;
+          const fontSize = isCity ? Math.max(8, Math.min(12, 8 + cameraZoom)) : isMeasuredAcousticSite ? Math.max(13, Math.min(21, 13 + cameraZoom * 1.6)) : isAncientStructure ? Math.max(11, Math.min(17, 11 + cameraZoom * 1.25)) : Math.max(9, Math.min(13, 9 + cameraZoom));
+          ctx.font = `${isCity ? '500' : isMeasuredAcousticSite ? '700' : '600'} ${fontSize}px system-ui, sans-serif`;
           ctx.lineWidth = 3;
           ctx.strokeStyle = 'rgba(3, 10, 22, 0.92)';
           ctx.strokeText(name, p.sx + 5, p.sy - 5);
-          ctx.fillStyle = isCity ? 'rgba(219, 234, 254, 0.96)' : color;
+          const displayColor = showAcousticColorSystem ? (isMeasuredAcousticSite ? '#fb923c' : isAncientStructure ? '#facc15' : isCity ? '#dbeafe' : color) : '#e2e8f0';
+          ctx.fillStyle = isCity ? (showAcousticColorSystem ? 'rgba(219, 234, 254, 0.96)' : '#e2e8f0') : displayColor;
           ctx.fillText(name, p.sx + 5, p.sy - 5);
         }
       };
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
-      majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
+      if (showCities) majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
       // Modern coordinates for archaeological destinations; visibility follows approximate site era.
       const historicalSites: Array<{ name: string; lat: number; lon: number; era: number }> = [
         { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, era: -9600 },
@@ -798,8 +804,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         { name: 'Nan Madol', lat: 6.844, lon: 158.333, era: 1200 },
       ];
       historicalSites.forEach((site) => {
-        if (timelineYear >= site.era) {
-          labelEarthPoint('ANCIENT · ' + site.name, site.lat, site.lon, '#fb923c');
+        if (showAncientStructures && timelineYear >= site.era) {
+          labelEarthPoint('ANCIENT · ' + site.name, site.lat, site.lon, showAcousticColorSystem ? '#facc15' : '#e2e8f0');
           if (show110HzResearchComets) {
             const sitePos = earthPoint(site.lat, site.lon, earthRadius * 1.02);
             if (cameraFront(sitePos)) {
@@ -821,9 +827,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       });
       // Sourced acoustic record: the Hypogeum paper reports 70 Hz and 114 Hz.
       // Preserve 114 Hz exactly; its marker is shown in the 110 Hz investigation band only as a nearby result.
-      if (timelineYear >= -4000) {
+      if (showAncientStructures && timelineYear >= -4000) {
         const acousticSite = ACOUSTIC_SITE_EVIDENCE[0];
-        labelEarthPoint('MEASURED · Ħal Saflieni · 114 Hz', acousticSite.lat, acousticSite.lon, '#fb923c');
+        labelEarthPoint('MEASURED · Ħal Saflieni · 114 Hz', acousticSite.lat, acousticSite.lon, showAcousticColorSystem ? '#fb923c' : '#e2e8f0');
         if (show110HzResearchComets) {
           const sitePos = earthPoint(acousticSite.lat, acousticSite.lon, earthRadius * 1.025);
           if (cameraFront(sitePos)) {
@@ -2005,6 +2011,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               })}</div>}
               <div className="text-[9px] leading-relaxed text-slate-500">All 88 constellation stick figures use sourced J2000 right-ascension/declination line paths. These are traditional sky-chart connections, not the IAU constellation boundary outlines. Data source: d3-celestial.</div>
             </div>
+            <div className="grid grid-cols-2 gap-1"><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCities} onChange={(e) => setShowCities(e.target.checked)} className="accent-sky-400" /><span><strong>Cities</strong> · on/off</span></label><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showAncientStructures} onChange={(e) => setShowAncientStructures(e.target.checked)} className="accent-amber-400" /><span><strong>Ancient structures</strong> · on/off</span></label><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showAcousticColorSystem} onChange={(e) => setShowAcousticColorSystem(e.target.checked)} className="accent-orange-400" /><span><strong>Acoustic color system</strong> · on/off</span></label></div>
+            {showAcousticColorSystem && <div className="flex flex-wrap gap-2 text-[9px] font-mono"><span className="text-orange-300">● measured acoustic record</span><span className="text-yellow-300">● ancient structure</span><span className="text-sky-200">● city</span><span className="text-slate-300">Larger labels = higher research relevance</span></div>}
             <label className="flex items-start gap-2 rounded-lg border border-orange-500/30 bg-orange-950/20 p-2 text-[10px] leading-relaxed text-orange-100"><input type="checkbox" checked={show110HzResearchComets} onChange={(e) => setShow110HzResearchComets(e.target.checked)} className="mt-0.5 accent-orange-400" /><span><strong>110 Hz research-band comet layer</strong><br/>Orange comets mark unverified candidate sites. The sourced Ħal Saflieni record reports 70 Hz and 114 Hz; 114 Hz is shown exactly, not rounded to 110 Hz.</span></label>
             {show110HzResearchComets && <div className="rounded-lg border border-orange-500/20 bg-slate-950/70 p-2 flex flex-col gap-2">{ACOUSTIC_SITE_EVIDENCE.map((site) => <div key={site.id} className="text-[10px] leading-relaxed text-slate-300"><div className="font-mono font-bold text-orange-200">{site.name}</div><div>{site.region} · Published measurement</div><div className="text-slate-300">{site.measurementContext || ('Reported resonance frequencies: ' + site.measuredFrequenciesHz.join(' Hz and ') + ' Hz')}</div>{site.measurements?.map((measurement) => <div key={measurement.parameter + measurement.frequencyHz} className="text-orange-100">{measurement.parameter}: {measurement.reportedValue} {measurement.unit} · {measurement.frequencyBand || (measurement.frequencyHz + ' Hz band')}</div>)}<div className="text-slate-400">{site.caveat}</div><div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">{site.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="underline text-sky-300 hover:text-sky-100">{source.year} source ↗</a>)}</div></div>)}</div>}
           </div>
