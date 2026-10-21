@@ -222,6 +222,38 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
   const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#dbeafe' : '#fb923c', size: site.isCity ? 0.22 : 0.35, altitude: 0.02 })), ...(timelineYear >= -4000 ? ACOUSTIC_SITE_EVIDENCE.map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.03, evidenceStatus: site.status, measuredHz: site.researchBandHz === 110 ? site.measuredFrequenciesHz.find((hz) => Math.abs(hz - 110) <= 10) : undefined })) : [])];
+  const triangleCandidates = showAncientStructures ? visibleEarthSites.filter((site: any) => !site.isCity && !site.evidenceStatus) : [];
+  const triangleEdgeMap = new Map<string, { startLat: number; startLng: number; endLat: number; endLng: number }>();
+  const triangleKey = (a: string, b: string) => [a, b].sort().join('::');
+  const triangleDistance = (a: any, b: any) => {
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLon = (b.lon - a.lon) * Math.PI / 180;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+  };
+  triangleCandidates.forEach((site: any) => triangleCandidates.filter((other: any) => other.name !== site.name).sort((a: any, b: any) => triangleDistance(site, a) - triangleDistance(site, b)).slice(0, 3).forEach((other: any) => {
+    const key = triangleKey(site.name, other.name);
+    if (!triangleEdgeMap.has(key)) triangleEdgeMap.set(key, { startLat: site.lat, startLng: site.lon, endLat: other.lat, endLng: other.lon });
+  }));
+  const triangleEdges = Array.from(triangleEdgeMap.values());
+  const trianglePolygons: Array<{ name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }> = [];
+  const triangleAngleCounts: Record<string, number> = {};
+  const triangleConnected = (a: string, b: string) => triangleEdgeMap.has(triangleKey(a, b));
+  const localXY = (site: any) => ({ x: site.lon * Math.cos(site.lat * Math.PI / 180), y: site.lat });
+  const triangleAngle = (p: any, q: any, r: any) => {
+    const a = localXY(p), b = localXY(q), c = localXY(r);
+    const ux = b.x - a.x, uy = b.y - a.y, vx = c.x - a.x, vy = c.y - a.y;
+    const denominator = Math.hypot(ux, uy) * Math.hypot(vx, vy);
+    return denominator ? Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / denominator))) * 180 / Math.PI : 0;
+  };
+  for (let ai = 0; ai < triangleCandidates.length; ai++) for (let bi = ai + 1; bi < triangleCandidates.length; bi++) for (let ci = bi + 1; ci < triangleCandidates.length; ci++) {
+    const a = triangleCandidates[ai], b = triangleCandidates[bi], c = triangleCandidates[ci];
+    if (!triangleConnected(a.name, b.name) || !triangleConnected(b.name, c.name) || !triangleConnected(c.name, a.name)) continue;
+    const angles = [triangleAngle(a,b,c), triangleAngle(b,c,a), triangleAngle(c,a,b)];
+    angles.forEach((angle) => { const bin = String(Math.round(angle / 5) * 5); triangleAngleCounts[bin] = (triangleAngleCounts[bin] || 0) + 1; });
+    trianglePolygons.push({ name: [a.name,b.name,c.name].join(' / '), geometry: { type: 'Polygon', coordinates: [[[a.lon,a.lat],[b.lon,b.lat],[c.lon,c.lat],[a.lon,a.lat]]] } });
+  }
+  const repeatedTriangleAngles = Object.entries(triangleAngleCounts).filter(([, count]) => count >= 4).sort((a,b) => Number(a[0])-Number(b[0]));
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
   const [isCelestialDeckCollapsed, setIsCelestialDeckCollapsed] = useState<boolean>(false);
   const [showDetailedStarInfo, setShowDetailedStarInfo] = useState<boolean>(true);
@@ -868,50 +900,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           }
         }
       });
-      // Triangulation network: each visible archaeological point connects to its three nearest neighbors.
-      // Repeated-angle bins are calculated from geographic coordinates (local tangent plane), not the distorted screen projection.
-      if (showAlignmentTriangles && showAncientStructures) {
-        const candidates = historicalSites.filter((site) => timelineYear >= site.era).map((site) => ({
-          ...site, p: earthPoint(site.lat, site.lon, earthRadius * 1.018),
-          xy: { x: site.lon * Math.cos(site.lat * Math.PI / 180), y: site.lat },
-        })).filter((site) => cameraFront(site.p)).map((site) => ({ ...site, screen: project3D(site.p.x, site.p.y, site.p.z, width, height) }));
-        const edgeKeys = new Set<string>();
-        const keyFor = (a: string, b: string) => [a, b].sort().join('::');
-        const geoDistance = (a: any, b: any) => {
-          const dLat = (b.lat - a.lat) * Math.PI / 180;
-          const dLon = (b.lon - a.lon) * Math.PI / 180;
-          const v = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-          return 6371 * 2 * Math.atan2(Math.sqrt(v), Math.sqrt(Math.max(0, 1 - v)));
-        };
-        candidates.forEach((site) => candidates.filter((other) => other.name !== site.name).sort((a, b) => geoDistance(site, a) - geoDistance(site, b)).slice(0, 3).forEach((other) => edgeKeys.add(keyFor(site.name, other.name))));
-        const connected = (a: string, b: string) => edgeKeys.has(keyFor(a, b));
-        const angleCounts: Record<string, number> = {};
-        const triangles: Array<{ a: any; b: any; c: any; angles: number[] }> = [];
-        for (let ai = 0; ai < candidates.length; ai++) for (let bi = ai + 1; bi < candidates.length; bi++) for (let ci = bi + 1; ci < candidates.length; ci++) {
-          const a = candidates[ai], b = candidates[bi], c = candidates[ci];
-          if (!connected(a.name, b.name) || !connected(b.name, c.name) || !connected(c.name, a.name)) continue;
-          const angle = (p: any, q: any, r: any) => {
-            const ux = q.xy.x - p.xy.x, uy = q.xy.y - p.xy.y, vx = r.xy.x - p.xy.x, vy = r.xy.y - p.xy.y;
-            const denom = Math.hypot(ux, uy) * Math.hypot(vx, vy);
-            return denom ? Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / denom))) * 180 / Math.PI : 0;
-          };
-          const angles = [angle(a,b,c), angle(b,c,a), angle(c,a,b)];
-          triangles.push({ a,b,c,angles });
-          angles.forEach((value) => { const bin = String(Math.round(value / 5) * 5); angleCounts[bin] = (angleCounts[bin] || 0) + 1; });
-        }
-        ctx.save(); ctx.lineWidth = 1.1; ctx.strokeStyle = 'rgba(56,189,248,.55)'; ctx.fillStyle = 'rgba(56,189,248,.07)';
-        triangles.forEach(({a,b,c,angles}) => {
-          ctx.beginPath(); ctx.moveTo(a.screen.sx,a.screen.sy); ctx.lineTo(b.screen.sx,b.screen.sy); ctx.lineTo(c.screen.sx,c.screen.sy); ctx.closePath(); ctx.fill(); ctx.stroke();
-          const repeated = angles.some((value) => (angleCounts[String(Math.round(value / 5) * 5)] || 0) >= 4);
-          if (repeated) { const mx=(a.screen.sx+b.screen.sx+c.screen.sx)/3, my=(a.screen.sy+b.screen.sy+c.screen.sy)/3; ctx.font='bold 9px monospace'; ctx.fillStyle='#a5f3fc'; ctx.fillText('ANGLE REPEAT',mx,my); ctx.fillStyle='rgba(56,189,248,.07)'; }
-        });
-        const repeatedBins = Object.entries(angleCounts).filter(([,count]) => count >= 4).sort((a,b) => Number(a[0])-Number(b[0]));
-        ctx.fillStyle='rgba(2,6,23,.88)'; ctx.fillRect(12, height - 70, 258, 54);
-        ctx.font='bold 10px monospace'; ctx.fillStyle='#7dd3fc'; ctx.fillText('SITE TRIANGULATION · NEAREST 3',22,height-53);
-        ctx.font='10px monospace'; ctx.fillStyle='#cbd5e1'; ctx.fillText(repeatedBins.length ? 'Repeated angle bins (5°): ' + repeatedBins.slice(0,4).map(([angle,count])=>angle+'°×'+count).join(' · ') : 'No repeated angle bin found yet',22,height-35);
-        ctx.fillStyle='#94a3b8'; ctx.fillText('Exploratory geometry · not proof of intent',22,height-21);
-        ctx.restore();
-      }
       // Sourced acoustic record: the Hypogeum paper reports 70 Hz and 114 Hz.
       // Preserve 114 Hz exactly; its marker is shown in the 110 Hz investigation band only as a nearby result.
       if (showAncientStructures && timelineYear >= -4000) {
@@ -2285,6 +2273,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
               showGraticules={false} showAtmosphere={earthAtmosphere}
+              arcsData={showAlignmentTriangles && showAncientStructures ? triangleEdges : []}
+              arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
+              arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
+              arcColor={() => showAcousticColorSystem ? '#38bdf8' : '#e2e8f0'} arcStroke={0.65} arcAltitude={0.008}
+              polygonsData={showAlignmentTriangles && showAncientStructures ? trianglePolygons : []}
+              polygonGeoJsonGeometry={(d: any) => d.geometry}
+              polygonCapColor={() => showAcousticColorSystem ? 'rgba(56,189,248,0.08)' : 'rgba(226,232,240,0.04)'}
+              polygonSideColor={() => 'rgba(56,189,248,0.03)'} polygonStrokeColor={() => showAcousticColorSystem ? 'rgba(125,211,252,0.72)' : 'rgba(226,232,240,0.55)'} polygonAltitude={0.012}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => d.evidenceStatus ? `${d.name} — measured acoustic peaks 70 Hz / 114 Hz · click to explore` : d.isCity ? `${d.name} — city location · click to open map and alignment explorer` : `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
@@ -2314,6 +2310,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               }}
               onPointClick={(d: any) => openEarthSite(d)} />
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
+            {showAlignmentTriangles && showAncientStructures && <div className="absolute left-3 bottom-3 z-[6] max-w-[min(92%,440px)] rounded-lg border border-sky-400/40 bg-slate-950/90 p-2 text-[10px] font-mono text-slate-200 pointer-events-none"><div className="font-bold text-sky-200">EARTH TRIANGULATION · nearest 3 neighbors/site</div><div className="mt-1">{trianglePolygons.length} connected triangles · repeated 5° angle bins: {repeatedTriangleAngles.length ? repeatedTriangleAngles.slice(0,5).map(([angle,count]) => angle+'° × '+count).join(' · ') : 'none detected in current set'}</div><div className="mt-1 text-slate-400">Approximate local-plane angles; projection, site coordinates and chance patterns matter.</div></div>}
             <div className="absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden">
               <div className="relative w-[min(74vmin,76%)] aspect-square rounded-full border border-slate-300/20 animate-[spin_27s_linear_infinite]">
                 <div className="absolute inset-0 rounded-full border border-dashed border-slate-400/15" />
