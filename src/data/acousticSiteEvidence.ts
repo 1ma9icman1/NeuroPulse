@@ -123,4 +123,46 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     caveat: 'Setup-specific amplification, not proof that the cave produces a fixed 110 Hz resonance. Repeat measurements and geometry controls matter.',
     sources: [{ label: 'Gaona et al. (2014), Archaeoacoustic Investigation of a Prehistoric Cave Site: Frequency-Dependent Sound Amplification and Potential Relevance for Neurotheology', url: 'https://doi.org/10.14704/nq.2014.12.4.772', year: 2014, publication: 'NeuroQuantology 12(4)' }]
   },
+
+  {
+    id: 'waylands-smithy-resonance', name: "Wayland's Smithy — east and west chambers", lat: 51.5708, lon: -1.5678,
+    region: 'Oxfordshire, England', period: 'Neolithic chambered long barrow',
+    measuredFrequenciesHz: [102, 117], status: 'published-measurement',
+    summary: "A published summary of the 1996 ancient-structure measurements reports different chamber resonances at Wayland's Smithy: about 102 Hz in the west chamber and 117 Hz in the east chamber.",
+    measurementContext: 'West chamber: approximately 102 Hz; east chamber: approximately 117 Hz. These are chamber-specific reported values, not a single site-wide resonance.',
+    measurements: [{ parameter: 'West chamber resonance', frequencyHz: 102, reportedValue: 102, unit: 'Hz', method: 'In-situ acoustic resonance measurement, as reported in the published study summary' }, { parameter: 'East chamber resonance', frequencyHz: 117, reportedValue: 117, unit: 'Hz', method: 'In-situ acoustic resonance measurement, as reported in the published study summary' }],
+    caveat: 'Values are approximate and differ by chamber. Consult the original paper for full measurement uncertainty and setup details.',
+    sources: [{ label: 'Jahn, Devereux & Ibison (1996), Acoustical resonances of assorted ancient structures', url: 'https://doi.org/10.1121/1.414642', year: 1996, publication: 'Journal of the Acoustical Society of America 99(2), 649–658' },
+      { label: 'The phenomenon of resonance in the Labyrinth of Ravne — includes summary of six-site study and Wayland chamber values', url: 'https://sbresearchgroup.eu/index.php/en/articoli-in-inglese/99-the-phenomenon-of-resonance-in-the-labyrinth-of-ravne-preliminary-results', year: 2012, publication: 'Research summary' }]
+  },
+  {
+    id: 'cairn-l-loughcrew-cohort', name: 'Cairn L — Loughcrew passage tomb (cohort resonance range)', lat: 53.7425, lon: -6.7334,
+    region: 'County Meath, Ireland', period: 'Neolithic passage tomb',
+    measuredFrequenciesHz: [95, 120], status: 'published-measurement',
+    summary: 'Cairn L is listed among the six prehistoric structures investigated in the 1996 acoustic-resonance study; the study reports the six-site group resonances within 95–120 Hz.',
+    measurementContext: 'The 95–120 Hz value is the published range for the six-structure study cohort, not a verified individual resonance value for Cairn L. The original paper should be checked before assigning a precise peak to this site.',
+    measurements: [{ parameter: 'Cohort resonance range (not site-specific)', frequencyBand: '95–120 Hz across six structures', reportedValue: 95, unit: 'Hz lower bound', method: 'Published study summary; individual Cairn L peak not extracted from available source' }],
+    caveat: 'Range-only cohort evidence. Do not interpret the endpoints as measured Cairn L peaks or as proof of a precise 110–112 Hz resonance.',
+    sources: [{ label: 'Jahn, Devereux & Ibison (1996), Acoustical resonances of assorted ancient structures', url: 'https://doi.org/10.1121/1.414642', year: 1996, publication: 'Journal of the Acoustical Society of America 99(2), 649–658' }]
+  },
+  {
+    id: 'cairn-i-loughcrew-cohort', name: 'Cairn I — Loughcrew passage tomb (cohort resonance range)', lat: 53.7443, lon: -6.7413,
+    region: 'County Meath, Ireland', period: 'Neolithic passage tomb',
+    measuredFrequenciesHz: [95, 120], status: 'published-measurement',
+    summary: 'Cairn I is listed among the six prehistoric structures investigated in the 1996 acoustic-resonance study; the study reports the six-site group resonances within 95–120 Hz.',
+    measurementContext: 'The 95–120 Hz value is the published range for the six-structure study cohort, not a verified individual resonance value for Cairn I. The original paper should be checked before assigning a precise peak to this site.',
+    measurements: [{ parameter: 'Cohort resonance range (not site-specific)', frequencyBand: '95–120 Hz across six structures', reportedValue: 95, unit: 'Hz lower bound', method: 'Published study summary; individual Cairn I peak not extracted from available source' }],
+    caveat: 'Range-only cohort evidence. Do not interpret the endpoints as measured Cairn I peaks or as proof of a precise 110–112 Hz resonance.',
+    sources: [{ label: 'Jahn, Devereux & Ibison (1996), Acoustical resonances of assorted ancient structures', url: 'https://doi.org/10.1121/1.414642', year: 1996, publication: 'Journal of the Acoustical Society of America 99(2), 649–658' }]
+  },
+  {
+    id: 'chun-quoit-cohort', name: 'Chûn Quoit — chambered tomb (cohort resonance range)', lat: 50.1398, lon: -5.6206,
+    region: 'Cornwall, England', period: 'Neolithic chambered tomb',
+    measuredFrequenciesHz: [95, 120], status: 'published-measurement',
+    summary: 'Chûn Quoit is listed among the structures in the six-site 1996 acoustic-resonance study; the available summary reports the group range as 95–120 Hz.',
+    measurementContext: 'The 95–120 Hz value is the cohort range across six tested structures, not a verified individual resonance value for Chûn Quoit.',
+    measurements: [{ parameter: 'Cohort resonance range (not site-specific)', frequencyBand: '95–120 Hz across six structures', reportedValue: 95, unit: 'Hz lower bound', method: 'Published study summary; individual Chûn Quoit peak not extracted from available source' }],
+    caveat: 'Range-only cohort evidence; do not claim a site-specific 110–112 Hz peak without the original per-site measurement.',
+    sources: [{ label: 'Jahn, Devereux & Ibison (1996), Acoustical resonances of assorted ancient structures', url: 'https://doi.org/10.1121/1.414642', year: 1996, publication: 'Journal of the Acoustical Society of America 99(2), 649–658' }]
+  },
 ];
