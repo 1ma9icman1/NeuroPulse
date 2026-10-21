@@ -2306,8 +2306,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   beam.style.transform = 'translateX(-50%)'; beam.style.background = 'linear-gradient(to top, rgba(251,146,60,.1), rgba(251,146,60,.8), rgba(255,255,255,.95), transparent)';
                   beam.style.boxShadow = '0 0 12px 3px rgba(251,146,60,.5)'; beam.style.borderRadius = '99px';
                   beam.animate([{opacity:.45, transform:'translateX(-50%) scaleY(.72)'},{opacity:1,transform:'translateX(-50%) scaleY(1)'},{opacity:.5,transform:'translateX(-50%) scaleY(.82)'}],{duration:1800,iterations:Infinity});
-                  const beamTag=document.createElement('span'); beamTag.textContent='114 Hz'; beamTag.style.position='absolute'; beamTag.style.left='31px'; beamTag.style.top='0px'; beamTag.style.font='bold 11px monospace'; beamTag.style.color='#ffedd5'; beamTag.style.textShadow='0 0 8px #f97316'; beamTag.style.whiteSpace='nowrap';
-                  marker.append(beam,beamTag);
+                  marker.append(beam);
                 }
                 const comet = document.createElement('div');
                 comet.style.position = 'absolute'; comet.style.left = '4px'; comet.style.top = '20px'; comet.style.width = '34px'; comet.style.height = '3px';
@@ -2315,8 +2314,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 comet.style.background = 'linear-gradient(90deg, transparent, rgba(251,146,60,.15), #fdba74, #fff7ed)';
                 comet.style.filter = 'drop-shadow(0 0 5px #fb923c)';
                 comet.animate([{ opacity: 0.12, transform: 'translate(-4px, 5px) rotate(-42deg) scaleX(.25)' }, { opacity: 1, transform: 'translate(0, 0) rotate(-42deg) scaleX(1)' }, { opacity: 0.05, transform: 'translate(8px, -8px) rotate(-42deg) scaleX(.2)' }], { duration: 1450, iterations: Infinity, delay: (Math.abs(d.lat * 11 + d.lon) % 900) });
-                const label = document.createElement('span'); label.textContent = d.evidenceStatus === 'published-measurement' ? String(d.measuredHz) : '110'; label.style.position = 'absolute'; label.style.left = '17px'; label.style.top = '4px'; label.style.font = 'bold 9px monospace'; label.style.color = '#fed7aa'; label.style.textShadow = '0 0 7px #f97316';
-                marker.append(comet, label); return marker;
+                marker.append(comet); return marker;
               }}
               onPointClick={(d: any) => openEarthSite(d)} />
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
