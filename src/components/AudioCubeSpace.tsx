@@ -105,6 +105,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
   // Star Celestial Alignment Mode
   const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
+  const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
   const [selectedStarPreset, setSelectedStarPreset] = useState<string>('orion-sirius-meridian');
   const [starAId, setStarAId] = useState<string>('betelgeuse');
   const [starBId, setStarBId] = useState<string>('rigel');
@@ -574,18 +575,47 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         traceEarthLine(line, 'rgba(125, 211, 252, 0.28)', 0.65);
       }
       CONTINENTAL_COASTLINES.forEach((polygon) => traceEarthLine(polygon, 'rgba(45, 212, 191, 0.9)', 1.15));
-      DEFAULT_EARTH_POINTS.forEach((point) => {
-        const v = earthPoint(point.lat, point.lon, earthRadius * 1.008);
+      // Major cities and named landmarks become readable as the user zooms in.
+      // Coordinates are geographic locations, projected onto the same rotating Earth.
+      const majorCities: Array<{ name: string; lat: number; lon: number }> = [
+        { name: 'New York', lat: 40.7128, lon: -74.006 }, { name: 'Los Angeles', lat: 34.0522, lon: -118.2437 },
+        { name: 'Mexico City', lat: 19.4326, lon: -99.1332 }, { name: 'Toronto', lat: 43.6532, lon: -79.3832 },
+        { name: 'Rio de Janeiro', lat: -22.9068, lon: -43.1729 }, { name: 'London', lat: 51.5072, lon: -0.1276 },
+        { name: 'Paris', lat: 48.8566, lon: 2.3522 }, { name: 'Rome', lat: 41.9028, lon: 12.4964 },
+        { name: 'Cairo', lat: 30.0444, lon: 31.2357 }, { name: 'Lagos', lat: 6.5244, lon: 3.3792 },
+        { name: 'Nairobi', lat: -1.2921, lon: 36.8219 }, { name: 'Istanbul', lat: 41.0082, lon: 28.9784 },
+        { name: 'Dubai', lat: 25.2048, lon: 55.2708 }, { name: 'Mumbai', lat: 19.076, lon: 72.8777 },
+        { name: 'Delhi', lat: 28.6139, lon: 77.209 }, { name: 'Bangkok', lat: 13.7563, lon: 100.5018 },
+        { name: 'Singapore', lat: 1.3521, lon: 103.8198 }, { name: 'Beijing', lat: 39.9042, lon: 116.4074 },
+        { name: 'Seoul', lat: 37.5665, lon: 126.978 }, { name: 'Tokyo', lat: 35.6762, lon: 139.6503 },
+        { name: 'Sydney', lat: -33.8688, lon: 151.2093 }, { name: 'Auckland', lat: -36.8509, lon: 174.7645 },
+        { name: 'Moscow', lat: 55.7558, lon: 37.6173 }, { name: 'Reykjavik', lat: 64.1466, lon: -21.9426 },
+        { name: 'Honolulu', lat: 21.3099, lon: -157.8581 }, { name: 'Anchorage', lat: 61.2181, lon: -149.9003 },
+      ];
+      const labelEarthPoint = (name: string, lat: number, lon: number, color: string, isCity = false) => {
+        const v = earthPoint(lat, lon, earthRadius * 1.012);
         if (!cameraFront(v)) return;
         const p = project3D(v.x, v.y, v.z, width, height);
         ctx.beginPath();
-        ctx.arc(p.sx, p.sy, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = point.color;
-        ctx.shadowColor = point.color;
-        ctx.shadowBlur = 7;
+        ctx.arc(p.sx, p.sy, isCity ? 1.7 : 2.8, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = isCity ? 3 : 7;
         ctx.fill();
         ctx.shadowBlur = 0;
-      });
+        // Keep the globe clean at orbital scale; reveal names once zoomed closer.
+        if (cameraZoom >= (isCity ? 1.35 : 1.08)) {
+          const fontSize = isCity ? Math.max(8, Math.min(12, 8 + cameraZoom)) : Math.max(9, Math.min(13, 9 + cameraZoom));
+          ctx.font = `${isCity ? '500' : '600'} ${fontSize}px system-ui, sans-serif`;
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = 'rgba(3, 10, 22, 0.92)';
+          ctx.strokeText(name, p.sx + 5, p.sy - 5);
+          ctx.fillStyle = isCity ? 'rgba(219, 234, 254, 0.96)' : color;
+          ctx.fillText(name, p.sx + 5, p.sy - 5);
+        }
+      };
+      DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
+      majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
       ctx.restore();
 
       // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
@@ -1221,7 +1251,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const delta = -Math.sign(e.deltaY) * 0.08;
-    const newZoom = Math.max(0.6, Math.min(2.2, cameraZoom + delta));
+    const newZoom = Math.max(0.6, Math.min(5, cameraZoom + delta));
     onUpdateCameraZoom(Number(newZoom.toFixed(2)));
   };
 
@@ -1287,59 +1317,59 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
         {/* Center: Star Celestial Alignment Button + Snap Channel Selector + Top Plane Overlay Button */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* STAR BUTTON */}
-          <button
-            onClick={() => setIsStarModeActive((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold rounded-lg border transition-all shadow-md ${
-              isStarModeActive
-                ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-[0_0_15px_rgba(250,204,21,0.5)]'
-                : 'bg-[#0b1220]/90 backdrop-blur-md text-amber-300 border-amber-500/40 hover:bg-amber-950/40'
-            }`}
-            title="Show real celestial stars in 3D orbit and align channels A, B, C to astronomical coordinates"
-          >
-            <Star className={`w-3.5 h-3.5 ${isStarModeActive ? 'fill-current' : ''}`} />
-            <span>{isStarModeActive ? 'STARS: ON' : 'STAR ALIGNMENT'}</span>
-          </button>
-
-          {/* Quick Snap Target Channel Pills (When Star Mode is active) */}
-          {isStarModeActive && (
-            <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md px-2 py-0.5 rounded-lg border border-amber-500/40 text-xs font-mono">
-              <span className="text-[10px] text-amber-300/80 uppercase mr-0.5">Click Star Snaps:</span>
+          {/* Compact Star Alignment panel: collapsed to one button by default. */}
+          <div className="flex items-start gap-1">
+            {!isStarPanelExpanded ? (
               <button
-                onClick={() => setSnapTargetChannel('a')}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-                  snapTargetChannel === 'a'
-                    ? 'bg-cyan-500 text-black shadow-[0_0_8px_#00f0ff]'
-                    : 'text-cyan-400 hover:bg-cyan-950/40'
-                }`}
-                title="Next star click will snap Channel A"
+                onClick={() => setIsStarPanelExpanded(true)}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-mono rounded-lg border border-amber-500/40 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/50 shadow-md"
+                title="Expand Star Alignment controls"
+                aria-label="Expand Star Alignment controls"
               >
-                CH-A {lockedChannels.a ? '🔒' : ''}
+                <Star className="w-3.5 h-3.5" />
+                <Minimize className="w-3 h-3" />
               </button>
-              <button
-                onClick={() => setSnapTargetChannel('b')}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-                  snapTargetChannel === 'b'
-                    ? 'bg-pink-500 text-white shadow-[0_0_8px_#ff007f]'
-                    : 'text-pink-400 hover:bg-pink-950/40'
-                }`}
-                title="Next star click will snap Channel B"
-              >
-                CH-B {lockedChannels.b ? '🔒' : ''}
-              </button>
-              <button
-                onClick={() => setSnapTargetChannel('c')}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-                  snapTargetChannel === 'c'
-                    ? 'bg-amber-400 text-black shadow-[0_0_8px_#fbbf24]'
-                    : 'text-amber-400 hover:bg-amber-950/40'
-                }`}
-                title="Next star click will snap Channel C"
-              >
-                CH-C {lockedChannels.c ? '🔒' : ''}
-              </button>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col gap-1 p-2 rounded-lg border border-amber-500/40 bg-[#0b1220]/95 backdrop-blur-md shadow-xl">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] uppercase tracking-wider text-amber-300">Star Alignment</span>
+                  <button onClick={() => setIsStarPanelExpanded(false)} className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-700" title="Minimize Star Alignment">
+                    <Minimize className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setIsStarModeActive((prev) => !prev)}
+                    className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-bold rounded border transition-all ${
+                      isStarModeActive ? 'bg-amber-400 text-slate-950 border-amber-300' : 'bg-slate-900 text-amber-300 border-amber-500/40'
+                    }`}
+                    title="Toggle real celestial star overlays"
+                  >
+                    <Star className={`w-3 h-3 ${isStarModeActive ? 'fill-current' : ''}`} />
+                    {isStarModeActive ? 'STARS ON' : 'STARS OFF'}
+                  </button>
+                  {isStarModeActive && (
+                    <>
+                      {(['a', 'b', 'c'] as const).map((channel) => (
+                        <button
+                          key={channel}
+                          onClick={() => setSnapTargetChannel(channel)}
+                          className={`px-2 py-1 rounded text-[10px] font-bold ${
+                            snapTargetChannel === channel
+                              ? channel === 'a' ? 'bg-cyan-500 text-black' : channel === 'b' ? 'bg-pink-500 text-white' : 'bg-amber-400 text-black'
+                              : channel === 'a' ? 'text-cyan-400 hover:bg-cyan-950/40' : channel === 'b' ? 'text-pink-400 hover:bg-pink-950/40' : 'text-amber-400 hover:bg-amber-950/40'
+                          }`}
+                          title={`Next star click will snap Channel ${channel.toUpperCase()}`}
+                        >
+                          CH-{channel.toUpperCase()} {lockedChannels[channel] ? '🔒' : ''}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* SHOW TRIANGLE INTERIOR ANGLES TOGGLE */}
           <button
@@ -1423,7 +1453,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               {Math.round(cameraZoom * 100)}%
             </span>
             <button
-              onClick={() => onUpdateCameraZoom(Math.min(2.2, +(cameraZoom + 0.1).toFixed(2)))}
+              onClick={() => onUpdateCameraZoom(Math.min(5, +(cameraZoom + 0.1).toFixed(2)))}
               className="p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800"
               title="Zoom In"
             >
