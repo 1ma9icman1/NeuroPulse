@@ -52,7 +52,7 @@ import {
   latLonToCartesian,
   cartesianToLatLon,
 } from '../data/earthData';
-import { calculateSubstellarPoint, fetchPlaceImage, resolveStarAstrometry, EarthTarget, PlaceImage } from '../services/celestialEarthData';
+import { calculateSubstellarPoint, fetchIersDut1Seconds, fetchPlaceImage, resolveStarAstrometry, EarthTarget, PlaceImage } from '../services/celestialEarthData';
 
 
 interface AudioCubeSpaceProps {
@@ -161,8 +161,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const observationDate = new Date();
     if (isTimelineActive) observationDate.setUTCFullYear(timelineYear);
     try {
-      const astrometry = await resolveStarAstrometry({ name: star.name, raDeg: star.raDeg, decDeg: star.decDeg }, observationDate);
-      const target = calculateSubstellarPoint(astrometry.raDeg, astrometry.decDeg, observationDate, astrometry.source);
+      const [astrometry, dut1Seconds] = await Promise.all([
+        resolveStarAstrometry({ name: star.name, raDeg: star.raDeg, decDeg: star.decDeg }, observationDate),
+        fetchIersDut1Seconds(observationDate),
+      ]);
+      const source = dut1Seconds === null ? astrometry.source : `${astrometry.source} + IERS Earth rotation`;
+      const target = calculateSubstellarPoint(astrometry.raDeg, astrometry.decDeg, observationDate, source, dut1Seconds ?? 0);
       setEarthLocateTarget(target);
       setEarthLocateLoading(false);
       setEarthLocateImageLoading(true);
