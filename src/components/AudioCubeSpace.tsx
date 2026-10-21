@@ -1355,6 +1355,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             3D Orbit Cube
           </button>
           <button
+            onClick={() => { onUpdateCameraView('perspective'); onResetCamera(); }}
+            className="px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors text-emerald-300 hover:text-white hover:bg-emerald-900/50"
+            title="Return to the Earth and universe view"
+          >
+            <span className="inline-flex items-center gap-1"><Globe className="w-3.5 h-3.5" /> Earth View</span>
+          </button>
+          <button
             onClick={() => onUpdateCameraView('top')}
             className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors ${
               cameraView === 'top'
