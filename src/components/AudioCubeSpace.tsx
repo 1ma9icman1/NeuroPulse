@@ -1920,29 +1920,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         <button onClick={() => setIsTimelineActive(true)} className="absolute top-[4.6rem] left-3 z-20 pointer-events-auto rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-3 py-1.5 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline">TIMELINE OFF · SHOW</button>
       )}
 
-      {/* Detailed globe sits behind a transparent space overlay, preserving the star field and angle geometry. */}
+      {/* Earth stays inside the original space viewport: a centered globe, not a separate full-screen Earth layout. */}
       {isEarthModeActive && (
-        <div className="absolute inset-0 z-0 w-full h-full">
-          <Globe3D ref={globeRef} width={containerRef.current?.clientWidth} height={containerRef.current?.clientHeight}
-            globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-            bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-            backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
-            showGraticules={earthGrid} showAtmosphere={earthAtmosphere}
-            pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
-            pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-            pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'}`} />
+        <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
+          <div className="relative h-[min(66vw,72vh,680px)] w-[min(66vw,72vh,680px)] max-w-[78%] max-h-[78%]">
+            <Globe3D ref={globeRef} width={Math.min(containerRef.current?.clientWidth || 800, containerRef.current?.clientHeight || 600) * 0.68}
+              height={Math.min(containerRef.current?.clientWidth || 800, containerRef.current?.clientHeight || 600) * 0.68}
+              globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
+              bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+              backgroundColor="rgba(0,0,0,0)"
+              showGraticules={false} showAtmosphere={true}
+              pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
+              pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'}`} />
+          </div>
         </div>
       )}
-      <canvas ref={canvasRef} onPointerDown={isEarthModeActive ? undefined : handlePointerDown} onPointerMove={isEarthModeActive ? undefined : handlePointerMove} onPointerUp={isEarthModeActive ? undefined : handlePointerUp} onPointerCancel={isEarthModeActive ? undefined : handlePointerUp} onWheel={isEarthModeActive ? undefined : handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
-      {isEarthModeActive && (
-        <div className="absolute left-3 bottom-20 z-30 rounded-lg border border-emerald-500/40 bg-[#07101d]/95 p-3">
-          <div className="text-[10px] font-mono font-bold text-emerald-300">EARTH / HISTORICAL SITES</div>
-          <label className="mt-1 flex gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={earthGrid} onChange={(e) => setEarthGrid(e.target.checked)} /> Grid</label>
-          <label className="mt-1 flex gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={earthAtmosphere} onChange={(e) => setEarthAtmosphere(e.target.checked)} /> Atmosphere</label>
-          <div className="mt-2 text-[10px] text-slate-300">Zoom</div><input aria-label="Earth zoom" type="range" min="1.2" max="5" step="0.1" value={earthZoom} onChange={(e) => setEarthZoom(Number(e.target.value))} className="w-36 accent-emerald-400" />
-          <div className="text-[9px] text-amber-300">{visibleEarthSites.length} sites for selected year</div>
-        </div>
-      )}
+      <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
       <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
