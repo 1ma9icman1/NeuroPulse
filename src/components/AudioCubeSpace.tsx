@@ -450,14 +450,18 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       ctx.save();
       ctx.scale(dpr, dpr);
 
-      // Deep space background
-      ctx.fillStyle = isStarModeActive ? '#04060d' : '#060a12';
-      ctx.fillRect(0, 0, width, height);
+      // Keep the overlay transparent while the detailed globe is active so the space layer remains visible.
+      if (isEarthModeActive) {
+        ctx.clearRect(0, 0, width, height);
+      } else {
+        ctx.fillStyle = isStarModeActive ? '#04060d' : '#060a12';
+        ctx.fillRect(0, 0, width, height);
+      }
 
       const bound = 8.0;
 
       // 1. Render Top Plane Uploaded Image Overlay (if active)
-      if (overlay.visible && overlayImageRef.current) {
+      if (!isEarthModeActive && overlay.visible && overlayImageRef.current) {
         ctx.save();
         ctx.globalAlpha = overlay.opacity;
 
@@ -501,6 +505,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       // No synthetic background particles: render catalogued celestial objects only.
 
+      if (!isEarthModeActive) {
       // 3. Draw 3D AudioCube Room Wireframe
       ctx.lineWidth = 1;
       const gridSteps = 4;
@@ -568,6 +573,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         });
       }
 
+      }
+
+      if (!isEarthModeActive) {
       // Sidereal phase for Jan 1 noon in selected year. A year-only slider cannot recover an ancient time-of-day.
       const jd = Date.UTC(timelineYear, 0, 1, 12, 0, 0) / 86400000 + 2440587.5;
       const centuries = (jd - 2451545.0) / 36525.0;
@@ -714,6 +722,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       });
       ctx.restore();
 
+      }
+
+      if (!isEarthModeActive) {
       // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
       const centerPt = project3D(0, 0, 0, width, height);
       const listenerFloor = project3D(0, -bound, 0, width, height);
@@ -765,6 +776,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.font = '9px "JetBrains Mono", monospace';
         ctx.fillStyle = '#c084fc';
         ctx.fillText('LISTENER', centerPt.sx - 22, centerPt.sy + 20);
+      }
+
       }
 
       // 5. Render Real-World Stars and Constellation Edges (Star Mode)
@@ -867,6 +880,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         drawTether(starCId, cPos, '#fbbf24');
       }
 
+      if (!isEarthModeActive) {
       // 6. Draw 3D Sound Puck Helper
       const drawPuck = (
         pos: SpatialPosition,
@@ -935,6 +949,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           p.sy - 18
         );
       };
+
+      }
 
       // 7. Draw Trinaural Acoustic Triangular Web between A, B, and C
       const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
@@ -1895,9 +1911,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. Sky precession is first-order (~50.29″/yr); year-only rotation phase is illustrative, not an exact historical time-of-day. Berger 1978 describes long-term orbital/climate cycles, not a precision star-position catalogue.</div>
       </div>
 
-      {/* Original Blue Marble 3D globe with historical archaeological markers. */}
-      {isEarthModeActive ? (
-        <div className="absolute inset-0 w-full h-full">
+      {/* Detailed globe sits behind a transparent space overlay, preserving the star field and angle geometry. */}
+      {isEarthModeActive && (
+        <div className="absolute inset-0 z-0 w-full h-full">
           <Globe3D ref={globeRef} width={containerRef.current?.clientWidth} height={containerRef.current?.clientHeight}
             globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
             bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
@@ -1906,16 +1922,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
             pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
             pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'}`} />
-          <div className="absolute left-3 bottom-20 z-30 rounded-lg border border-emerald-500/40 bg-[#07101d]/95 p-3">
-            <div className="text-[10px] font-mono font-bold text-emerald-300">EARTH / HISTORICAL SITES</div>
-            <label className="mt-1 flex gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={earthGrid} onChange={(e) => setEarthGrid(e.target.checked)} /> Grid</label>
-            <label className="mt-1 flex gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={earthAtmosphere} onChange={(e) => setEarthAtmosphere(e.target.checked)} /> Atmosphere</label>
-            <div className="mt-2 text-[10px] text-slate-300">Zoom</div><input aria-label="Earth zoom" type="range" min="1.2" max="5" step="0.1" value={earthZoom} onChange={(e) => setEarthZoom(Number(e.target.value))} className="w-36 accent-emerald-400" />
-            <div className="text-[9px] text-amber-300">{visibleEarthSites.length} sites for selected year</div>
-          </div>
         </div>
-      ) : (
-        <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`w-full h-full touch-none ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
+      )}
+      <canvas ref={canvasRef} onPointerDown={isEarthModeActive ? undefined : handlePointerDown} onPointerMove={isEarthModeActive ? undefined : handlePointerMove} onPointerUp={isEarthModeActive ? undefined : handlePointerUp} onPointerCancel={isEarthModeActive ? undefined : handlePointerUp} onWheel={isEarthModeActive ? undefined : handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
+      {isEarthModeActive && (
+        <div className="absolute left-3 bottom-20 z-30 rounded-lg border border-emerald-500/40 bg-[#07101d]/95 p-3">
+          <div className="text-[10px] font-mono font-bold text-emerald-300">EARTH / HISTORICAL SITES</div>
+          <label className="mt-1 flex gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={earthGrid} onChange={(e) => setEarthGrid(e.target.checked)} /> Grid</label>
+          <label className="mt-1 flex gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={earthAtmosphere} onChange={(e) => setEarthAtmosphere(e.target.checked)} /> Atmosphere</label>
+          <div className="mt-2 text-[10px] text-slate-300">Zoom</div><input aria-label="Earth zoom" type="range" min="1.2" max="5" step="0.1" value={earthZoom} onChange={(e) => setEarthZoom(Number(e.target.value))} className="w-36 accent-emerald-400" />
+          <div className="text-[9px] text-amber-300">{visibleEarthSites.length} sites for selected year</div>
+        </div>
       )}
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
