@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import Globe3D from 'react-globe.gl';
 import {
   CameraView,
   SpatialPosition,
@@ -104,6 +105,34 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const earthTextureRef = useRef<HTMLImageElement | null>(null);
   const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
+  const [isEarthModeActive, setIsEarthModeActive] = useState(false);
+  const globeRef = useRef<any>(null);
+  const [earthZoom, setEarthZoom] = useState(3);
+  const [earthGrid, setEarthGrid] = useState(true);
+  const [earthAtmosphere, setEarthAtmosphere] = useState(true);
+  const handleToggleEarthMode = () => setIsEarthModeActive((active) => !active);
+  const earthSites = [
+    { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, year: -9600 },
+    { name: 'Jericho', lat: 31.871, lon: 35.444, year: -9000 },
+    { name: 'Çatalhöyük', lat: 37.668, lon: 32.828, year: -7100 },
+    { name: 'Nabta Playa', lat: 22.507, lon: 30.733, year: -7000 },
+    { name: 'Carnac Stones', lat: 47.584, lon: -3.079, year: -4500 },
+    { name: 'Newgrange', lat: 53.694, lon: -6.475, year: -3200 },
+    { name: 'Stonehenge', lat: 51.1789, lon: -1.8262, year: -3000 },
+    { name: 'Great Pyramid of Giza', lat: 29.9792, lon: 31.1342, year: -2600 },
+    { name: 'Mohenjo-daro', lat: 27.329, lon: 68.138, year: -2500 },
+    { name: 'Petra', lat: 30.328, lon: 35.444, year: -300 },
+    { name: 'Persepolis', lat: 29.935, lon: 52.891, year: -518 },
+    { name: 'Teotihuacan', lat: 19.6925, lon: -98.8438, year: 100 },
+    { name: 'Chichén Itzá', lat: 20.6843, lon: -88.5678, year: 600 },
+    { name: 'Angkor Wat', lat: 13.4125, lon: 103.867, year: 1150 },
+    { name: 'Great Zimbabwe', lat: -20.267, lon: 30.933, year: 1100 },
+    { name: 'Nan Madol', lat: 6.844, lon: 158.333, year: 1200 },
+    { name: 'Tenochtitlan', lat: 19.4326, lon: -99.1332, year: 1325 },
+    { name: 'Machu Picchu', lat: -13.1631, lon: -72.545, year: 1450 },
+  ];
+  const visibleEarthSites = earthSites.filter((site) => site.year <= timelineYear).map((site) => ({ ...site, color: '#fb923c', size: 0.35, altitude: 0.02 }));
+  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: earthZoom }, 250); }, [isEarthModeActive, earthZoom]);
 
   useEffect(() => {
     const texture = new Image();
@@ -1354,12 +1383,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           >
             3D Orbit Cube
           </button>
-          <button
-            onClick={() => { onUpdateCameraView('perspective'); onResetCamera(); }}
-            className="px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors text-emerald-300 hover:text-white hover:bg-emerald-900/50"
-            title="Return to the Earth and universe view"
-          >
-            <span className="inline-flex items-center gap-1"><Globe className="w-3.5 h-3.5" /> Earth View</span>
+          <button onClick={handleToggleEarthMode} aria-pressed={isEarthModeActive} title="Toggle original textured 3D Earth globe" className={`px-2.5 py-1 text-xs font-mono font-bold rounded border ${isEarthModeActive ? 'bg-emerald-400 text-slate-950 border-emerald-300' : 'text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/50'}`}>
+            <span className="inline-flex items-center gap-1"><Globe className="w-3.5 h-3.5" /> {isEarthModeActive ? 'EARTH: ON' : 'EARTH ALIGNMENT'}</span>
           </button>
           <button
             onClick={() => onUpdateCameraView('top')}
@@ -1870,18 +1895,28 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. Sky precession is first-order (~50.29″/yr); year-only rotation phase is illustrative, not an exact historical time-of-day. Berger 1978 describes long-term orbital/climate cycles, not a precision star-position catalogue.</div>
       </div>
 
-      {/* 3D Canvas */}
-      <canvas
-        ref={canvasRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onWheel={handleWheel}
-        className={`w-full h-full touch-none ${
-          hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'
-        }`}
-      />
+      {/* Original Blue Marble 3D globe with historical archaeological markers. */}
+      {isEarthModeActive ? (
+        <div className="absolute inset-0 w-full h-full">
+          <Globe3D ref={globeRef} width={containerRef.current?.clientWidth} height={containerRef.current?.clientHeight}
+            globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
+            bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+            backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
+            showGraticules={earthGrid} showAtmosphere={earthAtmosphere}
+            pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+            pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
+            pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'}`} />
+          <div className="absolute left-3 bottom-20 z-30 rounded-lg border border-emerald-500/40 bg-[#07101d]/95 p-3">
+            <div className="text-[10px] font-mono font-bold text-emerald-300">EARTH / HISTORICAL SITES</div>
+            <label className="mt-1 flex gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={earthGrid} onChange={(e) => setEarthGrid(e.target.checked)} /> Grid</label>
+            <label className="mt-1 flex gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={earthAtmosphere} onChange={(e) => setEarthAtmosphere(e.target.checked)} /> Atmosphere</label>
+            <div className="mt-2 text-[10px] text-slate-300">Zoom</div><input aria-label="Earth zoom" type="range" min="1.2" max="5" step="0.1" value={earthZoom} onChange={(e) => setEarthZoom(Number(e.target.value))} className="w-36 accent-emerald-400" />
+            <div className="text-[9px] text-amber-300">{visibleEarthSites.length} sites for selected year</div>
+          </div>
+        </div>
+      ) : (
+        <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`w-full h-full touch-none ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
+      )}
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
       <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
