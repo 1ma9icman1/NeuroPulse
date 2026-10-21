@@ -156,7 +156,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
-  const visibleEarthSites = [...earthSites.filter((site) => site.year <= timelineYear).map((site) => ({ ...site, color: '#fb923c', size: 0.35, altitude: 0.02 })), ...(timelineYear >= -4000 ? ACOUSTIC_SITE_EVIDENCE.map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.03, evidenceStatus: site.status })) : [])];
+  const visibleEarthSites = [...earthSites.filter((site) => site.year <= timelineYear).map((site) => ({ ...site, color: '#fb923c', size: 0.35, altitude: 0.02 })), ...(timelineYear >= -4000 ? ACOUSTIC_SITE_EVIDENCE.map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.03, evidenceStatus: site.status, measuredHz: site.researchBandHz === 110 ? site.measuredFrequenciesHz.find((hz) => Math.abs(hz - 110) <= 10) : undefined })) : [])];
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
   const [isCelestialDeckCollapsed, setIsCelestialDeckCollapsed] = useState<boolean>(false);
   const [showDetailedStarInfo, setShowDetailedStarInfo] = useState<boolean>(true);
@@ -173,7 +173,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   };
   const getEarthSiteDescription = (name: string) => {
     const acousticEvidence = ACOUSTIC_SITE_EVIDENCE.find((site) => site.name.toLowerCase() === name.toLowerCase());
-    if (acousticEvidence) return acousticEvidence.summary + ' ' + acousticEvidence.caveat + ' Published sources are linked in the 110 Hz research panel.';
+    if (acousticEvidence) return acousticEvidence.summary + ' ' + (acousticEvidence.measurementContext || '') + ' ' + acousticEvidence.caveat + ' Sources are linked in the acoustic evidence panel.';
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === name.toLowerCase() || name.toLowerCase().includes(point.name.toLowerCase()) || point.name.toLowerCase().includes(name.toLowerCase()));
     if (known?.desc) return known.desc;
     const descriptions: Record<string, string> = {
@@ -2006,7 +2006,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <div className="text-[9px] leading-relaxed text-slate-500">All 88 constellation stick figures use sourced J2000 right-ascension/declination line paths. These are traditional sky-chart connections, not the IAU constellation boundary outlines. Data source: d3-celestial.</div>
             </div>
             <label className="flex items-start gap-2 rounded-lg border border-orange-500/30 bg-orange-950/20 p-2 text-[10px] leading-relaxed text-orange-100"><input type="checkbox" checked={show110HzResearchComets} onChange={(e) => setShow110HzResearchComets(e.target.checked)} className="mt-0.5 accent-orange-400" /><span><strong>110 Hz research-band comet layer</strong><br/>Orange comets mark unverified candidate sites. The sourced Ħal Saflieni record reports 70 Hz and 114 Hz; 114 Hz is shown exactly, not rounded to 110 Hz.</span></label>
-            {show110HzResearchComets && <div className="rounded-lg border border-orange-500/20 bg-slate-950/70 p-2 flex flex-col gap-2">{ACOUSTIC_SITE_EVIDENCE.map((site) => <div key={site.id} className="text-[10px] leading-relaxed text-slate-300"><div className="font-mono font-bold text-orange-200">{site.name}</div><div>{site.region} · Reported measured peaks: {site.measuredFrequenciesHz.join(' Hz / ')} Hz</div><div className="text-slate-400">{site.caveat}</div><div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">{site.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="underline text-sky-300 hover:text-sky-100">{source.year} source ↗</a>)}</div></div>)}</div>}
+            {show110HzResearchComets && <div className="rounded-lg border border-orange-500/20 bg-slate-950/70 p-2 flex flex-col gap-2">{ACOUSTIC_SITE_EVIDENCE.map((site) => <div key={site.id} className="text-[10px] leading-relaxed text-slate-300"><div className="font-mono font-bold text-orange-200">{site.name}</div><div>{site.region} · Published measurement</div><div className="text-slate-300">{site.measurementContext || ('Reported resonance frequencies: ' + site.measuredFrequenciesHz.join(' Hz and ') + ' Hz')}</div>{site.measurements?.map((measurement) => <div key={measurement.parameter + measurement.frequencyHz} className="text-orange-100">{measurement.parameter}: {measurement.reportedValue} {measurement.unit} · {measurement.frequencyHz} Hz band</div>)}<div className="text-slate-400">{site.caveat}</div><div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">{site.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="underline text-sky-300 hover:text-sky-100">{source.year} source ↗</a>)}</div></div>)}</div>}
           </div>
 
           {/* Channel to Star Manual Pickers with Lock / Unlock buttons */}
@@ -2193,7 +2193,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => d.evidenceStatus ? `${d.name} — reported acoustic peaks 70 Hz / 114 Hz · click to explore` : `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
-              htmlElementsData={show110HzResearchComets ? [...visibleEarthSites.filter((site: any) => !site.evidenceStatus), ...ACOUSTIC_SITE_EVIDENCE.filter(() => timelineYear >= -4000).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - site.researchBandHz) <= 10), evidenceStatus: site.status }))] : []}
+              htmlElementsData={show110HzResearchComets ? [...visibleEarthSites.filter((site: any) => !site.evidenceStatus), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && site.researchBandHz === 110).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - site.researchBandHz!) <= 10), evidenceStatus: site.status }))] : []}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
               htmlElement={(d: any) => {
                 const marker = document.createElement('div');
