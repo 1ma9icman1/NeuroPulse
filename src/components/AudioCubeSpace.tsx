@@ -2139,7 +2139,29 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
+              htmlElementsData={show110HzResearchComets ? visibleEarthSites : []}
+              htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
+              htmlElement={(d: any) => {
+                const marker = document.createElement('div');
+                marker.style.width = '44px'; marker.style.height = '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
+                marker.title = '110 Hz research candidate · resonance unverified at this location';
+                const comet = document.createElement('div');
+                comet.style.position = 'absolute'; comet.style.left = '4px'; comet.style.top = '20px'; comet.style.width = '34px'; comet.style.height = '3px';
+                comet.style.transform = 'rotate(-42deg)'; comet.style.transformOrigin = 'right center';
+                comet.style.background = 'linear-gradient(90deg, transparent, rgba(251,146,60,.15), #fdba74, #fff7ed)';
+                comet.style.filter = 'drop-shadow(0 0 5px #fb923c)';
+                comet.animate([{ opacity: 0.12, transform: 'translate(-4px, 5px) rotate(-42deg) scaleX(.25)' }, { opacity: 1, transform: 'translate(0, 0) rotate(-42deg) scaleX(1)' }, { opacity: 0.05, transform: 'translate(8px, -8px) rotate(-42deg) scaleX(.2)' }], { duration: 1450, iterations: Infinity, delay: (Math.abs(d.lat * 11 + d.lon) % 900) });
+                const label = document.createElement('span'); label.textContent = '110'; label.style.position = 'absolute'; label.style.left = '17px'; label.style.top = '4px'; label.style.font = 'bold 9px monospace'; label.style.color = '#fed7aa'; label.style.textShadow = '0 0 7px #f97316';
+                marker.append(comet, label); return marker;
+              }}
               onPointClick={(d: any) => openEarthSite(d)} />
+            {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH CANDIDATES · UNVERIFIED RESONANCE</span></div>}
+            <div className="absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden">
+              <div className="relative w-[min(74vmin,76%)] aspect-square rounded-full border border-slate-300/20">
+                <div className="absolute inset-0 rounded-full border border-dashed border-slate-400/15" />
+                <div className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-gradient-to-br from-slate-100 via-slate-400 to-slate-700 shadow-[0_0_18px_rgba(226,232,240,.65)] animate-pulse"><span className="absolute top-7 right-[-28px] whitespace-nowrap text-[9px] font-mono text-slate-200 drop-shadow">MOON · orbit compressed</span></div>
+              </div>
+            </div>
           </div>
         </div>
       )}
