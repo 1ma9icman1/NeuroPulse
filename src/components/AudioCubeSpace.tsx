@@ -131,7 +131,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Tenochtitlan', lat: 19.4326, lon: -99.1332, year: 1325 },
     { name: 'Machu Picchu', lat: -13.1631, lon: -72.545, year: 1450 },
   ];
-  const visibleEarthSites = earthSites.filter((site) => site.year <= timelineYear).map((site) => ({ ...site, color: '#fb923c', size: 0.35, altitude: 0.02 }));
   useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: earthZoom }, 250); }, [isEarthModeActive, earthZoom]);
 
   useEffect(() => {
@@ -148,6 +147,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // Historical sky timeline spanning the last 12,000 years.
   const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
+  const visibleEarthSites = earthSites.filter((site) => site.year <= timelineYear).map((site) => ({ ...site, color: '#fb923c', size: 0.35, altitude: 0.02 }));
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
   const [selectedStarPreset, setSelectedStarPreset] = useState<string>('orion-sirius-meridian');
   const [starAId, setStarAId] = useState<string>('betelgeuse');
