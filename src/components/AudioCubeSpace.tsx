@@ -504,7 +504,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       // No synthetic background particles: render catalogued celestial objects only.
 
-      if (!isEarthModeActive) {
       // 3. Draw 3D AudioCube Room Wireframe
       ctx.lineWidth = 1;
       const gridSteps = 4;
@@ -572,9 +571,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         });
       }
 
-      }
-
-      if (!isEarthModeActive) {
       // Sidereal phase for Jan 1 noon in selected year. A year-only slider cannot recover an ancient time-of-day.
       const jd = Date.UTC(timelineYear, 0, 1, 12, 0, 0) / 86400000 + 2440587.5;
       const centuries = (jd - 2451545.0) / 36525.0;
@@ -723,7 +719,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       }
 
-      if (!isEarthModeActive) {
       // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
       const listenerFloor = project3D(0, -bound, 0, width, height);
 
@@ -1121,8 +1116,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           }
         }
         ctx.restore();
-      }
-
       // Draw Channel A, B, C pucks only in the original spatial-room view.
       if (!isEarthModeActive) {
         drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
