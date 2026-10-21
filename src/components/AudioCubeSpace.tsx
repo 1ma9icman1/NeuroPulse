@@ -771,8 +771,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.fillText('LISTENER', centerPt.sx - 22, centerPt.sy + 20);
       }
 
-      }
-
       // 5. Render Real-World Stars and Constellation Edges (Star Mode)
       if (isStarModeActive) {
         // Draw Constellation Lines
@@ -1116,6 +1114,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           }
         }
         ctx.restore();
+      }
+
       // Draw Channel A, B, C pucks only in the original spatial-room view.
       if (!isEarthModeActive) {
         drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
