@@ -42,7 +42,6 @@ import {
 } from 'lucide-react';
 import {
   REAL_CELESTIAL_STARS,
-  CONSTELLATION_EDGES,
   STAR_ALIGNMENT_PRESETS,
   compute711Relation,
   computeTriangleInteriorAngles,
