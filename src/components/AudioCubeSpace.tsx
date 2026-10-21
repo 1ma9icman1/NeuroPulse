@@ -170,6 +170,26 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Tikal', lat: 17.222, lon: -89.623, year: 300 },
     { name: 'Chavín de Huántar', lat: -9.593, lon: -77.178, year: -900 },
     { name: 'Hovenweep', lat: 37.383, lon: -109.071, year: 500 },
+    { name: 'New York', lat: 40.7128, lon: -74.006, year: 2026, isCity: true },
+    { name: 'Los Angeles', lat: 34.0522, lon: -118.2437, year: 2026, isCity: true },
+    { name: 'Mexico City', lat: 19.4326, lon: -99.1332, year: 2026, isCity: true },
+    { name: 'London', lat: 51.5072, lon: -0.1276, year: 2026, isCity: true },
+    { name: 'Paris', lat: 48.8566, lon: 2.3522, year: 2026, isCity: true },
+    { name: 'Rome', lat: 41.9028, lon: 12.4964, year: 2026, isCity: true },
+    { name: 'Cairo', lat: 30.0444, lon: 31.2357, year: 2026, isCity: true },
+    { name: 'Nairobi', lat: -1.2921, lon: 36.8219, year: 2026, isCity: true },
+    { name: 'Istanbul', lat: 41.0082, lon: 28.9784, year: 2026, isCity: true },
+    { name: 'Delhi', lat: 28.6139, lon: 77.209, year: 2026, isCity: true },
+    { name: 'Mumbai', lat: 19.076, lon: 72.8777, year: 2026, isCity: true },
+    { name: 'Beijing', lat: 39.9042, lon: 116.4074, year: 2026, isCity: true },
+    { name: 'Seoul', lat: 37.5665, lon: 126.978, year: 2026, isCity: true },
+    { name: 'Tokyo', lat: 35.6762, lon: 139.6503, year: 2026, isCity: true },
+    { name: 'Sydney', lat: -33.8688, lon: 151.2093, year: 2026, isCity: true },
+    { name: 'Auckland', lat: -36.8509, lon: 174.7645, year: 2026, isCity: true },
+    { name: 'Moscow', lat: 55.7558, lon: 37.6173, year: 2026, isCity: true },
+    { name: 'Reykjavik', lat: 64.1466, lon: -21.9426, year: 2026, isCity: true },
+    { name: 'Honolulu', lat: 21.3099, lon: -157.8581, year: 2026, isCity: true },
+    { name: 'Anchorage', lat: 61.2181, lon: -149.9003, year: 2026, isCity: true },
   ];
   useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(1.2, 5.2 - cameraZoom) }, 250); }, [isEarthModeActive, cameraZoom]);
 
@@ -201,7 +221,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
-  const visibleEarthSites = [...earthSites.filter((site) => site.year <= timelineYear).map((site) => ({ ...site, color: '#fb923c', size: 0.35, altitude: 0.02 })), ...(timelineYear >= -4000 ? ACOUSTIC_SITE_EVIDENCE.map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.03, evidenceStatus: site.status, measuredHz: site.researchBandHz === 110 ? site.measuredFrequenciesHz.find((hz) => Math.abs(hz - 110) <= 10) : undefined })) : [])];
+  const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#dbeafe' : '#fb923c', size: site.isCity ? 0.22 : 0.35, altitude: 0.02 })), ...(timelineYear >= -4000 ? ACOUSTIC_SITE_EVIDENCE.map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.03, evidenceStatus: site.status, measuredHz: site.researchBandHz === 110 ? site.measuredFrequenciesHz.find((hz) => Math.abs(hz - 110) <= 10) : undefined })) : [])];
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
   const [isCelestialDeckCollapsed, setIsCelestialDeckCollapsed] = useState<boolean>(false);
   const [showDetailedStarInfo, setShowDetailedStarInfo] = useState<boolean>(true);
@@ -825,7 +845,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
       if (showCities) majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
       // Modern coordinates for archaeological destinations; visibility follows approximate site era.
-      const historicalSites: Array<{ name: string; lat: number; lon: number; era: number }> = earthSites.map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, era: site.year }));
+      const historicalSites: Array<{ name: string; lat: number; lon: number; era: number }> = earthSites.filter((site: any) => !site.isCity).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, era: site.year }));
       historicalSites.forEach((site) => {
         if (showAncientStructures && timelineYear >= site.era) {
           labelEarthPoint('ANCIENT · ' + site.name, site.lat, site.lon, showAcousticColorSystem ? '#facc15' : '#e2e8f0');
@@ -2265,10 +2285,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
               showGraticules={false} showAtmosphere={earthAtmosphere}
-              pointsData={showAncientStructures ? visibleEarthSites : []} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-              pointLabel={(d: any) => d.evidenceStatus ? `${d.name} — reported acoustic peaks 70 Hz / 114 Hz · click to explore` : `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
-              htmlElementsData={showAncientStructures && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : []}
+              pointLabel={(d: any) => d.evidenceStatus ? `${d.name} — measured acoustic peaks 70 Hz / 114 Hz · click to explore` : d.isCity ? `${d.name} — city location · click to open map and alignment explorer` : `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
+              htmlElementsData={showAncientStructures && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : []}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
               htmlElement={(d: any) => {
                 const marker = document.createElement('div');
