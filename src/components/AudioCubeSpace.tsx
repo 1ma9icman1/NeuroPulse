@@ -30,7 +30,6 @@ import {
   Pin,
   Check,
   Triangle,
-  Globe,
   Glasses,
   MapPin,
   Plus,
@@ -105,7 +104,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const earthTextureRef = useRef<HTMLImageElement | null>(null);
   const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
-  const [isEarthModeActive] = useState(true);
+  const isEarthModeActive = true;
   const globeRef = useRef<any>(null);
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
   const earthSites = [
