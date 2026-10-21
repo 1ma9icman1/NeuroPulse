@@ -13,7 +13,7 @@ export const DEFAULT_EARTH_POINTS: EarthPoint[] = [
     lon: 31.1342,
     color: '#f59e0b',
     category: 'ancient',
-    desc: 'Exact 30°N meridian harmony; acoustic resonant chamber tuned to low-frequency standing waves; Orion belt shaft alignment.',
+    desc: 'Coordinates are approximately 29.9792°N, 31.1342°E. Proposed Orion correlations should be checked against measured pyramid axes and dated sky models; these coordinates do not establish a 432 Hz or 110 Hz resonance.',
   },
   {
     id: 'stonehenge',
@@ -22,7 +22,7 @@ export const DEFAULT_EARTH_POINTS: EarthPoint[] = [
     lon: -1.8262,
     color: '#10b981',
     category: 'ancient',
-    desc: 'Solstice astro-acoustic amphitheater with cylindrical bluestone harmonic acoustics.',
+    desc: 'Stonehenge has a widely studied solstitial axis. Claims about special acoustic or harmonic tuning require separate measured evidence.',
   },
   {
     id: 'greenwich',
@@ -31,7 +31,7 @@ export const DEFAULT_EARTH_POINTS: EarthPoint[] = [
     lon: -0.0005,
     color: '#06b6d4',
     category: 'astronomy',
-    desc: 'Prime Meridian 0°00\'00" astronomical reference anchor connecting Earth longitude to celestial coordinates.',
+    desc: 'The historic Greenwich meridian is the reference for 0° longitude. Modern geodetic longitude is defined relative to the ITRF, not the physical historic line alone.',
   },
   {
     id: 'easter-island',
@@ -40,7 +40,7 @@ export const DEFAULT_EARTH_POINTS: EarthPoint[] = [
     lon: -109.3497,
     color: '#ec4899',
     category: 'ancient',
-    desc: 'Ahu Akivi celestial alignment pointing toward equinox sunset across the vast Pacific expanse.',
+    desc: 'Ahu Akivi is a major moai platform. Equinox-sunset alignment claims should be checked against published site surveys and local horizon data.',
   },
   {
     id: 'teotihuacan',
@@ -49,7 +49,7 @@ export const DEFAULT_EARTH_POINTS: EarthPoint[] = [
     lon: -98.8438,
     color: '#eab308',
     category: 'ancient',
-    desc: 'City of the Gods; avenue aligned with the setting of the Pleiades star cluster.',
+    desc: 'Teotihuacan has documented urban orientations; a specific Pleiades-setting interpretation should be treated as a hypothesis unless supported by a site-specific source and date model.',
   },
   {
     id: 'kailash',
@@ -58,7 +58,7 @@ export const DEFAULT_EARTH_POINTS: EarthPoint[] = [
     lon: 81.3125,
     color: '#a855f7',
     category: 'acoustic',
-    desc: 'Geographical Axis Mundi; natural 4-sided pyramid aligned with the four cardinal directions.',
+    desc: 'Mount Kailash is a mountain with major religious and cultural significance. Cardinal alignment or pyramid-shape interpretations are not treated here as measured astronomical facts.',
   },
   {
     id: 'chichen-itza',
@@ -67,7 +67,7 @@ export const DEFAULT_EARTH_POINTS: EarthPoint[] = [
     lon: -88.5678,
     color: '#14b8a6',
     category: 'ancient',
-    desc: 'Equinox acoustic chirp echo mimicking the Quetzal bird; pyramid stair geometry.',
+    desc: 'El Castillo has a reported echo phenomenon sometimes compared with a bird call. The comparison is an interpretation; the stair geometry is directly observable.',
   },
   {
     id: 'alexandria',
@@ -76,7 +76,7 @@ export const DEFAULT_EARTH_POINTS: EarthPoint[] = [
     lon: 29.9187,
     color: '#3b82f6',
     category: 'astronomy',
-    desc: 'Birthplace of spherical trigonometry and Eratosthenes\' measurement of the Earth circumference.',
+    desc: 'Alexandria was a major ancient scholarly center. Eratosthenes\' famous Earth-circumference estimate used observations between Syene and Alexandria; that calculation is not evidence of a local astronomical alignment.',
   },
   {
     id: 'nazca',
@@ -85,7 +85,7 @@ export const DEFAULT_EARTH_POINTS: EarthPoint[] = [
     lon: -75.1333,
     color: '#f97316',
     category: 'ancient',
-    desc: 'Gigantic geometric desert vectors aligned with celestial stellar risings and solstices.',
+    desc: 'The Nazca Lines include large geoglyphs and straight lines. Proposed astronomical targets vary by study and should be tested against a defined survey dataset rather than assumed.',
   },
   {
     id: 'tokyo',
@@ -94,7 +94,7 @@ export const DEFAULT_EARTH_POINTS: EarthPoint[] = [
     lon: 139.6503,
     color: '#8b5cf6',
     category: 'custom',
-    desc: 'Eastern Hemisphere audio-astronomy node at 139°E longitude.',
+    desc: 'Modern reference location only. The label \'audio-astronomy hub\' is an app category, not a documented historical or astronomical property.',
   },
 ];
 
