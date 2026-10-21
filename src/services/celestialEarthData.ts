@@ -82,7 +82,41 @@ export async function resolveStarAstrometry(
   }
 }
 
-/** Calculate the star's substellar point using UTC and Greenwich Mean Sidereal Time. */
+let iersDailyCache: { fetchedAt: number; rows: Array<{ mjd: number; dut1: number }> } | null = null;
+
+/** Fast, optional IERS daily Earth-orientation correction. Falls back to UTC-only GMST if unavailable. */
+export async function fetchIersDut1Seconds(date: Date): Promise<number | null> {
+  if (date.getUTCFullYear() !== new Date().getUTCFullYear()) return null;
+  if (iersDailyCache && Date.now() - iersDailyCache.fetchedAt < 6 * 60 * 60 * 1000) {
+    const mjd = date.getTime() / 86400000 + 40587;
+    const row = iersDailyCache.rows.reduce((best, item) => Math.abs(item.mjd - mjd) < Math.abs(best.mjd - mjd) ? item : best);
+    return Math.abs(row.mjd - mjd) <= 2 ? row.dut1 : null;
+  }
+  try {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 1600);
+    try {
+      const response = await fetch('https://datacenter.iers.org/products/eop/rapid/daily/finals2000A.daily', { signal: controller.signal });
+      if (!response.ok) return null;
+      const lines = (await response.text()).split(/\\r?\\n/);
+      const rows = lines.map((line) => {
+        const fields = line.trim().split(/\\s+/);
+        return { mjd: Number(fields[2]), dut1: Number(fields[9]) };
+      }).filter((row) => Number.isFinite(row.mjd) && Number.isFinite(row.dut1));
+      if (!rows.length) return null;
+      iersDailyCache = { fetchedAt: Date.now(), rows };
+      const mjd = date.getTime() / 86400000 + 40587;
+      const row = rows.reduce((best, item) => Math.abs(item.mjd - mjd) < Math.abs(best.mjd - mjd) ? item : best);
+      return Math.abs(row.mjd - mjd) <= 2 ? row.dut1 : null;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Calculate the star's substellar point using UTC, GMST, and optional IERS UT1−UTC correction. */
 export function calculateSubstellarPoint(raDeg: number, decDeg: number, date: Date, source: string): EarthTarget {
   const jd = date.getTime() / 86_400_000 + 2440587.5;
   const t = (jd - 2451545.0) / 36525;
