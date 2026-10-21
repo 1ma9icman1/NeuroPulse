@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Globe3D from 'react-globe.gl';
+import { EarthSiteExplorer, EarthSiteSelection } from './EarthSiteExplorer';
 import {
   CameraView,
   SpatialPosition,
@@ -154,6 +155,37 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [earthLocateLoading, setEarthLocateLoading] = useState(false);
   const [earthLocateImageLoading, setEarthLocateImageLoading] = useState(false);
   const [earthMapView, setEarthMapView] = useState<'map' | 'terrain' | 'satellite'>('map');
+  const [selectedEarthSite, setSelectedEarthSite] = useState<EarthSiteSelection | null>(null);
+  const openEarthSite = (site: EarthSiteSelection) => {
+    setSelectedEarthSite(site);
+    onUpdateCameraView('top');
+    window.setTimeout(() => globeRef.current?.pointOfView({ lat: site.lat, lng: site.lon, altitude: 0.48 }, 850), 150);
+  };
+  const getEarthSiteDescription = (name: string) => {
+    const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === name.toLowerCase() || name.toLowerCase().includes(point.name.toLowerCase()) || point.name.toLowerCase().includes(name.toLowerCase()));
+    if (known) return known.desc;
+    const descriptions: Record<string, string> = {
+      'Göbekli Tepe': 'Pre-Pottery Neolithic archaeological site in southeastern Türkiye, known for monumental T-shaped pillars and carved stone enclosures. The plotted era is approximate.',
+      'Stonehenge': 'Prehistoric monument in Wiltshire, England. Its solstitial axis is widely studied; a specific star or frequency link needs separate measured evidence.',
+      'Great Pyramid of Giza': 'Old Kingdom pyramid at Giza, Egypt. Coordinates are approximate; proposed star correlations should be tested against surveyed axes and a dated sky model.',
+      'Giza Plateau': 'Archaeological landscape containing the Great Pyramid and other monuments. This marker represents the plateau area, not a single exact structure.',
+      'Chichén Itzá': 'Maya archaeological city in Yucatán, Mexico. El Castillo is a stepped pyramid; claims about acoustic or sky alignments require site-specific evidence.',
+      'Teotihuacan': 'Ancient Mesoamerican city with monumental architecture and studied urban orientations. A specific frequency match is not established by location alone.',
+      'Newgrange': 'Neolithic passage tomb in Ireland, famous for winter-solstice sunrise illumination of its inner chamber.',
+      'Carnac Stones': 'Prehistoric megalithic alignments in Brittany, France. A particular celestial or frequency meaning requires evidence.',
+      'Jericho': 'Tell es-Sultan contains long-lived settlement remains in the Jordan Valley. The plotted date is an approximate era marker.',
+      'Çatalhöyük': 'Neolithic settlement in central Anatolia, known for dense mudbrick housing and extensive archaeological remains.',
+      'Angkor Wat': 'Large temple complex in Cambodia, built during the Khmer Empire period. Interpretations should be separated from documented architecture.',
+      'Mohenjo-daro': 'Major Indus Valley Civilization urban site in present-day Pakistan, noted for planned streets and baked-brick architecture.',
+      'Machu Picchu': 'Inca site in the Andes of Peru, known for stone architecture and its mountain setting.',
+      'Petra': 'Nabataean city in present-day Jordan, with rock-cut architecture and water-management systems.',
+      'Persepolis': 'Ceremonial capital of the Achaemenid Persian Empire, with monumental stone terraces and reliefs.',
+      'Great Zimbabwe': 'Medieval stone-built urban and political center in southern Africa.',
+      'Nan Madol': 'Historic ceremonial and administrative center built on artificial islets in Pohnpei, Micronesia.',
+      'Tenochtitlan': 'Mexica capital founded on an island in Lake Texcoco; much of the historic city lies beneath modern Mexico City.'
+    };
+    return descriptions[name] || 'Geographic reference marker. A documented date, measured architectural orientation, and source-backed acoustic or astronomical data are needed before assigning a specific frequency relationship.';
+  };
 
   const handleLocateStarOnEarth = async (star: CelestialStar) => {
     setEarthLocateLoading(true);
@@ -815,9 +847,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       if (isStarModeActive) {
         // Draw Constellation Lines
         ctx.save();
-        ctx.strokeStyle = 'rgba(147, 197, 253, 0.22)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([3, 4]);
+        const pulsePhase = (performance.now() / 70) % 18;
+        ctx.strokeStyle = 'rgba(147, 197, 253, 0.34)';
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = '#60a5fa';
+        ctx.shadowBlur = 8;
+        ctx.setLineDash([5, 5]);
+        ctx.lineDashOffset = -pulsePhase;
 
         CONSTELLATION_EDGES.forEach(([s1Id, s2Id]) => {
           const s1 = REAL_CELESTIAL_STARS.find((s) => s.id === s1Id);
@@ -834,6 +870,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           }
         });
         ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
         ctx.restore();
 
         // Draw Real Stars
@@ -2049,11 +2086,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               showGraticules={false} showAtmosphere={earthAtmosphere}
               pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-              pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'}`} />
+              pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
+              onPointClick={(d: any) => openEarthSite(d)} />
           </div>
         </div>
       )}
       <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
+
+      <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} />
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
       <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
