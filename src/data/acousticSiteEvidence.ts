@@ -91,4 +91,36 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     caveat: 'This record refers to Hagia Sophia in Thessaloniki, Greece—not Istanbul. T60 is reverberation time at the 500 Hz test band, not a natural resonance frequency.',
     sources: [{ label: 'Archaeoacoustics around the World: A Literature Review (2016–2022)', url: 'https://doi.org/10.3390/app13042361', year: 2023, publication: 'Applied Sciences 13(4), 2361; Table 2 measurement summary' }]
   }
+
+  {
+    id: 'newgrange-chamber-resonance', name: 'Newgrange Passage Tomb — central chamber', lat: 53.6947, lon: -6.4756,
+    region: 'County Meath, Ireland', period: 'Neolithic passage tomb, c. 3200 BCE',
+    measuredFrequenciesHz: [110], researchBandHz: 110, status: 'published-measurement',
+    summary: 'A 1996 archaeoacoustic study reported a primary chamber resonance at approximately 110 Hz at Newgrange.',
+    measurementContext: 'Reported chamber resonance: approximately 110 Hz. This is a site-specific acoustic report, not evidence of a universal or astronomical 110 Hz signal.',
+    measurements: [{ parameter: 'Primary chamber resonance', frequencyHz: 110, reportedValue: 110, unit: 'Hz', method: 'Acoustic resonance measurements of chambered prehistoric monuments; value reported approximately in the published literature' }],
+    caveat: 'Approximate reported value. Re-measurement under documented conditions would be needed to assess uncertainty and reproducibility.',
+    sources: [{ label: 'Jahn, Devereux & Ibison (1996), Resonance in ancient structures', url: 'https://doi.org/10.1121/1.415990', year: 1996, publication: 'Journal of the Acoustical Society of America 99, 649–658' },
+      { label: 'Cook, Pajot & Leuchter (2008), Ancient Architectural Acoustic Resonance Patterns and Regional Brain Activity', url: 'https://doi.org/10.2752/175169608783489099', year: 2008, publication: 'Time and Mind 1(1), 95–104' }]
+  },
+  {
+    id: 'stonehenge-chamber-acoustics', name: 'Stonehenge — acoustic model / resonance study', lat: 51.1789, lon: -1.8262,
+    region: 'Wiltshire, England', period: 'Late Neolithic to Bronze Age monument',
+    measuredFrequenciesHz: [114], status: 'published-measurement',
+    summary: 'An exploratory acoustic modelling source reports an approximately 114 Hz relationship for Stonehenge; this is not a direct field measurement of an enclosed chamber.',
+    measurementContext: 'The cited project compares predicted cavity dimensions with archaeological measurements and lists Stonehenge at approximately 114 Hz. This is model-based/exploratory evidence, not the same evidence class as a measured enclosed chamber resonance.',
+    measurements: [{ parameter: 'Modelled acoustic frequency', frequencyHz: 114, reportedValue: 114, unit: 'Hz', method: 'Exploratory acoustic model compared against monument dimensions; not a controlled in-situ resonance measurement' }],
+    caveat: 'Not a direct, controlled resonance measurement; avoid treating the approximate frequency as proof of intended tuning.',
+    sources: [{ label: 'The Song of the Stone — ALBA Project', url: 'https://alba-project.org/song-of-the-stone/', year: 2026, publication: 'Exploratory acoustic model and site-dimension comparison' }]
+  },
+  {
+    id: 'el-castillo-cave-amplification', name: 'El Castillo Cave — 108–110 Hz amplification band', lat: 43.2967, lon: -3.9994,
+    region: 'Cantabria, Spain', period: 'Palaeolithic cave with evidence of prehistoric activity',
+    measuredFrequenciesHz: [108, 110], researchBandHz: 110, status: 'published-measurement',
+    summary: 'An archaeoacoustic study reported frequency-dependent amplification near 100 Hz, with the greatest effect at 108 and 110 Hz in a tested cave setup.',
+    measurementContext: 'The study used simulated tones emitted at a proposed ritual location and recorded them at a likely audience position. The result is frequency-dependent sound amplification in the tested setup, not proof of a single intrinsic cave resonance or ancient tuning intent.',
+    measurements: [{ parameter: 'Amplification test frequency', frequencyHz: 108, reportedValue: 108, unit: 'Hz', method: 'Simulated-tone playback and recorded sound-intensity comparison' }, { parameter: 'Amplification test frequency', frequencyHz: 110, reportedValue: 110, unit: 'Hz', method: 'Simulated-tone playback and recorded sound-intensity comparison' }],
+    caveat: 'Setup-specific amplification, not proof that the cave produces a fixed 110 Hz resonance. Repeat measurements and geometry controls matter.',
+    sources: [{ label: 'Gaona et al. (2014), Archaeoacoustic Investigation of a Prehistoric Cave Site: Frequency-Dependent Sound Amplification and Potential Relevance for Neurotheology', url: 'https://doi.org/10.14704/nq.2014.12.4.772', year: 2014, publication: 'NeuroQuantology 12(4)' }]
+  },
 ];
