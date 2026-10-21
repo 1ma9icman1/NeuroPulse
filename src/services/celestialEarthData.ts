@@ -117,8 +117,8 @@ export async function fetchIersDut1Seconds(date: Date): Promise<number | null> {
 }
 
 /** Calculate the star's substellar point using UTC, GMST, and optional IERS UT1−UTC correction. */
-export function calculateSubstellarPoint(raDeg: number, decDeg: number, date: Date, source: string): EarthTarget {
-  const jd = date.getTime() / 86_400_000 + 2440587.5;
+export function calculateSubstellarPoint(raDeg: number, decDeg: number, date: Date, source: string, dut1Seconds = 0): EarthTarget {
+  const jd = date.getTime() / 86_400_000 + 2440587.5 + dut1Seconds / 86400;
   const t = (jd - 2451545.0) / 36525;
   const gmst = ((280.46061837 + 360.98564736629 * (jd - 2451545.0)
     + 0.000387933 * t * t - (t * t * t) / 38710000) % 360 + 360) % 360;
