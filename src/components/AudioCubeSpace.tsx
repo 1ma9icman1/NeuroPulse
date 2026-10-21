@@ -104,7 +104,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Star Celestial Alignment Mode
-  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(false);
+  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
   const [selectedStarPreset, setSelectedStarPreset] = useState<string>('orion-sirius-meridian');
   const [starAId, setStarAId] = useState<string>('betelgeuse');
   const [starBId, setStarBId] = useState<string>('rigel');
@@ -177,6 +177,32 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     }
   };
 
+  // Real celestial coordinates: right ascension and declination -> 3D unit-sphere vector.
+  const celestialPosition = (star: CelestialStar, radius = 7.8): SpatialPosition => {
+    const ra = (star.raDeg * Math.PI) / 180;
+    const dec = (star.decDeg * Math.PI) / 180;
+    return { x: radius * Math.cos(dec) * Math.cos(ra), y: radius * Math.sin(dec), z: radius * Math.cos(dec) * Math.sin(ra) };
+  };
+
+  // Initialize the selected real-star alignment on load; later user selections remain interactive.
+  useEffect(() => {
+    const preset = STAR_ALIGNMENT_PRESETS.find((item) => item.id === selectedStarPreset);
+    if (!preset) return;
+    const starA = REAL_CELESTIAL_STARS.find((star) => star.id === preset.starAId);
+    const starB = REAL_CELESTIAL_STARS.find((star) => star.id === preset.starBId);
+    const starC = REAL_CELESTIAL_STARS.find((star) => star.id === preset.starCId);
+    setStarAId(preset.starAId);
+    setStarBId(preset.starBId);
+    setStarCId(preset.starCId);
+    if (starA) onUpdateAPos(celestialPosition(starA));
+    if (starB) onUpdateBPos(celestialPosition(starB));
+    if (starC) onUpdateCPos(celestialPosition(starC));
+    setLockedChannels({ a: true, b: true, c: true });
+    setClickedStarCount(3);
+  // Intentional one-time setup only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Handle Image Upload for Top Plane
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -222,17 +248,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
     if (channel === 'a') {
       setStarAId(star.id);
-      onUpdateAPos({ x: star.x, y: star.y, z: star.z });
+      onUpdateAPos(celestialPosition(star));
       setLockedChannels((prev) => ({ ...prev, a: true }));
       setSnapTargetChannel('b'); // auto-advance to next channel
     } else if (channel === 'b') {
       setStarBId(star.id);
-      onUpdateBPos({ x: star.x, y: star.y, z: star.z });
+      onUpdateBPos(celestialPosition(star));
       setLockedChannels((prev) => ({ ...prev, b: true }));
       setSnapTargetChannel('c'); // auto-advance to next channel
     } else if (channel === 'c') {
       setStarCId(star.id);
-      onUpdateCPos({ x: star.x, y: star.y, z: star.z });
+      onUpdateCPos(celestialPosition(star));
       setLockedChannels((prev) => ({ ...prev, c: true }));
       setSnapTargetChannel('a'); // loop back to 'a'
     }
@@ -263,9 +289,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const starB = REAL_CELESTIAL_STARS.find((s) => s.id === p.starBId);
     const starC = REAL_CELESTIAL_STARS.find((s) => s.id === p.starCId);
 
-    if (starA) onUpdateAPos({ x: starA.x, y: starA.y, z: starA.z });
-    if (starB) onUpdateBPos({ x: starB.x, y: starB.y, z: starB.z });
-    if (starC) onUpdateCPos({ x: starC.x, y: starC.y, z: starC.z });
+    if (starA) onUpdateAPos(celestialPosition(starA));
+    if (starB) onUpdateBPos(celestialPosition(starB));
+    if (starC) onUpdateCPos(celestialPosition(starC));
 
     // Lock all 3 to stay at the astrometric star positions
     setLockedChannels({ a: true, b: true, c: true });
@@ -414,25 +440,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
-      // 2. Star Background Particles (When Star Mode is active)
-      if (isStarModeActive) {
-        ctx.save();
-        for (let i = 0; i < 60; i++) {
-          const fakeRa = (i * 37) % 360;
-          const fakeDec = ((i * 59) % 180) - 90;
-          const radR = (fakeRa * Math.PI) / 180;
-          const radD = (fakeDec * Math.PI) / 180;
-          const fx = 7.8 * Math.cos(radD) * Math.sin(radR);
-          const fy = 7.8 * Math.sin(radD);
-          const fz = 7.8 * Math.cos(radD) * Math.cos(radR);
-          const fp = project3D(fx, fy, fz, width, height);
-          ctx.fillStyle = i % 3 === 0 ? 'rgba(165, 201, 255, 0.4)' : 'rgba(255, 255, 255, 0.25)';
-          ctx.beginPath();
-          ctx.arc(fp.sx, fp.sy, (i % 2 === 0 ? 1.0 : 0.6) * fp.depthScale, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
-      }
+      // No synthetic background particles: render catalogued celestial objects only.
 
       // 3. Draw 3D AudioCube Room Wireframe
       ctx.lineWidth = 1;
@@ -501,6 +509,85 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         });
       }
 
+      // Earth as the Universe Core. Use spherical lat/lon geometry and current Greenwich sidereal time.
+      const jd = Date.now() / 86400000 + 2440587.5;
+      const centuries = (jd - 2451545.0) / 36525.0;
+      const gmstDeg = ((280.46061837 + 360.98564736629 * (jd - 2451545.0) +
+        0.000387933 * centuries * centuries - centuries * centuries * centuries / 38710000) % 360 + 360) % 360;
+      const earthRadius = 3.35;
+      const earthPoint = (lat: number, lon: number, radius = earthRadius) =>
+        latLonToCartesian(lat, lon, radius, gmstDeg, 23.439281);
+      const cameraFront = (p: { x: number; y: number; z: number }) => {
+        const yaw = (cameraYaw * Math.PI) / 180;
+        const pitch = (cameraPitch * Math.PI) / 180;
+        const rz = p.x * Math.sin(yaw) + p.z * Math.cos(yaw);
+        const rz2 = p.y * Math.sin(pitch) + rz * Math.cos(pitch);
+        return rz2 < 0.15;
+      };
+      const earthCenter = project3D(0, 0, 0, width, height);
+      const earthEdge = project3D(earthRadius, 0, 0, width, height);
+      const earthScreenRadius = Math.hypot(earthEdge.sx - earthCenter.sx, earthEdge.sy - earthCenter.sy);
+      ctx.save();
+      const earthGradient = ctx.createRadialGradient(
+        earthCenter.sx - earthScreenRadius * 0.32, earthCenter.sy - earthScreenRadius * 0.35,
+        earthScreenRadius * 0.08, earthCenter.sx, earthCenter.sy, earthScreenRadius
+      );
+      earthGradient.addColorStop(0, '#176b91');
+      earthGradient.addColorStop(0.58, '#0b385d');
+      earthGradient.addColorStop(1, '#061426');
+      ctx.beginPath();
+      ctx.arc(earthCenter.sx, earthCenter.sy, earthScreenRadius, 0, Math.PI * 2);
+      ctx.fillStyle = earthGradient;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(103, 232, 249, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = '#0891b2';
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      const traceEarthLine = (coords: [number, number][], stroke: string, lineWidth: number) => {
+        ctx.beginPath();
+        let previousVisible = false;
+        for (const [lat, lon] of coords) {
+          const v = earthPoint(lat, lon);
+          const visible = cameraFront(v);
+          const p = project3D(v.x, v.y, v.z, width, height);
+          if (visible) {
+            if (!previousVisible) ctx.moveTo(p.sx, p.sy);
+            else ctx.lineTo(p.sx, p.sy);
+          }
+          previousVisible = visible;
+        }
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+      };
+      for (let lat = -60; lat <= 60; lat += 30) {
+        const line: [number, number][] = [];
+        for (let lon = -180; lon <= 180; lon += 4) line.push([lat, lon]);
+        traceEarthLine(line, 'rgba(125, 211, 252, 0.28)', 0.65);
+      }
+      for (let lon = -180; lon < 180; lon += 30) {
+        const line: [number, number][] = [];
+        for (let lat = -88; lat <= 88; lat += 3) line.push([lat, lon]);
+        traceEarthLine(line, 'rgba(125, 211, 252, 0.28)', 0.65);
+      }
+      CONTINENTAL_COASTLINES.forEach((polygon) => traceEarthLine(polygon, 'rgba(45, 212, 191, 0.9)', 1.15));
+      DEFAULT_EARTH_POINTS.forEach((point) => {
+        const v = earthPoint(point.lat, point.lon, earthRadius * 1.008);
+        if (!cameraFront(v)) return;
+        const p = project3D(v.x, v.y, v.z, width, height);
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = point.color;
+        ctx.shadowColor = point.color;
+        ctx.shadowBlur = 7;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+      ctx.restore();
+
       // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
       const centerPt = project3D(0, 0, 0, width, height);
       const listenerFloor = project3D(0, -bound, 0, width, height);
@@ -566,8 +653,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           const s1 = REAL_CELESTIAL_STARS.find((s) => s.id === s1Id);
           const s2 = REAL_CELESTIAL_STARS.find((s) => s.id === s2Id);
           if (s1 && s2) {
-            const p1 = project3D(s1.x, s1.y, s1.z, width, height);
-            const p2 = project3D(s2.x, s2.y, s2.z, width, height);
+            const p1v = celestialPosition(s1);
+            const p2v = celestialPosition(s2);
+            const p1 = project3D(p1v.x, p1v.y, p1v.z, width, height);
+            const p2 = project3D(p2v.x, p2v.y, p2v.z, width, height);
             ctx.beginPath();
             ctx.moveTo(p1.sx, p1.sy);
             ctx.lineTo(p2.sx, p2.sy);
@@ -579,7 +668,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
         // Draw Real Stars
         REAL_CELESTIAL_STARS.forEach((star) => {
-          const sp = project3D(star.x, star.y, star.z, width, height);
+          const starPosition = celestialPosition(star);
+          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const isAssignedA = star.id === starAId;
           const isAssignedB = star.id === starBId;
           const isAssignedC = star.id === starCId;
@@ -622,7 +712,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         const drawTether = (starId: string, puckPos: SpatialPosition, color: string) => {
           const star = REAL_CELESTIAL_STARS.find((s) => s.id === starId);
           if (!star) return;
-          const sp = project3D(star.x, star.y, star.z, width, height);
+          const starPosition = celestialPosition(star);
+          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const pp = project3D(puckPos.x, puckPos.y, puckPos.z, width, height);
 
           // Ray from Center to Star
@@ -902,7 +993,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       // 8. Hovered Star Info Card (if hovered)
       if (isStarModeActive && hoveredStar && !clickedStar) {
-        const hp = project3D(hoveredStar.x, hoveredStar.y, hoveredStar.z, width, height);
+        const hoverPosition = celestialPosition(hoveredStar);
+        const hp = project3D(hoverPosition.x, hoverPosition.y, hoverPosition.z, width, height);
         ctx.save();
         ctx.fillStyle = 'rgba(6, 10, 18, 0.94)';
         ctx.strokeStyle = '#facc15';
@@ -975,7 +1067,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     // 1. Check if user clicked directly on any real star
     if (isStarModeActive) {
       for (const star of REAL_CELESTIAL_STARS) {
-        const sp = project3D(star.x, star.y, star.z, width, height);
+        const starPosition = celestialPosition(star);
+          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
         if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
           // Snap currently selected target channel to this star and stay there!
           handleSnapChannelToStar(snapTargetChannel, star);
@@ -1104,7 +1197,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       if (isStarModeActive) {
         let found: CelestialStar | null = null;
         for (const star of REAL_CELESTIAL_STARS) {
-          const sp = project3D(star.x, star.y, star.z, width, height);
+          const starPosition = celestialPosition(star);
+          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
             found = star;
             break;
