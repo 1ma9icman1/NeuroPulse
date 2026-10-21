@@ -149,17 +149,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [show110HzResearchComets, setShow110HzResearchComets] = useState<boolean>(false);
   const [moonOrbitPhase, setMoonOrbitPhase] = useState<number>(0);
   const setAllConstellations = (enabled: boolean) => setConstellationsEnabled(Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, enabled])));
-  const isConstellationEnabled = (name: string) => constellationsEnabled[name] !== false;
-  useEffect(() => {
-    let frame = 0;
-    let last = 0;
-    const animateMoon = (now: number) => {
-      if (now - last > 45) { last = now; setMoonOrbitPhase((phase) => (phase + 0.004) % (Math.PI * 2)); }
-      frame = requestAnimationFrame(animateMoon);
-    };
-    frame = requestAnimationFrame(animateMoon);
-    return () => cancelAnimationFrame(frame);
-  }, []);
+  const isConstellationEnabled = (name: string) => constellationsEnabled[name === 'Boötes' ? 'Bootes' : name] !== false;
   // Historical sky timeline spanning the last 12,000 years.
   const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
@@ -532,6 +522,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const cx = width / 2;
       const cy = height / 2;
       const baseScale = Math.min(width, height) * 0.042 * cameraZoom;
+      const moonOrbitPhase = (performance.now() / 15000) % (Math.PI * 2);
 
       ctx.save();
       ctx.scale(dpr, dpr);
@@ -1281,7 +1272,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     isStarModeActive,
     constellationsEnabled,
     show110HzResearchComets,
-    moonOrbitPhase,
     showDetailedStarInfo,
     isEarthModeActive,
     timelineYear,
@@ -2157,7 +2147,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               onPointClick={(d: any) => openEarthSite(d)} />
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH CANDIDATES · UNVERIFIED RESONANCE</span></div>}
             <div className="absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden">
-              <div className="relative w-[min(74vmin,76%)] aspect-square rounded-full border border-slate-300/20">
+              <div className="relative w-[min(74vmin,76%)] aspect-square rounded-full border border-slate-300/20 animate-[spin_27s_linear_infinite]">
                 <div className="absolute inset-0 rounded-full border border-dashed border-slate-400/15" />
                 <div className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-gradient-to-br from-slate-100 via-slate-400 to-slate-700 shadow-[0_0_18px_rgba(226,232,240,.65)] animate-pulse"><span className="absolute top-7 right-[-28px] whitespace-nowrap text-[9px] font-mono text-slate-200 drop-shadow">MOON · orbit compressed</span></div>
               </div>
