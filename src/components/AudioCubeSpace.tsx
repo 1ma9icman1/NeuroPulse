@@ -181,12 +181,26 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     }
   };
 
-  // First-order general-precession visualization (~50.29 arcsec/year); not a precision model over 12 millennia.
+  // First-order general-precession visualization (~50.29 arcsec/year): shift ecliptic
+  // longitude, then transform back to equatorial XYZ. This is illustrative, not a precision
+  // IAU/astrometry solution over 12 millennia.
   const celestialPosition = (star: CelestialStar, radius = 7.8): SpatialPosition => {
-    const precessionRad = (timelineYearsAgo * 50.29 / 3600) * Math.PI / 180;
-    const ra = (star.raDeg * Math.PI) / 180 + precessionRad;
+    const ra = (star.raDeg * Math.PI) / 180;
     const dec = (star.decDeg * Math.PI) / 180;
-    return { x: radius * Math.cos(dec) * Math.cos(ra), y: radius * Math.sin(dec), z: radius * Math.cos(dec) * Math.sin(ra) };
+    const eps = 23.439281 * Math.PI / 180;
+    const eqX = Math.cos(dec) * Math.cos(ra);
+    const eqY = Math.cos(dec) * Math.sin(ra);
+    const eqZ = Math.sin(dec);
+    const eclY = eqY * Math.cos(eps) + eqZ * Math.sin(eps);
+    const eclZ = -eqY * Math.sin(eps) + eqZ * Math.cos(eps);
+    const eclLon = Math.atan2(eclY, eqX) + (timelineYearsAgo * 50.29 / 3600) * Math.PI / 180;
+    const eclLat = Math.asin(Math.max(-1, Math.min(1, eclZ)));
+    const x = Math.cos(eclLat) * Math.cos(eclLon);
+    const yEcl = Math.cos(eclLat) * Math.sin(eclLon);
+    const zEcl = Math.sin(eclLat);
+    const y = yEcl * Math.cos(eps) - zEcl * Math.sin(eps);
+    const z = yEcl * Math.sin(eps) + zEcl * Math.cos(eps);
+    return { x: radius * x, y: radius * y, z: radius * z };
   };
 
   // Initialize the selected real-star alignment on load; later user selections remain interactive.
