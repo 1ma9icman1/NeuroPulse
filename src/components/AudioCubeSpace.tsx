@@ -110,65 +110,28 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [earthZoom, setEarthZoom] = useState(3);
   const [earthGrid, setEarthGrid] = useState(true);
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
-  const [selectedEarthSite, setSelectedEarthSite] = useState<any>(null);
-  const [earthSiteImage, setEarthSiteImage] = useState<string | null>(null);
-  const [earthSiteSummary, setEarthSiteSummary] = useState<string>('');
-  const [earthSiteImageLoading, setEarthSiteImageLoading] = useState(false);
   const handleToggleEarthMode = () => setIsEarthModeActive((active) => !active);
-  // Images and short descriptions are loaded from Wikipedia's public REST endpoint; no API key required.
   const earthSites = [
-    { name: 'Göbekli Tepe', wiki: 'Göbekli_Tepe', lat: 37.223, lon: 38.922, year: -9600 },
-    { name: 'Jericho', wiki: 'Jericho', lat: 31.871, lon: 35.444, year: -9000 },
-    { name: 'Çatalhöyük', wiki: 'Çatalhöyük', lat: 37.668, lon: 32.828, year: -7100 },
-    { name: 'Nabta Playa', wiki: 'Nabta_Playa', lat: 22.507, lon: 30.733, year: -7000 },
-    { name: 'Carnac Stones', wiki: 'Carnac_stones', lat: 47.584, lon: -3.079, year: -4500 },
-    { name: 'Newgrange', wiki: 'Newgrange', lat: 53.694, lon: -6.475, year: -3200 },
-    { name: 'Stonehenge', wiki: 'Stonehenge', lat: 51.1789, lon: -1.8262, year: -3000 },
-    { name: 'Great Pyramid of Giza', wiki: 'Great_Pyramid_of_Giza', lat: 29.9792, lon: 31.1342, year: -2600 },
-    { name: 'Mohenjo-daro', wiki: 'Mohenjo-daro', lat: 27.329, lon: 68.138, year: -2500 },
-    { name: 'Petra', wiki: 'Petra', lat: 30.328, lon: 35.444, year: -300 },
-    { name: 'Persepolis', wiki: 'Persepolis', lat: 29.935, lon: 52.891, year: -518 },
-    { name: 'Teotihuacan', wiki: 'Teotihuacan', lat: 19.6925, lon: -98.8438, year: 100 },
-    { name: 'Chichén Itzá', wiki: 'Chichen_Itza', lat: 20.6843, lon: -88.5678, year: 600 },
-    { name: 'Angkor Wat', wiki: 'Angkor_Wat', lat: 13.4125, lon: 103.867, year: 1150 },
-    { name: 'Great Zimbabwe', wiki: 'Great_Zimbabwe', lat: -20.267, lon: 30.933, year: 1100 },
-    { name: 'Nan Madol', wiki: 'Nan_Madol', lat: 6.844, lon: 158.333, year: 1200 },
-    { name: 'Tenochtitlan', wiki: 'Tenochtitlan', lat: 19.4326, lon: -99.1332, year: 1325 },
-    { name: 'Machu Picchu', wiki: 'Machu_Picchu', lat: -13.1631, lon: -72.545, year: 1450 },
-    { name: 'Poverty Point', wiki: 'Poverty_Point', lat: 32.636, lon: -91.406, year: -1700 },
-    { name: 'Mesa Verde', wiki: 'Mesa_Verde_National_Park', lat: 37.23, lon: -108.49, year: 600 },
-    { name: 'Cahokia', wiki: 'Cahokia', lat: 38.655, lon: -90.061, year: 1050 },
-    { name: 'Great Zimbabwe Ruins', wiki: 'Great_Zimbabwe', lat: -20.267, lon: 30.933, year: 1100 },
-    { name: 'Hampi', wiki: 'Hampi', lat: 15.335, lon: 76.46, year: 1336 },
-    { name: 'Borobudur', wiki: 'Borobudur', lat: -7.6079, lon: 110.2038, year: 800 },
-    { name: 'Baalbek', wiki: 'Baalbek', lat: 34.0069, lon: 36.2039, year: -100 },
-    { name: 'Easter Island Moai', wiki: 'Moai', lat: -27.1127, lon: -109.3497, year: 1200 },
+    { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, year: -9600 },
+    { name: 'Jericho', lat: 31.871, lon: 35.444, year: -9000 },
+    { name: 'Çatalhöyük', lat: 37.668, lon: 32.828, year: -7100 },
+    { name: 'Nabta Playa', lat: 22.507, lon: 30.733, year: -7000 },
+    { name: 'Carnac Stones', lat: 47.584, lon: -3.079, year: -4500 },
+    { name: 'Newgrange', lat: 53.694, lon: -6.475, year: -3200 },
+    { name: 'Stonehenge', lat: 51.1789, lon: -1.8262, year: -3000 },
+    { name: 'Great Pyramid of Giza', lat: 29.9792, lon: 31.1342, year: -2600 },
+    { name: 'Mohenjo-daro', lat: 27.329, lon: 68.138, year: -2500 },
+    { name: 'Petra', lat: 30.328, lon: 35.444, year: -300 },
+    { name: 'Persepolis', lat: 29.935, lon: 52.891, year: -518 },
+    { name: 'Teotihuacan', lat: 19.6925, lon: -98.8438, year: 100 },
+    { name: 'Chichén Itzá', lat: 20.6843, lon: -88.5678, year: 600 },
+    { name: 'Angkor Wat', lat: 13.4125, lon: 103.867, year: 1150 },
+    { name: 'Great Zimbabwe', lat: -20.267, lon: 30.933, year: 1100 },
+    { name: 'Nan Madol', lat: 6.844, lon: 158.333, year: 1200 },
+    { name: 'Tenochtitlan', lat: 19.4326, lon: -99.1332, year: 1325 },
+    { name: 'Machu Picchu', lat: -13.1631, lon: -72.545, year: 1450 },
   ];
   useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: earthZoom }, 250); }, [isEarthModeActive, earthZoom]);
-
-  useEffect(() => {
-    if (!selectedEarthSite) return;
-    let cancelled = false;
-    setEarthSiteImage(null);
-    setEarthSiteSummary('');
-    setEarthSiteImageLoading(true);
-    const page = encodeURIComponent(selectedEarthSite.wiki || selectedEarthSite.name.replace(/ /g, '_'));
-    fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${page}`)
-      .then((response) => {
-        if (!response.ok) throw new Error('No article summary available');
-        return response.json();
-      })
-      .then((data) => {
-        if (cancelled) return;
-        setEarthSiteImage(data.thumbnail?.source || data.originalimage?.source || null);
-        setEarthSiteSummary(data.extract || 'Explore this historical place and its archaeological context.');
-      })
-      .catch(() => {
-        if (!cancelled) setEarthSiteSummary('Image preview unavailable for this place. Open the reference article to explore available photos.');
-      })
-      .finally(() => { if (!cancelled) setEarthSiteImageLoading(false); });
-    return () => { cancelled = true; };
-  }, [selectedEarthSite]);
 
   useEffect(() => {
     const texture = new Image();
@@ -262,7 +225,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // First-order general-precession visualization (~50.29 arcsec/year): shift ecliptic
   // longitude, then transform back to equatorial XYZ. This is illustrative, not a precision
   // IAU/astrometry solution over 12 millennia.
-  // The 3D-room view uses its original scale. In Earth mode, compress the same celestial direction vectors mathematically so stars/angles sit naturally over the globe instead of appearing miles outside the scene. Distance is a projection scale, not a claim about physical star distance.\n  const celestialPosition = (star: CelestialStar, radius = (isEarthModeActive ? 2.7 : 7.8)): SpatialPosition => {
+  const celestialPosition = (star: CelestialStar, radius = (isEarthModeActive ? 2.7 : 7.8)): SpatialPosition => {
     const ra = (star.raDeg * Math.PI) / 180;
     const dec = (star.decDeg * Math.PI) / 180;
     const eps = 23.439281 * Math.PI / 180;
@@ -1967,8 +1930,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             showGraticules={earthGrid} showAtmosphere={earthAtmosphere}
             pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
             pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-            pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'}`}
-            onPointClick={(point: any) => { setSelectedEarthSite(point); setIsEarthModeActive(true); }} />
+            pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'}`} />
         </div>
       )}
       <canvas ref={canvasRef} onPointerDown={isEarthModeActive ? undefined : handlePointerDown} onPointerMove={isEarthModeActive ? undefined : handlePointerMove} onPointerUp={isEarthModeActive ? undefined : handlePointerUp} onPointerCancel={isEarthModeActive ? undefined : handlePointerUp} onWheel={isEarthModeActive ? undefined : handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
@@ -1979,27 +1941,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           <label className="mt-1 flex gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={earthAtmosphere} onChange={(e) => setEarthAtmosphere(e.target.checked)} /> Atmosphere</label>
           <div className="mt-2 text-[10px] text-slate-300">Zoom</div><input aria-label="Earth zoom" type="range" min="1.2" max="5" step="0.1" value={earthZoom} onChange={(e) => setEarthZoom(Number(e.target.value))} className="w-36 accent-emerald-400" />
           <div className="text-[9px] text-amber-300">{visibleEarthSites.length} sites for selected year</div>
-          <div className="mt-1 text-[9px] text-slate-400">Tap an orange marker for site photos and history.</div>
-        </div>
-      )}
-      {isEarthModeActive && selectedEarthSite && (
-        <div className="absolute right-3 bottom-20 z-30 w-64 max-h-[48%] overflow-hidden rounded-xl border border-amber-500/40 bg-[#07101d]/95 shadow-2xl backdrop-blur-md">
-          <div className="flex items-center justify-between gap-2 border-b border-slate-800 px-3 py-2">
-            <div className="min-w-0">
-              <div className="truncate text-[10px] font-mono font-bold text-amber-300">{selectedEarthSite.name}</div>
-              <div className="text-[9px] text-slate-400">{selectedEarthSite.year < 0 ? Math.abs(selectedEarthSite.year) + ' BCE' : selectedEarthSite.year + ' CE'} · {selectedEarthSite.lat.toFixed(2)}°, {selectedEarthSite.lon.toFixed(2)}°</div>
-            </div>
-            <button onClick={() => setSelectedEarthSite(null)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close site details"><X className="h-3.5 w-3.5" /></button>
-          </div>
-          {earthSiteImageLoading ? (
-            <div className="flex h-28 items-center justify-center text-[10px] text-slate-400">Loading site image…</div>
-          ) : earthSiteImage ? (
-            <img src={earthSiteImage} alt={selectedEarthSite.name} loading="lazy" className="h-32 w-full object-cover" />
-          ) : (
-            <div className="flex h-20 items-center justify-center px-3 text-center text-[10px] text-slate-400">No preview image returned</div>
-          )}
-          <div className="max-h-24 overflow-auto px-3 py-2 text-[10px] leading-relaxed text-slate-300">{earthSiteSummary}</div>
-          <a href={`https://en.wikipedia.org/wiki/${encodeURIComponent(selectedEarthSite.wiki || selectedEarthSite.name.replace(/ /g, '_'))}`} target="_blank" rel="noreferrer" className="block border-t border-slate-800 px-3 py-2 text-[10px] font-mono text-cyan-300 hover:bg-slate-900">OPEN SITE REFERENCE ↗</a>
         </div>
       )}
 
