@@ -1921,7 +1921,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       {/* Earth stays inside the original space viewport: a centered globe, not a separate full-screen Earth layout. */}
       {isEarthModeActive && (
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-          <div className="relative h-[min(66vw,72vh,680px)] w-[min(66vw,72vh,680px)] max-w-[78%] max-h-[78%]">
+          <div className="relative h-[min(66vw,72vh,680px)] w-[min(66vw,72vh,680px)] max-w-[78%] max-h-[78%] pointer-events-auto">
             <Globe3D ref={globeRef} width={Math.min(containerRef.current?.clientWidth || 800, containerRef.current?.clientHeight || 600) * 0.68}
               height={Math.min(containerRef.current?.clientWidth || 800, containerRef.current?.clientHeight || 600) * 0.68}
               globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
@@ -1934,7 +1934,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
         </div>
       )}
-      <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
+      <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
       <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
