@@ -460,6 +460,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       }
 
       const bound = 8.0;
+      // Shared projection origin: star tethers and angle geometry also render over the Earth globe.
+      const centerPt = project3D(0, 0, 0, width, height);
 
       // 1. Render Top Plane Uploaded Image Overlay (if active)
       if (!isEarthModeActive && overlay.visible && overlayImageRef.current) {
@@ -727,7 +729,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       if (!isEarthModeActive) {
       // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
-      const centerPt = project3D(0, 0, 0, width, height);
       const listenerFloor = project3D(0, -bound, 0, width, height);
 
       // Floor Shadow & Drop line for Observer
@@ -881,7 +882,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         drawTether(starCId, cPos, '#fbbf24');
       }
 
-      if (!isEarthModeActive) {
       // 6. Draw 3D Sound Puck Helper
       const drawPuck = (
         pos: SpatialPosition,
@@ -950,8 +950,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           p.sy - 18
         );
       };
-
-      }
 
       // 7. Draw Trinaural Acoustic Triangular Web between A, B, and C
       const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
@@ -1129,10 +1127,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
-      // Draw Channel A, B, C pucks
-      drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
-      drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
-      drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
+      // Draw Channel A, B, C pucks only in the original spatial-room view.
+      if (!isEarthModeActive) {
+        drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
+        drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
+        drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
+      }
 
       // 8. Hovered Star Info Card (if hovered)
       if (isStarModeActive && hoveredStar && !clickedStar) {
