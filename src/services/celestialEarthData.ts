@@ -40,7 +40,7 @@ export async function resolveStarAstrometry(
   try {
     const adql = `SELECT TOP 1 ra, dec, pmra, pmdec, ref_epoch
       FROM gaiadr3.gaia_source
-      WHERE DISTANCE(POINT('ICRS', ra, dec), POINT('ICRS', ${star.raDeg}, ${star.decDeg})) < 0.08
+      WHERE DISTANCE(POINT('ICRS', ra, dec), POINT('ICRS', ${star.raDeg}, ${star.decDeg})) < 0.02
       AND pmra IS NOT NULL AND pmdec IS NOT NULL
       ORDER BY DISTANCE(POINT('ICRS', ra, dec), POINT('ICRS', ${star.raDeg}, ${star.decDeg})) ASC`;
     const body = new URLSearchParams({ REQUEST: 'doQuery', LANG: 'ADQL', FORMAT: 'json', QUERY: adql });
