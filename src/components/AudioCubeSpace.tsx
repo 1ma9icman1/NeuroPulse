@@ -802,6 +802,47 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         { name: 'Machu Picchu', lat: -13.1631, lon: -72.545, era: 1450 },
         { name: 'Great Zimbabwe', lat: -20.267, lon: 30.933, era: 1100 },
         { name: 'Nan Madol', lat: 6.844, lon: 158.333, era: 1200 },
+        { name: 'Aksum Obelisks', lat: 14.131, lon: 38.718, era: 300 },
+        { name: 'Lalibela Rock-Hewn Churches', lat: 12.031, lon: 39.047, era: 1200 },
+        { name: 'Karnak Temple Complex', lat: 25.7188, lon: 32.6573, era: -2000 },
+        { name: 'Abu Simbel', lat: 22.3372, lon: 31.6258, era: -1264 },
+        { name: 'Dendera Temple', lat: 26.1417, lon: 32.6709, era: -225 },
+        { name: 'Hattusa', lat: 40.0194, lon: 34.6158, era: -1600 },
+        { name: 'Ephesus', lat: 37.939, lon: 27.341, era: -1000 },
+        { name: 'Knossos Palace', lat: 35.298, lon: 25.163, era: -1900 },
+        { name: 'Delphi Sanctuary', lat: 38.4824, lon: 22.501, era: -800 },
+        { name: 'Mycenae', lat: 37.7308, lon: 22.756, era: -1600 },
+        { name: 'Baalbek Temple Complex', lat: 34.0069, lon: 36.2039, era: -100 },
+        { name: 'Ugarit', lat: 35.602, lon: 35.779, era: -1400 },
+        { name: 'Hegra', lat: 26.787, lon: 37.953, era: 100 },
+        { name: 'Taq Kasra', lat: 33.093, lon: 44.580, era: 540 },
+        { name: 'Borobudur', lat: -7.6079, lon: 110.2038, era: 825 },
+        { name: 'Prambanan', lat: -7.752, lon: 110.491, era: 850 },
+        { name: 'Bagan Temples', lat: 21.1717, lon: 94.8585, era: 1000 },
+        { name: 'Sukhothai Historical Park', lat: 17.007, lon: 99.823, era: 1238 },
+        { name: 'Banteay Srei', lat: 13.599, lon: 103.963, era: 967 },
+        { name: 'Sanchi Stupa', lat: 23.4793, lon: 77.7397, era: -250 },
+        { name: 'Ajanta Caves', lat: 20.5519, lon: 75.7033, era: -200 },
+        { name: 'Ellora Caves', lat: 20.0268, lon: 75.179, era: 600 },
+        { name: 'Hampi', lat: 15.335, lon: 76.46, era: 1336 },
+        { name: 'Great Serpent Mound', lat: 39.026, lon: -83.430, era: 1070 },
+        { name: 'Cahokia Mounds', lat: 38.655, lon: -90.062, era: 1050 },
+        { name: 'Mesa Verde Cliff Palace', lat: 37.167, lon: -108.475, era: 1190 },
+        { name: 'Poverty Point', lat: 32.636, lon: -91.409, era: -1700 },
+        { name: 'Caral', lat: -10.892, lon: -77.521, era: -2600 },
+        { name: 'Sacsayhuamán', lat: -13.509, lon: -71.982, era: 1400 },
+        { name: 'Tiwanaku', lat: -16.554, lon: -68.673, era: 500 },
+        { name: 'Puma Punku', lat: -16.56, lon: -68.679, era: 536 },
+        { name: 'Rapa Nui Moai', lat: -27.121, lon: -109.366, era: 1200 },
+        { name: 'Tulum', lat: 20.214, lon: -87.429, era: 1200 },
+        { name: 'Palenque', lat: 17.484, lon: -92.046, era: 226 },
+        { name: 'Uxmal', lat: 20.359, lon: -89.771, era: 700 },
+        { name: 'Monte Albán', lat: 17.043, lon: -96.767, era: -500 },
+        { name: 'Copán', lat: 14.837, lon: -89.142, era: 400 },
+        { name: 'Tikal', lat: 17.222, lon: -89.623, era: 300 },
+        { name: 'Chavín de Huántar', lat: -9.593, lon: -77.178, era: -900 },
+        { name: 'Hovenweep', lat: 37.383, lon: -109.071, era: 500 },
+        { name: 'Mesa Verde Spruce Tree House', lat: 37.160, lon: -108.472, era: 1200 }
       ];
       historicalSites.forEach((site) => {
         if (showAncientStructures && timelineYear >= site.era) {
@@ -2198,10 +2239,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
               showGraticules={false} showAtmosphere={earthAtmosphere}
-              pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
-              pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
+              pointsData={showAncientStructures ? visibleEarthSites : []} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => d.evidenceStatus ? `${d.name} — reported acoustic peaks 70 Hz / 114 Hz · click to explore` : `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
-              htmlElementsData={show110HzResearchComets ? [...visibleEarthSites.filter((site: any) => !site.evidenceStatus), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && site.researchBandHz === 110).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - site.researchBandHz!) <= 10), evidenceStatus: site.status }))] : []}
+              htmlElementsData={show110HzResearchComets && showAncientStructures ? [...visibleEarthSites.filter((site: any) => !site.evidenceStatus), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && site.researchBandHz === 110).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - site.researchBandHz!) <= 10), evidenceStatus: site.status }))] : []}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
               htmlElement={(d: any) => {
                 const marker = document.createElement('div');
