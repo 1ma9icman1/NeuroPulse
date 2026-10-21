@@ -130,6 +130,46 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Nan Madol', lat: 6.844, lon: 158.333, year: 1200 },
     { name: 'Tenochtitlan', lat: 19.4326, lon: -99.1332, year: 1325 },
     { name: 'Machu Picchu', lat: -13.1631, lon: -72.545, year: 1450 },
+    { name: 'Aksum Obelisks', lat: 14.131, lon: 38.718, year: 300 },
+    { name: 'Lalibela Rock-Hewn Churches', lat: 12.031, lon: 39.047, year: 1200 },
+    { name: 'Karnak Temple Complex', lat: 25.7188, lon: 32.6573, year: -2000 },
+    { name: 'Abu Simbel', lat: 22.3372, lon: 31.6258, year: -1264 },
+    { name: 'Dendera Temple', lat: 26.1417, lon: 32.6709, year: -225 },
+    { name: 'Hattusa', lat: 40.0194, lon: 34.6158, year: -1600 },
+    { name: 'Ephesus', lat: 37.939, lon: 27.341, year: -1000 },
+    { name: 'Knossos Palace', lat: 35.298, lon: 25.163, year: -1900 },
+    { name: 'Delphi Sanctuary', lat: 38.4824, lon: 22.501, year: -800 },
+    { name: 'Mycenae', lat: 37.7308, lon: 22.756, year: -1600 },
+    { name: 'Baalbek Temple Complex', lat: 34.0069, lon: 36.2039, year: -100 },
+    { name: 'Ugarit', lat: 35.602, lon: 35.779, year: -1400 },
+    { name: 'Hegra', lat: 26.787, lon: 37.953, year: 100 },
+    { name: 'Taq Kasra', lat: 33.093, lon: 44.580, year: 540 },
+    { name: 'Borobudur', lat: -7.6079, lon: 110.2038, year: 825 },
+    { name: 'Prambanan', lat: -7.752, lon: 110.491, year: 850 },
+    { name: 'Bagan Temples', lat: 21.1717, lon: 94.8585, year: 1000 },
+    { name: 'Sukhothai Historical Park', lat: 17.007, lon: 99.823, year: 1238 },
+    { name: 'Banteay Srei', lat: 13.599, lon: 103.963, year: 967 },
+    { name: 'Sanchi Stupa', lat: 23.4793, lon: 77.7397, year: -250 },
+    { name: 'Ajanta Caves', lat: 20.5519, lon: 75.7033, year: -200 },
+    { name: 'Ellora Caves', lat: 20.0268, lon: 75.179, year: 600 },
+    { name: 'Hampi', lat: 15.335, lon: 76.46, year: 1336 },
+    { name: 'Great Serpent Mound', lat: 39.026, lon: -83.430, year: 1070 },
+    { name: 'Cahokia Mounds', lat: 38.655, lon: -90.062, year: 1050 },
+    { name: 'Mesa Verde Cliff Palace', lat: 37.167, lon: -108.475, year: 1190 },
+    { name: 'Poverty Point', lat: 32.636, lon: -91.409, year: -1700 },
+    { name: 'Caral', lat: -10.892, lon: -77.521, year: -2600 },
+    { name: 'Sacsayhuamán', lat: -13.509, lon: -71.982, year: 1400 },
+    { name: 'Tiwanaku', lat: -16.554, lon: -68.673, year: 500 },
+    { name: 'Puma Punku', lat: -16.56, lon: -68.679, year: 536 },
+    { name: 'Rapa Nui Moai', lat: -27.121, lon: -109.366, year: 1200 },
+    { name: 'Tulum', lat: 20.214, lon: -87.429, year: 1200 },
+    { name: 'Palenque', lat: 17.484, lon: -92.046, year: 226 },
+    { name: 'Uxmal', lat: 20.359, lon: -89.771, year: 700 },
+    { name: 'Monte Albán', lat: 17.043, lon: -96.767, year: -500 },
+    { name: 'Copán', lat: 14.837, lon: -89.142, year: 400 },
+    { name: 'Tikal', lat: 17.222, lon: -89.623, year: 300 },
+    { name: 'Chavín de Huántar', lat: -9.593, lon: -77.178, year: -900 },
+    { name: 'Hovenweep', lat: 37.383, lon: -109.071, year: 500 },
   ];
   useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(1.2, 5.2 - cameraZoom) }, 250); }, [isEarthModeActive, cameraZoom]);
 
@@ -151,6 +191,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showCities, setShowCities] = useState<boolean>(false);
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
+  const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(true);
+  const [showCosmicBeam, setShowCosmicBeam] = useState<boolean>(true);
   const setAllConstellations = (enabled: boolean) => setConstellationsEnabled(Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, enabled])));
   const normalizeConstellationName = (name: string) => name.toLowerCase().replace('ö', 'o');
   const isConstellationEnabled = (name: string) => constellationsEnabled[name === 'Boötes' ? 'Bootes' : name] !== false;
@@ -783,67 +825,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
       if (showCities) majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
       // Modern coordinates for archaeological destinations; visibility follows approximate site era.
-      const historicalSites: Array<{ name: string; lat: number; lon: number; era: number }> = [
-        { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, era: -9600 },
-        { name: 'Jericho / Tell es-Sultan', lat: 31.871, lon: 35.444, era: -9000 },
-        { name: 'Çatalhöyük', lat: 37.667, lon: 32.828, era: -7100 },
-        { name: 'Nabta Playa', lat: 22.53, lon: 30.72, era: -7000 },
-        { name: 'Stonehenge', lat: 51.1789, lon: -1.8262, era: -3000 },
-        { name: 'Giza Plateau', lat: 29.9792, lon: 31.1342, era: -2600 },
-        { name: 'Carnac', lat: 47.593, lon: -3.078, era: -4500 },
-        { name: 'Newgrange', lat: 53.6947, lon: -6.475, era: -3200 },
-        { name: 'Teotihuacan', lat: 19.6925, lon: -98.8438, era: 100 },
-        { name: 'Chichén Itzá', lat: 20.6843, lon: -88.5678, era: 600 },
-        { name: 'Tenochtitlan', lat: 19.4326, lon: -99.1332, era: 1325 },
-        { name: 'Angkor Wat', lat: 13.4125, lon: 103.867, era: 1150 },
-        { name: 'Petra', lat: 30.3285, lon: 35.4444, era: -300 },
-        { name: 'Persepolis', lat: 29.9352, lon: 52.8916, era: -518 },
-        { name: 'Mohenjo-daro', lat: 27.329, lon: 68.138, era: -2500 },
-        { name: 'Machu Picchu', lat: -13.1631, lon: -72.545, era: 1450 },
-        { name: 'Great Zimbabwe', lat: -20.267, lon: 30.933, era: 1100 },
-        { name: 'Nan Madol', lat: 6.844, lon: 158.333, era: 1200 },
-        { name: 'Aksum Obelisks', lat: 14.131, lon: 38.718, era: 300 },
-        { name: 'Lalibela Rock-Hewn Churches', lat: 12.031, lon: 39.047, era: 1200 },
-        { name: 'Karnak Temple Complex', lat: 25.7188, lon: 32.6573, era: -2000 },
-        { name: 'Abu Simbel', lat: 22.3372, lon: 31.6258, era: -1264 },
-        { name: 'Dendera Temple', lat: 26.1417, lon: 32.6709, era: -225 },
-        { name: 'Hattusa', lat: 40.0194, lon: 34.6158, era: -1600 },
-        { name: 'Ephesus', lat: 37.939, lon: 27.341, era: -1000 },
-        { name: 'Knossos Palace', lat: 35.298, lon: 25.163, era: -1900 },
-        { name: 'Delphi Sanctuary', lat: 38.4824, lon: 22.501, era: -800 },
-        { name: 'Mycenae', lat: 37.7308, lon: 22.756, era: -1600 },
-        { name: 'Baalbek Temple Complex', lat: 34.0069, lon: 36.2039, era: -100 },
-        { name: 'Ugarit', lat: 35.602, lon: 35.779, era: -1400 },
-        { name: 'Hegra', lat: 26.787, lon: 37.953, era: 100 },
-        { name: 'Taq Kasra', lat: 33.093, lon: 44.580, era: 540 },
-        { name: 'Borobudur', lat: -7.6079, lon: 110.2038, era: 825 },
-        { name: 'Prambanan', lat: -7.752, lon: 110.491, era: 850 },
-        { name: 'Bagan Temples', lat: 21.1717, lon: 94.8585, era: 1000 },
-        { name: 'Sukhothai Historical Park', lat: 17.007, lon: 99.823, era: 1238 },
-        { name: 'Banteay Srei', lat: 13.599, lon: 103.963, era: 967 },
-        { name: 'Sanchi Stupa', lat: 23.4793, lon: 77.7397, era: -250 },
-        { name: 'Ajanta Caves', lat: 20.5519, lon: 75.7033, era: -200 },
-        { name: 'Ellora Caves', lat: 20.0268, lon: 75.179, era: 600 },
-        { name: 'Hampi', lat: 15.335, lon: 76.46, era: 1336 },
-        { name: 'Great Serpent Mound', lat: 39.026, lon: -83.430, era: 1070 },
-        { name: 'Cahokia Mounds', lat: 38.655, lon: -90.062, era: 1050 },
-        { name: 'Mesa Verde Cliff Palace', lat: 37.167, lon: -108.475, era: 1190 },
-        { name: 'Poverty Point', lat: 32.636, lon: -91.409, era: -1700 },
-        { name: 'Caral', lat: -10.892, lon: -77.521, era: -2600 },
-        { name: 'Sacsayhuamán', lat: -13.509, lon: -71.982, era: 1400 },
-        { name: 'Tiwanaku', lat: -16.554, lon: -68.673, era: 500 },
-        { name: 'Puma Punku', lat: -16.56, lon: -68.679, era: 536 },
-        { name: 'Rapa Nui Moai', lat: -27.121, lon: -109.366, era: 1200 },
-        { name: 'Tulum', lat: 20.214, lon: -87.429, era: 1200 },
-        { name: 'Palenque', lat: 17.484, lon: -92.046, era: 226 },
-        { name: 'Uxmal', lat: 20.359, lon: -89.771, era: 700 },
-        { name: 'Monte Albán', lat: 17.043, lon: -96.767, era: -500 },
-        { name: 'Copán', lat: 14.837, lon: -89.142, era: 400 },
-        { name: 'Tikal', lat: 17.222, lon: -89.623, era: 300 },
-        { name: 'Chavín de Huántar', lat: -9.593, lon: -77.178, era: -900 },
-        { name: 'Hovenweep', lat: 37.383, lon: -109.071, era: 500 },
-        { name: 'Mesa Verde Spruce Tree House', lat: 37.160, lon: -108.472, era: 1200 }
-      ];
+      const historicalSites: Array<{ name: string; lat: number; lon: number; era: number }> = earthSites.map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, era: site.year }));
       historicalSites.forEach((site) => {
         if (showAncientStructures && timelineYear >= site.era) {
           labelEarthPoint('ANCIENT · ' + site.name, site.lat, site.lon, showAcousticColorSystem ? '#facc15' : '#e2e8f0');
@@ -866,6 +848,50 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           }
         }
       });
+      // Triangulation network: each visible archaeological point connects to its three nearest neighbors.
+      // Repeated-angle bins are calculated from geographic coordinates (local tangent plane), not the distorted screen projection.
+      if (showAlignmentTriangles && showAncientStructures) {
+        const candidates = historicalSites.filter((site) => timelineYear >= site.era).map((site) => ({
+          ...site, p: earthPoint(site.lat, site.lon, earthRadius * 1.018),
+          xy: { x: site.lon * Math.cos(site.lat * Math.PI / 180), y: site.lat },
+        })).filter((site) => cameraFront(site.p)).map((site) => ({ ...site, screen: project3D(site.p.x, site.p.y, site.p.z, width, height) }));
+        const edgeKeys = new Set<string>();
+        const keyFor = (a: string, b: string) => [a, b].sort().join('::');
+        const geoDistance = (a: any, b: any) => {
+          const dLat = (b.lat - a.lat) * Math.PI / 180;
+          const dLon = (b.lon - a.lon) * Math.PI / 180;
+          const v = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+          return 6371 * 2 * Math.atan2(Math.sqrt(v), Math.sqrt(Math.max(0, 1 - v)));
+        };
+        candidates.forEach((site) => candidates.filter((other) => other.name !== site.name).sort((a, b) => geoDistance(site, a) - geoDistance(site, b)).slice(0, 3).forEach((other) => edgeKeys.add(keyFor(site.name, other.name))));
+        const connected = (a: string, b: string) => edgeKeys.has(keyFor(a, b));
+        const angleCounts: Record<string, number> = {};
+        const triangles: Array<{ a: any; b: any; c: any; angles: number[] }> = [];
+        for (let ai = 0; ai < candidates.length; ai++) for (let bi = ai + 1; bi < candidates.length; bi++) for (let ci = bi + 1; ci < candidates.length; ci++) {
+          const a = candidates[ai], b = candidates[bi], c = candidates[ci];
+          if (!connected(a.name, b.name) || !connected(b.name, c.name) || !connected(c.name, a.name)) continue;
+          const angle = (p: any, q: any, r: any) => {
+            const ux = q.xy.x - p.xy.x, uy = q.xy.y - p.xy.y, vx = r.xy.x - p.xy.x, vy = r.xy.y - p.xy.y;
+            const denom = Math.hypot(ux, uy) * Math.hypot(vx, vy);
+            return denom ? Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / denom))) * 180 / Math.PI : 0;
+          };
+          const angles = [angle(a,b,c), angle(b,c,a), angle(c,a,b)];
+          triangles.push({ a,b,c,angles });
+          angles.forEach((value) => { const bin = String(Math.round(value / 5) * 5); angleCounts[bin] = (angleCounts[bin] || 0) + 1; });
+        }
+        ctx.save(); ctx.lineWidth = 1.1; ctx.strokeStyle = 'rgba(56,189,248,.55)'; ctx.fillStyle = 'rgba(56,189,248,.07)';
+        triangles.forEach(({a,b,c,angles}) => {
+          ctx.beginPath(); ctx.moveTo(a.screen.sx,a.screen.sy); ctx.lineTo(b.screen.sx,b.screen.sy); ctx.lineTo(c.screen.sx,c.screen.sy); ctx.closePath(); ctx.fill(); ctx.stroke();
+          const repeated = angles.some((value) => (angleCounts[String(Math.round(value / 5) * 5)] || 0) >= 4);
+          if (repeated) { const mx=(a.screen.sx+b.screen.sx+c.screen.sx)/3, my=(a.screen.sy+b.screen.sy+c.screen.sy)/3; ctx.font='bold 9px monospace'; ctx.fillStyle='#a5f3fc'; ctx.fillText('ANGLE REPEAT',mx,my); ctx.fillStyle='rgba(56,189,248,.07)'; }
+        });
+        const repeatedBins = Object.entries(angleCounts).filter(([,count]) => count >= 4).sort((a,b) => Number(a[0])-Number(b[0]));
+        ctx.fillStyle='rgba(2,6,23,.88)'; ctx.fillRect(12, height - 70, 258, 54);
+        ctx.font='bold 10px monospace'; ctx.fillStyle='#7dd3fc'; ctx.fillText('SITE TRIANGULATION · NEAREST 3',22,height-53);
+        ctx.font='10px monospace'; ctx.fillStyle='#cbd5e1'; ctx.fillText(repeatedBins.length ? 'Repeated angle bins (5°): ' + repeatedBins.slice(0,4).map(([angle,count])=>angle+'°×'+count).join(' · ') : 'No repeated angle bin found yet',22,height-35);
+        ctx.fillStyle='#94a3b8'; ctx.fillText('Exploratory geometry · not proof of intent',22,height-21);
+        ctx.restore();
+      }
       // Sourced acoustic record: the Hypogeum paper reports 70 Hz and 114 Hz.
       // Preserve 114 Hz exactly; its marker is shown in the 110 Hz investigation band only as a nearby result.
       if (showAncientStructures && timelineYear >= -4000) {
@@ -2052,7 +2078,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               })}</div>}
               <div className="text-[9px] leading-relaxed text-slate-500">All 88 constellation stick figures use sourced J2000 right-ascension/declination line paths. These are traditional sky-chart connections, not the IAU constellation boundary outlines. Data source: d3-celestial.</div>
             </div>
-            <div className="grid grid-cols-2 gap-1"><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCities} onChange={(e) => setShowCities(e.target.checked)} className="accent-sky-400" /><span><strong>Cities</strong> · on/off</span></label><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showAncientStructures} onChange={(e) => setShowAncientStructures(e.target.checked)} className="accent-amber-400" /><span><strong>Ancient structures</strong> · on/off</span></label><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showAcousticColorSystem} onChange={(e) => setShowAcousticColorSystem(e.target.checked)} className="accent-orange-400" /><span><strong>Acoustic color system</strong> · on/off</span></label></div>
+            <div className="grid grid-cols-2 gap-1"><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showAlignmentTriangles} onChange={(e) => setShowAlignmentTriangles(e.target.checked)} className="accent-sky-400" /><span><strong>Site triangles</strong> · angle repeats</span></label><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCosmicBeam} onChange={(e) => setShowCosmicBeam(e.target.checked)} className="accent-orange-400" /><span><strong>110 Hz cosmic beam</strong></span></label><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCities} onChange={(e) => setShowCities(e.target.checked)} className="accent-sky-400" /><span><strong>Cities</strong> · on/off</span></label><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showAncientStructures} onChange={(e) => setShowAncientStructures(e.target.checked)} className="accent-amber-400" /><span><strong>Ancient structures</strong> · on/off</span></label><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showAcousticColorSystem} onChange={(e) => setShowAcousticColorSystem(e.target.checked)} className="accent-orange-400" /><span><strong>Acoustic color system</strong> · on/off</span></label></div>
             {showAcousticColorSystem && <div className="flex flex-wrap gap-2 text-[9px] font-mono"><span className="text-orange-300">● measured acoustic record</span><span className="text-yellow-300">● ancient structure</span><span className="text-sky-200">● city</span><span className="text-slate-300">Larger labels = higher research relevance</span></div>}
             <label className="flex items-start gap-2 rounded-lg border border-orange-500/30 bg-orange-950/20 p-2 text-[10px] leading-relaxed text-orange-100"><input type="checkbox" checked={show110HzResearchComets} onChange={(e) => setShow110HzResearchComets(e.target.checked)} className="mt-0.5 accent-orange-400" /><span><strong>110 Hz research-band comet layer</strong><br/>Orange comets mark unverified candidate sites. The sourced Ħal Saflieni record reports 70 Hz and 114 Hz; 114 Hz is shown exactly, not rounded to 110 Hz.</span></label>
             {show110HzResearchComets && <div className="rounded-lg border border-orange-500/20 bg-slate-950/70 p-2 flex flex-col gap-2">{ACOUSTIC_SITE_EVIDENCE.map((site) => <div key={site.id} className="text-[10px] leading-relaxed text-slate-300"><div className="font-mono font-bold text-orange-200">{site.name}</div><div>{site.region} · Published measurement</div><div className="text-slate-300">{site.measurementContext || ('Reported resonance frequencies: ' + site.measuredFrequenciesHz.join(' Hz and ') + ' Hz')}</div>{site.measurements?.map((measurement) => <div key={measurement.parameter + measurement.frequencyHz} className="text-orange-100">{measurement.parameter}: {measurement.reportedValue} {measurement.unit} · {measurement.frequencyBand || (measurement.frequencyHz + ' Hz band')}</div>)}<div className="text-slate-400">{site.caveat}</div><div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">{site.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="underline text-sky-300 hover:text-sky-100">{source.year} source ↗</a>)}</div></div>)}</div>}
@@ -2246,8 +2272,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
               htmlElement={(d: any) => {
                 const marker = document.createElement('div');
-                marker.style.width = '44px'; marker.style.height = '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
+                marker.style.width = '52px'; marker.style.height = showCosmicBeam && d.evidenceStatus === 'published-measurement' ? '190px' : '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
                 marker.title = d.evidenceStatus === 'published-measurement' ? `Published acoustic measurement: ${d.measuredHz} Hz (not 110 Hz)` : '110 Hz research candidate · resonance unverified at this location';
+                if (showCosmicBeam && d.evidenceStatus === 'published-measurement') {
+                  const beam = document.createElement('div');
+                  beam.style.position = 'absolute'; beam.style.left = '25px'; beam.style.top = '0px'; beam.style.width = '3px'; beam.style.height = '150px';
+                  beam.style.transform = 'translateX(-50%)'; beam.style.background = 'linear-gradient(to top, rgba(251,146,60,.1), rgba(251,146,60,.8), rgba(255,255,255,.95), transparent)';
+                  beam.style.boxShadow = '0 0 12px 3px rgba(251,146,60,.5)'; beam.style.borderRadius = '99px';
+                  beam.animate([{opacity:.45, transform:'translateX(-50%) scaleY(.72)'},{opacity:1,transform:'translateX(-50%) scaleY(1)'},{opacity:.5,transform:'translateX(-50%) scaleY(.82)'}],{duration:1800,iterations:Infinity});
+                  const beamTag=document.createElement('span'); beamTag.textContent='114 Hz'; beamTag.style.position='absolute'; beamTag.style.left='31px'; beamTag.style.top='0px'; beamTag.style.font='bold 11px monospace'; beamTag.style.color='#ffedd5'; beamTag.style.textShadow='0 0 8px #f97316'; beamTag.style.whiteSpace='nowrap';
+                  marker.append(beam,beamTag);
+                }
                 const comet = document.createElement('div');
                 comet.style.position = 'absolute'; comet.style.left = '4px'; comet.style.top = '20px'; comet.style.width = '34px'; comet.style.height = '3px';
                 comet.style.transform = 'rotate(-42deg)'; comet.style.transformOrigin = 'right center';
