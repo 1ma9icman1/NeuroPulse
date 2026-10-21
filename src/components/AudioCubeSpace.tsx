@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Globe3D from 'react-globe.gl';
-import { EarthSiteExplorer, EarthSiteSelection } from './EarthSiteExplorer';
+import { EarthSiteExplorer } from './EarthSiteExplorer';
+import type { EarthSiteSelection } from './EarthSiteExplorer';
 import {
   CameraView,
   SpatialPosition,
