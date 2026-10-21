@@ -153,6 +153,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [earthLocateImage, setEarthLocateImage] = useState<PlaceImage | null>(null);
   const [earthLocateLoading, setEarthLocateLoading] = useState(false);
   const [earthLocateImageLoading, setEarthLocateImageLoading] = useState(false);
+  const [earthMapView, setEarthMapView] = useState<'map' | 'terrain' | 'satellite'>('map');
 
   const handleLocateStarOnEarth = async (star: CelestialStar) => {
     setEarthLocateLoading(true);
@@ -1717,14 +1718,29 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             <div className="min-h-[260px] md:min-h-[380px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
-              <div className="px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-emerald-200">2D FLAT EARTH MAP · OPENSTREETMAP</div>
+              <div className="px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-emerald-200">EARTH EXPLORER · {earthMapView.toUpperCase()}</div>
+              <div className="flex flex-wrap gap-1 px-2 pb-2">
+                {([
+                  ['map', 'ROAD MAP'],
+                  ['terrain', 'TERRAIN'],
+                  ['satellite', 'SATELLITE'],
+                ] as const).map(([view, label]) => (
+                  <button key={view} onClick={() => setEarthMapView(view)} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold ${earthMapView === view ? 'border-emerald-400 bg-emerald-900 text-white' : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'}`}>{label}</button>
+                ))}
+                <a className="rounded border border-sky-700 bg-sky-950 px-2 py-1 text-[9px] font-mono font-bold text-sky-200 hover:bg-sky-900" href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${earthLocateTarget.latitude},${earthLocateTarget.longitude}`} target="_blank" rel="noreferrer">STREET VIEW ↗</a>
+              </div>
               <iframe
-                title="Flat Earth map at the calculated substellar point"
+                title={`Earth ${earthMapView} map at calculated substellar point`}
                 className="w-full h-[300px] md:h-[430px] border-0"
                 loading="lazy"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${earthLocateTarget.longitude - 2},${Math.max(-85, earthLocateTarget.latitude - 1.5)},${earthLocateTarget.longitude + 2},${Math.min(85, earthLocateTarget.latitude + 1.5)}&layer=mapnik&marker=${earthLocateTarget.latitude},${earthLocateTarget.longitude}`}
+                src={earthMapView === 'map'
+                  ? `https://www.openstreetmap.org/export/embed.html?bbox=${earthLocateTarget.longitude - 2},${Math.max(-85, earthLocateTarget.latitude - 1.5)},${earthLocateTarget.longitude + 2},${Math.min(85, earthLocateTarget.latitude + 1.5)}&layer=mapnik&marker=${earthLocateTarget.latitude},${earthLocateTarget.longitude}`
+                  : `https://maps.google.com/maps?q=${earthLocateTarget.latitude},${earthLocateTarget.longitude}&t=${earthMapView === 'satellite' ? 'k' : 'p'}&z=8&output=embed`}
               />
-              <a className="block px-3 py-2 text-[10px] text-sky-300 hover:text-sky-100" href={`https://www.openstreetmap.org/?mlat=${earthLocateTarget.latitude}&mlon=${earthLocateTarget.longitude}#map=8/${earthLocateTarget.latitude}/${earthLocateTarget.longitude}`} target="_blank" rel="noreferrer">Open this location in full map ↗</a>
+              <div className="flex flex-wrap justify-between gap-2 px-3 py-2">
+                <a className="text-[10px] text-sky-300 hover:text-sky-100" href={`https://www.openstreetmap.org/?mlat=${earthLocateTarget.latitude}&mlon=${earthLocateTarget.longitude}#map=8/${earthLocateTarget.latitude}/${earthLocateTarget.longitude}`} target="_blank" rel="noreferrer">Open full OpenStreetMap ↗</a>
+                <a className="text-[10px] text-sky-300 hover:text-sky-100" href={`https://www.google.com/maps/search/?api=1&query=${earthLocateTarget.latitude},${earthLocateTarget.longitude}`} target="_blank" rel="noreferrer">Explore nearby places ↗</a>
+              </div>
             </div>
             <div className="min-h-[260px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
               <div className="px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-emerald-200">LOCATION PHOTOGRAPH / SATELLITE CONTEXT</div>
@@ -1833,7 +1849,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
           {/* Star Alignment Preset Selector */}
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-mono text-slate-400">7-11 Curated Astrometric Alignment:</span>
+            <span className="text-[10px] font-mono text-slate-400">Common Constellations & Star Alignments:</span>
             <select
               value={selectedStarPreset}
               onChange={(e) => handleSelectStarPreset(e.target.value)}
