@@ -52,6 +52,7 @@ import {
   latLonToCartesian,
   cartesianToLatLon,
 } from '../data/earthData';
+import { calculateSubstellarPoint, fetchPlaceImage, resolveStarAstrometry, EarthTarget, PlaceImage } from '../services/celestialEarthData';
 
 
 interface AudioCubeSpaceProps {
@@ -148,6 +149,37 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
   const [isCelestialDeckCollapsed, setIsCelestialDeckCollapsed] = useState<boolean>(false);
   const [showDetailedStarInfo, setShowDetailedStarInfo] = useState<boolean>(true);
+  const [earthLocateTarget, setEarthLocateTarget] = useState<EarthTarget | null>(null);
+  const [earthLocateImage, setEarthLocateImage] = useState<PlaceImage | null>(null);
+  const [earthLocateLoading, setEarthLocateLoading] = useState(false);
+  const [earthLocateImageLoading, setEarthLocateImageLoading] = useState(false);
+
+  const handleLocateStarOnEarth = async (star: CelestialStar) => {
+    setEarthLocateLoading(true);
+    setEarthLocateImage(null);
+    setEarthLocateTarget(null);
+    const observationDate = new Date();
+    if (isTimelineActive) observationDate.setUTCFullYear(timelineYear);
+    try {
+      const astrometry = await resolveStarAstrometry({ name: star.name, raDeg: star.raDeg, decDeg: star.decDeg }, observationDate);
+      const target = calculateSubstellarPoint(astrometry.raDeg, astrometry.decDeg, observationDate, astrometry.source);
+      setEarthLocateTarget(target);
+      setEarthLocateLoading(false);
+      setEarthLocateImageLoading(true);
+      onUpdateCameraView('top');
+      window.setTimeout(() => {
+        globeRef.current?.pointOfView({ lat: target.latitude, lng: target.longitude, altitude: 0.65 }, 900);
+      }, 150);
+      const image = await fetchPlaceImage(target.latitude, target.longitude, star.name);
+      setEarthLocateImage(image);
+    } catch (error) {
+      console.error('Unable to locate star on Earth:', error);
+      setEarthLocateTarget(null);
+    } finally {
+      setEarthLocateLoading(false);
+      setEarthLocateImageLoading(false);
+    }
+  };
   const [selectedStarPreset, setSelectedStarPreset] = useState<string>('orion-sirius-meridian');
   const [starAId, setStarAId] = useState<string>('betelgeuse');
   const [starBId, setStarBId] = useState<string>('rigel');
@@ -1656,6 +1688,59 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               Snap CH-C
             </button>
           </div>
+          <button
+            onClick={() => void handleLocateStarOnEarth(clickedStar)}
+            disabled={earthLocateLoading}
+            className="w-full mt-1 flex items-center justify-center gap-2 py-2 text-xs font-mono font-bold bg-emerald-950 hover:bg-emerald-900 disabled:opacity-60 text-emerald-200 rounded border border-emerald-500/70 shadow-sm transition-all"
+          >
+            <MapPin className="w-4 h-4" />
+            {earthLocateLoading ? 'CALCULATING LIVE EARTH POSITION…' : 'LOCATE ON EARTH · 2D MAP + IMAGE'}
+          </button>
+        </div>
+      )}
+
+      {earthLocateTarget && (
+        <div className="absolute inset-3 z-[60] overflow-y-auto rounded-2xl border border-emerald-400/70 bg-[#07101d]/96 p-3 md:p-5 shadow-2xl backdrop-blur-md pointer-events-auto">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <div className="text-sm md:text-base font-mono font-bold text-emerald-200">EARTH LOCATION · {clickedStar?.name || 'Selected star'}</div>
+              <div className="mt-1 text-[10px] md:text-xs font-mono text-slate-300">
+                Substellar point: {earthLocateTarget.latitude.toFixed(4)}° lat, {earthLocateTarget.longitude.toFixed(4)}° lon · {earthLocateTarget.date} {earthLocateTarget.utcTime}
+              </div>
+              <div className="mt-1 text-[9px] font-mono text-slate-500">{earthLocateTarget.source} · UTC / GMST calculation. The marker is the point where the star is directly overhead.</div>
+            </div>
+            <button onClick={() => setEarthLocateTarget(null)} aria-label="Close Earth location" className="rounded-lg border border-slate-600 p-2 text-slate-300 hover:text-white"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <div className="min-h-[260px] md:min-h-[380px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
+              <div className="px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-emerald-200">2D FLAT EARTH MAP · OPENSTREETMAP</div>
+              <iframe
+                title="Flat Earth map at the calculated substellar point"
+                className="w-full h-[300px] md:h-[430px] border-0"
+                loading="lazy"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${earthLocateTarget.longitude - 2},${Math.max(-85, earthLocateTarget.latitude - 1.5)},${earthLocateTarget.longitude + 2},${Math.min(85, earthLocateTarget.latitude + 1.5)}&layer=mapnik&marker=${earthLocateTarget.latitude},${earthLocateTarget.longitude}`}
+              />
+              <a className="block px-3 py-2 text-[10px] text-sky-300 hover:text-sky-100" href={`https://www.openstreetmap.org/?mlat=${earthLocateTarget.latitude}&mlon=${earthLocateTarget.longitude}#map=8/${earthLocateTarget.latitude}/${earthLocateTarget.longitude}`} target="_blank" rel="noreferrer">Open this location in full map ↗</a>
+            </div>
+            <div className="min-h-[260px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
+              <div className="px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-emerald-200">LOCATION PHOTOGRAPH / SATELLITE CONTEXT</div>
+              {earthLocateImage?.url ? (
+                <>
+                  <img src={earthLocateImage.url} alt={earthLocateImage.title} className="w-full h-[240px] md:h-[330px] object-cover bg-slate-900" loading="lazy" />
+                  <div className="p-3">
+                    <div className="text-xs font-semibold text-slate-100">{earthLocateImage.title}</div>
+                    <div className="mt-1 text-[10px] text-slate-400 line-clamp-3">{earthLocateImage.description}</div>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-500"><span>Source: {earthLocateImage.source}</span>{earthLocateImage.pageUrl && <a href={earthLocateImage.pageUrl} target="_blank" rel="noreferrer" className="text-sky-300 hover:text-sky-100">Image source ↗</a>}</div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex min-h-[240px] md:min-h-[330px] items-center justify-center p-6 text-center text-xs font-mono text-slate-400">
+                  {earthLocateImageLoading ? 'Searching nearby open-license photographs, then NASA imagery…' : 'No suitable photo was returned. The map remains available; try opening the full map for this location.'}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mt-3 text-[9px] text-slate-500">Images are best-effort geographic context, not guaranteed to be a photograph of the exact coordinate. Map data © OpenStreetMap contributors.</div>
         </div>
       )}
 
