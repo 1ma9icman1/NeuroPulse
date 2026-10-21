@@ -98,9 +98,9 @@ export async function fetchIersDut1Seconds(date: Date): Promise<number | null> {
     try {
       const response = await fetch('https://datacenter.iers.org/products/eop/rapid/daily/finals2000A.daily', { signal: controller.signal });
       if (!response.ok) return null;
-      const lines = (await response.text()).split(/\\r?\\n/);
+      const lines = (await response.text()).split(String.fromCharCode(10));
       const rows = lines.map((line) => {
-        const fields = line.trim().split(/\\s+/);
+        const fields = (line.trim().match(/\S+/g) || []);
         return { mjd: Number(fields[2]), dut1: Number(fields[9]) };
       }).filter((row) => Number.isFinite(row.mjd) && Number.isFinite(row.dut1));
       if (!rows.length) return null;
