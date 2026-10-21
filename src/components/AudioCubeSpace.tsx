@@ -2137,7 +2137,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       {/* Large interactive Earth fills the Top Plane viewport; Globe controls retain drag-to-rotate and wheel zoom. */}
       {isEarthModeActive && (
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-          <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto">
+          <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto flex items-center justify-center">
             <Globe3D ref={globeRef} width={Math.max(320, (containerRef.current?.clientWidth || 800) * 0.96)}
               height={Math.max(320, (containerRef.current?.clientHeight || 600) * 0.96)}
               globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
