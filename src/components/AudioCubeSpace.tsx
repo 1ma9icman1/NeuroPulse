@@ -48,6 +48,8 @@ import {
   computeTriangleInteriorAngles,
   Relation711Result,
 } from '../data/celestialStars';
+import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
+import { ACOUSTIC_SITE_EVIDENCE } from '../data/acousticSiteEvidence';
 import {
   DEFAULT_EARTH_POINTS,
   CONTINENTAL_COASTLINES,
@@ -148,7 +150,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
   const [show110HzResearchComets, setShow110HzResearchComets] = useState<boolean>(false);
   const setAllConstellations = (enabled: boolean) => setConstellationsEnabled(Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, enabled])));
+  const normalizeConstellationName = (name: string) => name.toLowerCase().replace('ö', 'o');
   const isConstellationEnabled = (name: string) => constellationsEnabled[name === 'Boötes' ? 'Bootes' : name] !== false;
+  const hasConstellationGeometry = (name: string) => CONSTELLATION_LINE_SHAPES.some((shape) => normalizeConstellationName(shape.name) === normalizeConstellationName(name));
   // Historical sky timeline spanning the last 12,000 years.
   const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
@@ -299,7 +303,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // First-order general-precession visualization (~50.29 arcsec/year): shift ecliptic
   // longitude, then transform back to equatorial XYZ. This is illustrative, not a precision
   // IAU/astrometry solution over 12 millennia.
-  const celestialPosition = (star: CelestialStar, radius = 7.8): SpatialPosition => {
+  const celestialPosition = (star: Pick<CelestialStar, 'raDeg' | 'decDeg'>, radius = 7.8): SpatialPosition => {
     const ra = (star.raDeg * Math.PI) / 180;
     const dec = (star.decDeg * Math.PI) / 180;
     const eps = 23.439281 * Math.PI / 180;
@@ -814,6 +818,29 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           }
         }
       });
+      // Sourced acoustic record: the Hypogeum paper reports 70 Hz and 114 Hz.
+      // Preserve 114 Hz exactly; its marker is shown in the 110 Hz investigation band only as a nearby result.
+      if (timelineYear >= -4000) {
+        const acousticSite = ACOUSTIC_SITE_EVIDENCE[0];
+        labelEarthPoint('MEASURED · Ħal Saflieni · 114 Hz', acousticSite.lat, acousticSite.lon, '#fb923c');
+        if (show110HzResearchComets) {
+          const sitePos = earthPoint(acousticSite.lat, acousticSite.lon, earthRadius * 1.025);
+          if (cameraFront(sitePos)) {
+            const p = project3D(sitePos.x, sitePos.y, sitePos.z, width, height);
+            const phase = (performance.now() / 420 + 0.37) % 1;
+            const dx = 18 + phase * 38;
+            const dy = -14 - phase * 27;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0.08, 1 - phase);
+            ctx.strokeStyle = '#fdba74'; ctx.lineWidth = 2.5; ctx.shadowColor = '#fb923c'; ctx.shadowBlur = 13;
+            ctx.beginPath(); ctx.moveTo(p.sx - dx * 0.7, p.sy - dy * 0.7); ctx.lineTo(p.sx + dx * 0.3, p.sy + dy * 0.3); ctx.stroke();
+            ctx.beginPath(); ctx.arc(p.sx, p.sy, 4 + phase * 2, 0, Math.PI * 2); ctx.fillStyle = '#fff7ed'; ctx.fill();
+            ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+            ctx.font = 'bold 8px "JetBrains Mono", monospace'; ctx.fillStyle = '#fed7aa'; ctx.fillText('114 Hz MEASURED', p.sx + 6, p.sy - 7);
+            ctx.restore();
+          }
+        }
+      }
       // Moon position shares the Earth origin and camera rotation. Orbit is compressed for visibility;
       // actual mean Earth-Moon distance is 384,400 km (about 60.3 Earth radii).
       const moonOrbitRadius = earthRadius * 1.72;
@@ -897,20 +924,37 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.setLineDash([5, 5]);
         ctx.lineDashOffset = -pulsePhase;
 
-        CONSTELLATION_EDGES.forEach(([s1Id, s2Id]) => {
-          const s1 = REAL_CELESTIAL_STARS.find((s) => s.id === s1Id);
-          const s2 = REAL_CELESTIAL_STARS.find((s) => s.id === s2Id);
-          if (s1 && s2 && isConstellationEnabled(s1.constellation) && isConstellationEnabled(s2.constellation)) {
-            const p1v = celestialPosition(s1);
-            const p2v = celestialPosition(s2);
-            const p1 = project3D(p1v.x, p1v.y, p1v.z, width, height);
-            const p2 = project3D(p2v.x, p2v.y, p2v.z, width, height);
+        const constellationPulse = 0.55 + 0.35 * Math.sin(performance.now() / 260);
+        const renderedConstellationPoints = new Map<string, { sx: number; sy: number }>();
+        ctx.globalAlpha = constellationPulse;
+        ctx.strokeStyle = '#93c5fd';
+        ctx.lineWidth = 1.55;
+        ctx.shadowColor = '#60a5fa';
+        ctx.shadowBlur = 12;
+        ctx.setLineDash([]);
+        CONSTELLATION_LINE_SHAPES.forEach((shape) => {
+          if (!isConstellationEnabled(shape.name)) return;
+          shape.lines.forEach((path) => {
+            if (path.length < 2) return;
             ctx.beginPath();
-            ctx.moveTo(p1.sx, p1.sy);
-            ctx.lineTo(p2.sx, p2.sy);
+            path.forEach(([raDeg, decDeg], index) => {
+              const pos = celestialPosition({ raDeg, decDeg });
+              const screen = project3D(pos.x, pos.y, pos.z, width, height);
+              if (index === 0) ctx.moveTo(screen.sx, screen.sy);
+              else ctx.lineTo(screen.sx, screen.sy);
+              renderedConstellationPoints.set(`${raDeg.toFixed(3)}:${decDeg.toFixed(3)}`, { sx: screen.sx, sy: screen.sy });
+            });
             ctx.stroke();
-          }
+          });
         });
+        ctx.shadowBlur = 7;
+        ctx.fillStyle = '#e0f2fe';
+        renderedConstellationPoints.forEach((point) => {
+          ctx.beginPath();
+          ctx.arc(point.sx, point.sy, 1.65, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
         ctx.setLineDash([]);
         ctx.shadowBlur = 0;
         ctx.restore();
@@ -1955,12 +1999,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 </div>
               </div>
               {showConstellationControls && <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto pr-1">{IAU_CONSTELLATIONS.map((name) => {
-                const available = REAL_CELESTIAL_STARS.some((star) => star.constellation === name || (name === 'Bootes' && star.constellation === 'Boötes'));
+                const available = hasConstellationGeometry(name);
                 return <label key={name} className={'flex items-center gap-1.5 rounded px-1.5 py-1 text-[9px] font-mono ' + (available ? 'text-slate-200' : 'text-slate-500')} title={available ? 'Stars in current local catalog can be shown/hidden' : 'Name listed; star-coordinate and line data are not yet in the app catalog'}><input type="checkbox" checked={isConstellationEnabled(name)} onChange={(e) => setConstellationsEnabled((prev) => ({ ...prev, [name]: e.target.checked }))} className="accent-sky-400" />{name}{!available && <span className="ml-auto text-[8px] opacity-70">DATA NEEDED</span>}</label>;
               })}</div>}
               <div className="text-[9px] leading-relaxed text-slate-500">All 88 IAU constellation names are listed. Only constellations with star coordinates and connection data in the current catalog can draw their shapes; missing data is marked rather than invented.</div>
             </div>
-            <label className="flex items-start gap-2 rounded-lg border border-orange-500/30 bg-orange-950/20 p-2 text-[10px] leading-relaxed text-orange-100"><input type="checkbox" checked={show110HzResearchComets} onChange={(e) => setShow110HzResearchComets(e.target.checked)} className="mt-0.5 accent-orange-400" /><span><strong>110 Hz research comet layer</strong><br/>Animate candidate rays from visible ancient-site markers. These are visual research targets only; no site is confirmed to resonate at 110 Hz without published measurements.</span></label>
+            <label className="flex items-start gap-2 rounded-lg border border-orange-500/30 bg-orange-950/20 p-2 text-[10px] leading-relaxed text-orange-100"><input type="checkbox" checked={show110HzResearchComets} onChange={(e) => setShow110HzResearchComets(e.target.checked)} className="mt-0.5 accent-orange-400" /><span><strong>110 Hz research-band comet layer</strong><br/>Orange comets mark unverified candidate sites. The sourced Ħal Saflieni record reports 70 Hz and 114 Hz; 114 Hz is shown exactly, not rounded to 110 Hz.</span></label>
+            {show110HzResearchComets && <div className="rounded-lg border border-orange-500/20 bg-slate-950/70 p-2 flex flex-col gap-2">{ACOUSTIC_SITE_EVIDENCE.map((site) => <div key={site.id} className="text-[10px] leading-relaxed text-slate-300"><div className="font-mono font-bold text-orange-200">{site.name}</div><div>{site.region} · Reported measured peaks: {site.measuredFrequenciesHz.join(' Hz / ')} Hz</div><div className="text-slate-400">{site.caveat}</div><div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">{site.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="underline text-sky-300 hover:text-sky-100">{source.year} source ↗</a>)}</div></div>)}</div>}
           </div>
 
           {/* Channel to Star Manual Pickers with Lock / Unlock buttons */}
@@ -2147,23 +2192,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
-              htmlElementsData={show110HzResearchComets ? visibleEarthSites : []}
+              htmlElementsData={show110HzResearchComets ? [...visibleEarthSites, ...ACOUSTIC_SITE_EVIDENCE.map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - site.researchBandHz) <= 10), evidenceStatus: site.status }))] : []}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
               htmlElement={(d: any) => {
                 const marker = document.createElement('div');
                 marker.style.width = '44px'; marker.style.height = '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
-                marker.title = '110 Hz research candidate · resonance unverified at this location';
+                marker.title = d.evidenceStatus === 'published-measurement' ? `Published acoustic measurement: ${d.measuredHz} Hz (not 110 Hz)` : '110 Hz research candidate · resonance unverified at this location';
                 const comet = document.createElement('div');
                 comet.style.position = 'absolute'; comet.style.left = '4px'; comet.style.top = '20px'; comet.style.width = '34px'; comet.style.height = '3px';
                 comet.style.transform = 'rotate(-42deg)'; comet.style.transformOrigin = 'right center';
                 comet.style.background = 'linear-gradient(90deg, transparent, rgba(251,146,60,.15), #fdba74, #fff7ed)';
                 comet.style.filter = 'drop-shadow(0 0 5px #fb923c)';
                 comet.animate([{ opacity: 0.12, transform: 'translate(-4px, 5px) rotate(-42deg) scaleX(.25)' }, { opacity: 1, transform: 'translate(0, 0) rotate(-42deg) scaleX(1)' }, { opacity: 0.05, transform: 'translate(8px, -8px) rotate(-42deg) scaleX(.2)' }], { duration: 1450, iterations: Infinity, delay: (Math.abs(d.lat * 11 + d.lon) % 900) });
-                const label = document.createElement('span'); label.textContent = '110'; label.style.position = 'absolute'; label.style.left = '17px'; label.style.top = '4px'; label.style.font = 'bold 9px monospace'; label.style.color = '#fed7aa'; label.style.textShadow = '0 0 7px #f97316';
+                const label = document.createElement('span'); label.textContent = d.evidenceStatus === 'published-measurement' ? String(d.measuredHz) : '110'; label.style.position = 'absolute'; label.style.left = '17px'; label.style.top = '4px'; label.style.font = 'bold 9px monospace'; label.style.color = '#fed7aa'; label.style.textShadow = '0 0 7px #f97316';
                 marker.append(comet, label); return marker;
               }}
               onPointClick={(d: any) => openEarthSite(d)} />
-            {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH CANDIDATES · UNVERIFIED RESONANCE</span></div>}
+            {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
             <div className="absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden">
               <div className="relative w-[min(74vmin,76%)] aspect-square rounded-full border border-slate-300/20 animate-[spin_27s_linear_infinite]">
                 <div className="absolute inset-0 rounded-full border border-dashed border-slate-400/15" />
