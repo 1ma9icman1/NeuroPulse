@@ -146,6 +146,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
   const visibleEarthSites = earthSites.filter((site) => site.year <= timelineYear).map((site) => ({ ...site, color: '#fb923c', size: 0.35, altitude: 0.02 }));
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
+  const [isCelestialDeckCollapsed, setIsCelestialDeckCollapsed] = useState<boolean>(false);
+  const [showDetailedStarInfo, setShowDetailedStarInfo] = useState<boolean>(true);
   const [selectedStarPreset, setSelectedStarPreset] = useState<string>('orion-sirius-meridian');
   const [starAId, setStarAId] = useState<string>('betelgeuse');
   const [starBId, setStarBId] = useState<string>('rigel');
@@ -1130,21 +1132,24 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.fillStyle = 'rgba(6, 10, 18, 0.94)';
         ctx.strokeStyle = '#facc15';
         ctx.lineWidth = 1;
+        const infoCardHeight = showDetailedStarInfo ? 56 : 30;
         ctx.beginPath();
-        ctx.roundRect(hp.sx + 12, hp.sy - 38, 160, 56, 6);
+        ctx.roundRect(hp.sx + 12, hp.sy - (showDetailedStarInfo ? 38 : 24), showDetailedStarInfo ? 180 : 150, infoCardHeight, 6);
         ctx.fill();
         ctx.stroke();
 
         ctx.font = 'bold 10px "JetBrains Mono", monospace';
         ctx.fillStyle = '#fde047';
-        ctx.fillText(`★ ${hoveredStar.name} (${hoveredStar.bayer})`, hp.sx + 18, hp.sy - 22);
+        ctx.fillText(`★ ${hoveredStar.name} (${hoveredStar.bayer})`, hp.sx + 18, hp.sy - (showDetailedStarInfo ? 22 : 7));
 
-        ctx.font = '9px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`Const: ${hoveredStar.constellation} | Mag: ${hoveredStar.mag}`, hp.sx + 18, hp.sy - 10);
-        ctx.fillText(`RA: ${hoveredStar.raHours.toFixed(1)}h | Dec: ${hoveredStar.decDeg.toFixed(1)}°`, hp.sx + 18, hp.sy + 2);
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillText(`Click to snap CH-${snapTargetChannel.toUpperCase()}`, hp.sx + 18, hp.sy + 13);
+        if (showDetailedStarInfo) {
+          ctx.font = '9px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText(`Const: ${hoveredStar.constellation} | Mag: ${hoveredStar.mag}`, hp.sx + 18, hp.sy - 10);
+          ctx.fillText(`RA: ${hoveredStar.raHours.toFixed(1)}h | Dec: ${hoveredStar.decDeg.toFixed(1)}°`, hp.sx + 18, hp.sy + 2);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillText(`Click to snap CH-${snapTargetChannel.toUpperCase()}`, hp.sx + 18, hp.sy + 13);
+        }
         ctx.restore();
       }
 
@@ -1167,6 +1172,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     cFreq,
     isRunning,
     isStarModeActive,
+    showDetailedStarInfo,
     isEarthModeActive,
     timelineYear,
     earthTextureLoaded,
@@ -1506,6 +1512,18 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <span>{overlay.imageUrl ? 'OVERLAY LOADED' : 'UPLOAD OVERLAY'}</span>
           </button>
 
+          {isStarModeActive && (
+            <button
+              onClick={() => setIsCelestialDeckCollapsed((prev) => !prev)}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-amber-500/50 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/60 shadow-md"
+              title={isCelestialDeckCollapsed ? 'Open Real Celestial menu' : 'Minimize Real Celestial menu beside Upload Overlay'}
+              aria-label={isCelestialDeckCollapsed ? 'Open Real Celestial menu' : 'Minimize Real Celestial menu'}
+            >
+              <Star className="w-3.5 h-3.5" />
+              <span>{isCelestialDeckCollapsed ? 'STAR MENU' : 'MINIMIZE STAR MENU'}</span>
+            </button>
+          )}
+
           {/* Quick Overlay Visibility / Controls Toggle */}
           {overlay.imageUrl && (
             <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800">
@@ -1696,7 +1714,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
 
       {/* Floating Celestial Star & 7-11 Astrometric Deck (When Star Mode is active) */}
-      {isStarModeActive && (
+      {isStarModeActive && !isCelestialDeckCollapsed && (
         <div className="absolute top-16 left-3 z-30 max-w-sm w-full bg-[#0b1220]/95 backdrop-blur-md p-3.5 rounded-xl border border-amber-500/40 shadow-2xl flex flex-col gap-2.5">
           {/* Header & 7-11 Match Badge */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -1704,7 +1722,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <Compass className="w-3.5 h-3.5 text-amber-400" />
               Real Celestial Star Alignment
             </span>
-            <span
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowDetailedStarInfo((prev) => !prev)}
+                className="px-2 py-1 text-[9px] font-mono font-bold rounded border border-amber-500/40 text-amber-200 hover:bg-amber-950/60 whitespace-nowrap"
+                title={showDetailedStarInfo ? 'Show less information on stars in the 3D view' : 'Show more information on stars in the 3D view'}
+              >
+                {showDetailedStarInfo ? 'LESS INFO' : 'MORE INFO'}
+              </button>
+              <span
               className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded ${
                 relation711.isHarmonic711
                   ? 'bg-amber-400 text-black shadow-[0_0_8px_rgba(250,204,21,0.6)] animate-pulse'
@@ -1712,7 +1738,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               }`}
             >
               7:11 MATCH: {relation711.matchPercentage}%
-            </span>
+              </span>
+            </div>
           </div>
 
           {/* Star Alignment Preset Selector */}
@@ -1905,12 +1932,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         <button onClick={() => setIsTimelineActive(true)} className="absolute top-[4.6rem] left-3 z-20 pointer-events-auto rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-3 py-1.5 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline">TIMELINE OFF · SHOW</button>
       )}
 
-      {/* Earth stays inside the original space viewport: a centered globe, not a separate full-screen Earth layout. */}
+      {/* Large interactive Earth fills the Top Plane viewport; Globe controls retain drag-to-rotate and wheel zoom. */}
       {isEarthModeActive && (
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-          <div className="relative h-[min(28vw,30vh,300px)] w-[min(28vw,30vh,300px)] max-w-[78%] max-h-[78%] pointer-events-auto">
-            <Globe3D ref={globeRef} width={Math.min(containerRef.current?.clientWidth || 800, containerRef.current?.clientHeight || 600) * 0.28}
-              height={Math.min(containerRef.current?.clientWidth || 800, containerRef.current?.clientHeight || 600) * 0.28}
+          <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto">
+            <Globe3D ref={globeRef} width={Math.max(320, (containerRef.current?.clientWidth || 800) * 0.96)}
+              height={Math.max(320, (containerRef.current?.clientHeight || 600) * 0.96)}
               globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
