@@ -107,8 +107,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
   const [isEarthModeActive, setIsEarthModeActive] = useState(false);
   const globeRef = useRef<any>(null);
-  const [earthZoom, setEarthZoom] = useState(3);
-  const [earthGrid, setEarthGrid] = useState(true);
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
   const handleToggleEarthMode = () => setIsEarthModeActive((active) => !active);
   const earthSites = [
@@ -131,7 +129,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Tenochtitlan', lat: 19.4326, lon: -99.1332, year: 1325 },
     { name: 'Machu Picchu', lat: -13.1631, lon: -72.545, year: 1450 },
   ];
-  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: earthZoom }, 250); }, [isEarthModeActive, earthZoom]);
+  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(1.2, 5.2 - cameraZoom) }, 250); }, [isEarthModeActive, cameraZoom]);
 
   useEffect(() => {
     const texture = new Image();
@@ -1929,7 +1927,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
-              showGraticules={false} showAtmosphere={true}
+              showGraticules={false} showAtmosphere={earthAtmosphere}
               pointsData={visibleEarthSites} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => d.color} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => `${d.name} — ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'}`} />
