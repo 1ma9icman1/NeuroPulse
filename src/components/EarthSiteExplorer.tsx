@@ -6,9 +6,9 @@ export interface EarthSiteSelection {
   color?: string; size?: number; altitude?: number;
 }
 
-interface Props { site: EarthSiteSelection | null; onClose: () => void; description: string; }
+interface Props { site: EarthSiteSelection | null; onClose: () => void; description: string; alignmentSites?: Array<{ name: string; lat: number; lon: number }>; }
 
-export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description }) => {
+export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description, alignmentSites = [] }) => {
   const [mapView, setMapView] = useState<'map' | 'terrain' | 'satellite'>('satellite');
   if (!site) return null;
   const yearLabel = site.year < 0 ? Math.abs(site.year).toLocaleString() + ' BCE' : site.year + ' CE';
@@ -16,6 +16,22 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description 
   const mapUrl = mapView === 'map'
     ? 'https://www.openstreetmap.org/export/embed.html?bbox=' + bounds + '&layer=mapnik&marker=' + site.lat + ',' + site.lon
     : 'https://maps.google.com/maps?q=' + site.lat + ',' + site.lon + '&t=' + (mapView === 'satellite' ? 'k' : 'p') + '&z=14&output=embed';
+  const nearestSites = site ? alignmentSites.filter((other) => other.name !== site.name).map((other) => {
+    const dLat = (other.lat - site.lat) * Math.PI / 180;
+    const dLon = (other.lon - site.lon) * Math.PI / 180;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(site.lat * Math.PI / 180) * Math.cos(other.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return { ...other, distanceKm: 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h))) };
+  }).sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 2) : [];
+  const localXY = (point: { lat: number; lon: number }) => ({ x: point.lon * Math.cos((site?.lat || 0) * Math.PI / 180), y: point.lat });
+  const triangleAngles = site && nearestSites.length === 2 ? (() => {
+    const points = [site, ...nearestSites].map(localXY);
+    const angle = (p: typeof points[number], q: typeof points[number], r: typeof points[number]) => {
+      const ux = q.x - p.x, uy = q.y - p.y, vx = r.x - p.x, vy = r.y - p.y;
+      const denom = Math.hypot(ux, uy) * Math.hypot(vx, vy);
+      return denom ? Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / denom))) * 180 / Math.PI : 0;
+    };
+    return [angle(points[0], points[1], points[2]), angle(points[1], points[2], points[0]), angle(points[2], points[0], points[1])].map((value) => value.toFixed(1));
+  })() : [];
   const modelKind = /Giza|Pyramid/i.test(site.name) ? 'pyramid' : /Stonehenge|Carnac/i.test(site.name) ? 'stones' : /Chich|Teotihuacan|Tenochtitlan/i.test(site.name) ? 'temple' : 'ruins';
   return (
     <div className="absolute inset-2 md:inset-4 z-[70] overflow-y-auto rounded-2xl border border-amber-400/70 bg-[#050b15]/[.98] p-3 md:p-5 shadow-2xl backdrop-blur-xl pointer-events-auto">
@@ -51,6 +67,14 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description 
         <section className="min-h-[280px] rounded-xl border border-emerald-500/30 bg-[#08111b] p-3 md:p-4 flex flex-col gap-3">
           <div><div className="text-[10px] font-mono font-bold tracking-wider text-emerald-200">SITE FILE · WHAT IS DOCUMENTED</div><p className="mt-2 text-sm leading-relaxed text-slate-200">{description}</p></div>
           <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-3"><div className="text-[10px] font-mono font-bold text-amber-200">FREQUENCY CHECK · NO ASSUMED MATCH</div><div className="mt-2 grid grid-cols-2 gap-2"><div className="rounded border border-slate-800 p-2"><div className="text-lg font-mono text-white">432 Hz</div><div className="text-[10px] text-slate-400">Alternative A4 tuning reference; not a measured Earth/site resonance.</div></div><div className="rounded border border-slate-800 p-2"><div className="text-lg font-mono text-white">110 Hz</div><div className="text-[10px] text-slate-400">A2 note under A4 = 440 Hz tuning; not a measured resonance for this site.</div></div></div><p className="mt-2 text-[10px] leading-relaxed text-slate-500">No frequency is assigned unless traceable measurements, units, method, uncertainty, and source are available.</p></div>
+          <div className="rounded-lg border border-sky-500/30 bg-slate-950/80 p-3">
+            <div className="text-[10px] font-mono font-bold text-sky-200">SITE TRIANGLE · NEAREST NEIGHBORS</div>
+            {nearestSites.length === 2 ? <><div className="mt-2 text-xs text-white">{site.name} · {nearestSites[0].name} · {nearestSites[1].name}</div><div className="mt-1 text-[10px] leading-relaxed text-slate-300">Approximate local-plane interior angles: {triangleAngles.join('° · ')}°. Nearby site distances: {nearestSites.map((near) => near.name + ' ' + Math.round(near.distanceKm).toLocaleString() + ' km').join(' · ')}.</div><div className="mt-1 text-[9px] text-slate-500">Geographic triangle for exploration only; the local-plane approximation is not a surveyed ancient alignment.</div></> : <div className="mt-2 text-[10px] text-slate-400">Not enough reference sites to calculate a triangle.</div>}
+          </div>
+          <div className="rounded-lg border border-violet-500/30 bg-slate-950/80 p-3">
+            <div className="text-[10px] font-mono font-bold text-violet-200">STAR & MOON COMPARISON</div>
+            <div className="mt-2 text-[10px] leading-relaxed text-slate-300">Use the A/B/C star triangle in Star Alignment controls, then use a star's “Locate on Earth” action to compare its calculated substellar point with this location. The Moon orbit in the 3D scene is currently compressed and illustrative, not a precision lunar ephemeris.</div>
+          </div>
           <div className="mt-auto rounded-lg border border-slate-800 p-3"><div className="text-[10px] font-mono font-bold text-slate-300">RESEARCH CHECKLIST</div><ul className="mt-2 list-disc pl-4 space-y-1 text-[10px] leading-relaxed text-slate-400"><li>Verify surveyed coordinates and architectural axes.</li><li>Compare candidate sky targets using a dated sky model.</li><li>Record published acoustic measurements and conditions.</li><li>Test numerical patterns against chance and uncertainty.</li></ul></div>
         </section>
       </div>
