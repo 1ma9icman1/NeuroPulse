@@ -102,6 +102,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const earthTextureRef = useRef<HTMLImageElement | null>(null);
+  const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
+
+  useEffect(() => {
+    const texture = new Image();
+    texture.crossOrigin = 'anonymous';
+    texture.onload = () => { earthTextureRef.current = texture; setEarthTextureLoaded(true); };
+    texture.onerror = () => setEarthTextureLoaded(false);
+    texture.src = 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png';
+    return () => { texture.onload = null; texture.onerror = null; };
+  }, []);
 
   // Star Celestial Alignment Mode
   const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
@@ -558,6 +569,20 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       ctx.arc(earthCenter.sx, earthCenter.sy, earthScreenRadius, 0, Math.PI * 2);
       ctx.fillStyle = earthGradient;
       ctx.fill();
+      // NASA Blue Marble global land/ocean texture. Clip to the globe; coastline and site overlays remain above it.
+      if (earthTextureLoaded && earthTextureRef.current) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(earthCenter.sx, earthCenter.sy, earthScreenRadius * 0.995, 0, Math.PI * 2);
+        ctx.clip();
+        const tex = earthTextureRef.current;
+        const texW = tex.naturalWidth || tex.width;
+        const texH = tex.naturalHeight || tex.height;
+        const diameter = earthScreenRadius * 2;
+        ctx.globalAlpha = 0.96;
+        ctx.drawImage(tex, earthCenter.sx - earthScreenRadius, earthCenter.sy - earthScreenRadius, diameter, diameter);
+        ctx.restore();
+      }
       ctx.strokeStyle = 'rgba(103, 232, 249, 0.85)';
       ctx.lineWidth = 1.5;
       ctx.shadowColor = '#0891b2';
@@ -1108,6 +1133,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     cFreq,
     isRunning,
     isStarModeActive,
+    timelineYear,
+    earthTextureLoaded,
     starAId,
     starBId,
     starCId,
