@@ -105,10 +105,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const earthTextureRef = useRef<HTMLImageElement | null>(null);
   const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
-  const [isEarthModeActive, setIsEarthModeActive] = useState(false);
+  const [isEarthModeActive] = useState(true);
   const globeRef = useRef<any>(null);
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
-  const handleToggleEarthMode = () => setIsEarthModeActive((active) => !active);
   const earthSites = [
     { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, year: -9600 },
     { name: 'Jericho', lat: 31.871, lon: 35.444, year: -9000 },
@@ -1398,9 +1397,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             }`}
           >
             3D Orbit Cube
-          </button>
-          <button onClick={handleToggleEarthMode} aria-pressed={isEarthModeActive} title="Toggle original textured 3D Earth globe" className={`px-2.5 py-1 text-xs font-mono font-bold rounded border ${isEarthModeActive ? 'bg-emerald-400 text-slate-950 border-emerald-300' : 'text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/50'}`}>
-            <span className="inline-flex items-center gap-1"><Globe className="w-3.5 h-3.5" /> {isEarthModeActive ? 'EARTH: ON' : 'EARTH ALIGNMENT'}</span>
           </button>
           <button
             onClick={() => onUpdateCameraView('top')}
