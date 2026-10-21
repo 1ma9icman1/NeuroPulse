@@ -12,7 +12,7 @@ export interface AcousticSiteEvidence {
   measuredFrequenciesHz: number[];
   researchBandHz?: number;
   measurementContext?: string;
-  measurements?: { parameter: string; frequencyHz: number; reportedValue: number; unit: string; method: string }[];
+  measurements?: { parameter: string; frequencyHz?: number; frequencyBand?: string; reportedValue: number; unit: string; method: string }[];
   status: 'published-measurement' | 'candidate-only';
   summary: string;
   caveat: string;
@@ -61,7 +61,7 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     measuredFrequenciesHz: [125, 250, 500, 1000, 2000], status: 'published-measurement',
     summary: 'An in-situ study examined early decay time at multiple audience positions and frequency bands in the ancient theatre.',
     measurementContext: 'The study reports octave-band EDT values that vary by receiver position. The paper/review reports a 1.79 s average over 125–2000 Hz; this is a band average, not a resonance peak. The primary paper discusses position-by-position differences and limitations of averaging.',
-    measurements: [{ parameter: 'EDT average (125–2000 Hz)', frequencyHz: 125, reportedValue: 1.79, unit: 's band average', method: 'In-situ acoustic survey; omnidirectional source, multiple receiver positions, ODEON analysis' }],
+    measurements: [{ parameter: 'EDT average', frequencyBand: '125–2000 Hz average', reportedValue: 1.79, unit: 's', method: 'In-situ acoustic survey; omnidirectional source, multiple receiver positions, ODEON analysis' }],
     caveat: '1.79 s is the reported average across a 125–2000 Hz band, not a measurement at exactly 125 Hz or a resonance at 1.79 Hz. It is not evidence of a 110 Hz resonance.',
     sources: [
       { label: 'Till (2019), Sound Archaeology: A Study of the Acoustics of Three World Heritage Sites', url: 'https://doi.org/10.3390/acoustics1030039', year: 2019, publication: 'Acoustics 1(3), 661–692' },
