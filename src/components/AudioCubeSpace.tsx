@@ -143,6 +143,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
   // Star Celestial Alignment Mode
   const [isStarModeActive, setIsStarModeActive] = useState<boolean>(false);
+  const IAU_CONSTELLATIONS = ["Andromeda","Antlia","Apus","Aquarius","Aquila","Ara","Aries","Auriga","Bootes","Caelum","Camelopardalis","Cancer","Canes Venatici","Canis Major","Canis Minor","Capricornus","Carina","Cassiopeia","Centaurus","Cepheus","Cetus","Chamaeleon","Circinus","Columba","Coma Berenices","Corona Australis","Corona Borealis","Corvus","Crater","Crux","Cygnus","Delphinus","Dorado","Draco","Equuleus","Eridanus","Fornax","Gemini","Grus","Hercules","Horologium","Hydra","Hydrus","Indus","Lacerta","Leo","Leo Minor","Lepus","Libra","Lupus","Lynx","Lyra","Mensa","Microscopium","Monoceros","Musca","Norma","Octans","Ophiuchus","Orion","Pavo","Pegasus","Perseus","Phoenix","Pictor","Pisces","Piscis Austrinus","Puppis","Pyxis","Reticulum","Sagitta","Sagittarius","Scorpius","Sculptor","Scutum","Serpens","Sextans","Taurus","Telescopium","Triangulum","Triangulum Australe","Tucana","Ursa Major","Ursa Minor","Vela","Virgo","Volans","Vulpecula"];
+  const [constellationsEnabled, setConstellationsEnabled] = useState<Record<string, boolean>>(() => Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, true])));
+  const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
+  const [show110HzResearchComets, setShow110HzResearchComets] = useState<boolean>(false);
+  const [moonOrbitPhase, setMoonOrbitPhase] = useState<number>(0);
+  const setAllConstellations = (enabled: boolean) => setConstellationsEnabled(Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, enabled])));
+  const isConstellationEnabled = (name: string) => constellationsEnabled[name] !== false;
+  useEffect(() => {
+    let frame = 0;
+    let last = 0;
+    const animateMoon = (now: number) => {
+      if (now - last > 45) { last = now; setMoonOrbitPhase((phase) => (phase + 0.004) % (Math.PI * 2)); }
+      frame = requestAnimationFrame(animateMoon);
+    };
+    frame = requestAnimationFrame(animateMoon);
+    return () => cancelAnimationFrame(frame);
+  }, []);
   // Historical sky timeline spanning the last 12,000 years.
   const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
@@ -788,6 +805,21 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       historicalSites.forEach((site) => {
         if (timelineYear >= site.era) labelEarthPoint('ANCIENT · ' + site.name, site.lat, site.lon, '#fb923c');
       });
+      // Moon position shares the Earth origin and camera rotation. Orbit is compressed for visibility;
+      // actual mean Earth-Moon distance is 384,400 km (about 60.3 Earth radii).
+      const moonOrbitRadius = earthRadius * 1.72;
+      const moonPos = { x: moonOrbitRadius * Math.cos(moonOrbitPhase), y: 0.55, z: moonOrbitRadius * Math.sin(moonOrbitPhase) };
+      const moonScreen = project3D(moonPos.x, moonPos.y, moonPos.z, width, height);
+      if (cameraFront(moonPos)) {
+        const moonRadius = Math.max(3.5, earthScreenRadius * 0.085);
+        ctx.save();
+        const moonGlow = ctx.createRadialGradient(moonScreen.sx - moonRadius * 0.3, moonScreen.sy - moonRadius * 0.35, 1, moonScreen.sx, moonScreen.sy, moonRadius * 1.6);
+        moonGlow.addColorStop(0, 'rgba(248,250,252,0.98)'); moonGlow.addColorStop(0.65, 'rgba(148,163,184,0.95)'); moonGlow.addColorStop(1, 'rgba(71,85,105,0.18)');
+        ctx.beginPath(); ctx.arc(moonScreen.sx, moonScreen.sy, moonRadius, 0, Math.PI * 2); ctx.fillStyle = moonGlow; ctx.shadowColor = '#cbd5e1'; ctx.shadowBlur = 15; ctx.fill(); ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.arc(moonScreen.sx - moonRadius * 0.24, moonScreen.sy - moonRadius * 0.18, moonRadius * 0.19, 0, Math.PI * 2); ctx.fillStyle = 'rgba(71,85,105,0.35)'; ctx.fill();
+        ctx.font = '9px "JetBrains Mono", monospace'; ctx.fillStyle = '#e2e8f0'; ctx.fillText('MOON · orbit compressed', moonScreen.sx + moonRadius + 5, moonScreen.sy + 3);
+        ctx.restore();
+      }
       ctx.restore();
 
       }
@@ -859,7 +891,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         CONSTELLATION_EDGES.forEach(([s1Id, s2Id]) => {
           const s1 = REAL_CELESTIAL_STARS.find((s) => s.id === s1Id);
           const s2 = REAL_CELESTIAL_STARS.find((s) => s.id === s2Id);
-          if (s1 && s2) {
+          if (s1 && s2 && isConstellationEnabled(s1.constellation) && isConstellationEnabled(s2.constellation)) {
             const p1v = celestialPosition(s1);
             const p2v = celestialPosition(s2);
             const p1 = project3D(p1v.x, p1v.y, p1v.z, width, height);
@@ -875,7 +907,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
 
         // Draw Real Stars
-        REAL_CELESTIAL_STARS.forEach((star) => {
+        REAL_CELESTIAL_STARS.filter((star) => isConstellationEnabled(star.constellation)).forEach((star) => {
           const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const isAssignedA = star.id === starAId;
@@ -1247,6 +1279,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     cFreq,
     isRunning,
     isStarModeActive,
+    constellationsEnabled,
+    show110HzResearchComets,
+    moonOrbitPhase,
     showDetailedStarInfo,
     isEarthModeActive,
     timelineYear,
@@ -1281,7 +1316,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
     // 1. Check if user clicked directly on any real star
     if (isStarModeActive) {
-      for (const star of REAL_CELESTIAL_STARS) {
+      for (const star of REAL_CELESTIAL_STARS.filter((item) => isConstellationEnabled(item.constellation))) {
         const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
         if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
@@ -1411,7 +1446,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       // Star Hover detection
       if (isStarModeActive) {
         let found: CelestialStar | null = null;
-        for (const star of REAL_CELESTIAL_STARS) {
+        for (const star of REAL_CELESTIAL_STARS.filter((item) => isConstellationEnabled(item.constellation))) {
           const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
@@ -1902,6 +1937,22 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <p className="text-[10px] text-slate-300 leading-tight mt-0.5">
               {STAR_ALIGNMENT_PRESETS.find((x) => x.id === selectedStarPreset)?.relation711Desc}
             </p>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 flex flex-col gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-1">
+                <span className="text-[10px] font-mono font-bold text-sky-200">IAU CONSTELLATIONS · 88</span>
+                <div className="flex gap-1">
+                  <button onClick={() => setAllConstellations(true)} className="rounded border border-sky-700 px-2 py-1 text-[9px] font-mono text-sky-200 hover:bg-sky-950">ALL ON</button>
+                  <button onClick={() => setAllConstellations(false)} className="rounded border border-slate-700 px-2 py-1 text-[9px] font-mono text-slate-300 hover:bg-slate-800">ALL OFF</button>
+                  <button onClick={() => setShowConstellationControls((v) => !v)} className="rounded border border-slate-700 px-2 py-1 text-[9px] font-mono text-slate-300">{showConstellationControls ? 'HIDE' : 'SELECT'}</button>
+                </div>
+              </div>
+              {showConstellationControls && <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto pr-1">{IAU_CONSTELLATIONS.map((name) => {
+                const available = REAL_CELESTIAL_STARS.some((star) => star.constellation === name || (name === 'Bootes' && star.constellation === 'Boötes'));
+                return <label key={name} className={'flex items-center gap-1.5 rounded px-1.5 py-1 text-[9px] font-mono ' + (available ? 'text-slate-200' : 'text-slate-500')} title={available ? 'Stars in current local catalog can be shown/hidden' : 'Name listed; star-coordinate and line data are not yet in the app catalog'}><input type="checkbox" checked={isConstellationEnabled(name)} onChange={(e) => setConstellationsEnabled((prev) => ({ ...prev, [name]: e.target.checked }))} className="accent-sky-400" />{name}{!available && <span className="ml-auto text-[8px] opacity-70">DATA NEEDED</span>}</label>;
+              })}</div>}
+              <div className="text-[9px] leading-relaxed text-slate-500">All 88 IAU constellation names are listed. Only constellations with star coordinates and connection data in the current catalog can draw their shapes; missing data is marked rather than invented.</div>
+            </div>
+            <label className="flex items-start gap-2 rounded-lg border border-orange-500/30 bg-orange-950/20 p-2 text-[10px] leading-relaxed text-orange-100"><input type="checkbox" checked={show110HzResearchComets} onChange={(e) => setShow110HzResearchComets(e.target.checked)} className="mt-0.5 accent-orange-400" /><span><strong>110 Hz research comet layer</strong><br/>Animate candidate rays from visible ancient-site markers. These are visual research targets only; no site is confirmed to resonate at 110 Hz without published measurements.</span></label>
           </div>
 
           {/* Channel to Star Manual Pickers with Lock / Unlock buttons */}
