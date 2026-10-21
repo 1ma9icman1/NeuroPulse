@@ -1178,6 +1178,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     cFreq,
     isRunning,
     isStarModeActive,
+    isEarthModeActive,
     timelineYear,
     earthTextureLoaded,
     starAId,
