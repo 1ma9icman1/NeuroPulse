@@ -2288,7 +2288,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
               htmlElement={(d: any) => {
                 const marker = document.createElement('div');
-                marker.style.width = '52px'; marker.style.height = showCosmicBeam && d.evidenceStatus === 'published-measurement' ? '190px' : '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
+                marker.style.width = '52px'; marker.style.height = showCosmicBeam && d.evidenceStatus === 'published-measurement' ? '300px' : '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
                 marker.title = d.evidenceStatus === 'published-measurement' ? `Published acoustic measurement: ${d.measuredHz} Hz (not 110 Hz)` : '110 Hz research candidate · resonance unverified at this location';
                 if (showCosmicBeam && d.evidenceStatus === 'published-measurement') {
                   const beam = document.createElement('div');
