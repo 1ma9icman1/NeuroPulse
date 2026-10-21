@@ -105,6 +105,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
   // Star Celestial Alignment Mode
   const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
+  // Historical sky timeline spanning the last 12,000 years.
+  const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
+  const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
   const [selectedStarPreset, setSelectedStarPreset] = useState<string>('orion-sirius-meridian');
   const [starAId, setStarAId] = useState<string>('betelgeuse');
@@ -178,9 +181,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     }
   };
 
-  // Real celestial coordinates: right ascension and declination -> 3D unit-sphere vector.
+  // First-order general-precession visualization (~50.29 arcsec/year); not a precision model over 12 millennia.
   const celestialPosition = (star: CelestialStar, radius = 7.8): SpatialPosition => {
-    const ra = (star.raDeg * Math.PI) / 180;
+    const precessionRad = (timelineYearsAgo * 50.29 / 3600) * Math.PI / 180;
+    const ra = (star.raDeg * Math.PI) / 180 + precessionRad;
     const dec = (star.decDeg * Math.PI) / 180;
     return { x: radius * Math.cos(dec) * Math.cos(ra), y: radius * Math.sin(dec), z: radius * Math.cos(dec) * Math.sin(ra) };
   };
@@ -510,8 +514,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         });
       }
 
-      // Earth as the Universe Core. Use spherical lat/lon geometry and current Greenwich sidereal time.
-      const jd = Date.now() / 86400000 + 2440587.5;
+      // Sidereal phase for Jan 1 noon in selected year. A year-only slider cannot recover an ancient time-of-day.
+      const jd = Date.UTC(timelineYear, 0, 1, 12, 0, 0) / 86400000 + 2440587.5;
       const centuries = (jd - 2451545.0) / 36525.0;
       const gmstDeg = ((280.46061837 + 360.98564736629 * (jd - 2451545.0) +
         0.000387933 * centuries * centuries - centuries * centuries * centuries / 38710000) % 360 + 360) % 360;
@@ -616,6 +620,30 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       };
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
       majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
+      // Modern coordinates for archaeological destinations; visibility follows approximate site era.
+      const historicalSites: Array<{ name: string; lat: number; lon: number; era: number }> = [
+        { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, era: -9600 },
+        { name: 'Jericho / Tell es-Sultan', lat: 31.871, lon: 35.444, era: -9000 },
+        { name: 'Çatalhöyük', lat: 37.667, lon: 32.828, era: -7100 },
+        { name: 'Nabta Playa', lat: 22.53, lon: 30.72, era: -7000 },
+        { name: 'Stonehenge', lat: 51.1789, lon: -1.8262, era: -3000 },
+        { name: 'Giza Plateau', lat: 29.9792, lon: 31.1342, era: -2600 },
+        { name: 'Carnac', lat: 47.593, lon: -3.078, era: -4500 },
+        { name: 'Newgrange', lat: 53.6947, lon: -6.475, era: -3200 },
+        { name: 'Teotihuacan', lat: 19.6925, lon: -98.8438, era: 100 },
+        { name: 'Chichén Itzá', lat: 20.6843, lon: -88.5678, era: 600 },
+        { name: 'Tenochtitlan', lat: 19.4326, lon: -99.1332, era: 1325 },
+        { name: 'Angkor Wat', lat: 13.4125, lon: 103.867, era: 1150 },
+        { name: 'Petra', lat: 30.3285, lon: 35.4444, era: -300 },
+        { name: 'Persepolis', lat: 29.9352, lon: 52.8916, era: -518 },
+        { name: 'Mohenjo-daro', lat: 27.329, lon: 68.138, era: -2500 },
+        { name: 'Machu Picchu', lat: -13.1631, lon: -72.545, era: 1450 },
+        { name: 'Great Zimbabwe', lat: -20.267, lon: 30.933, era: 1100 },
+        { name: 'Nan Madol', lat: 6.844, lon: 158.333, era: 1200 },
+      ];
+      historicalSites.forEach((site) => {
+        if (timelineYear >= site.era) labelEarthPoint('ANCIENT · ' + site.name, site.lat, site.lon, '#fb923c');
+      });
       ctx.restore();
 
       // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
@@ -1782,6 +1810,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
         </div>
       )}
+
+      {/* Historical Earth / sky timeline */}
+      <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-2xl rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
+          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300">Historical Earth / Sky Timeline</div>
+          <div className="text-xs font-mono text-white">{timelineYear < 0 ? Math.abs(timelineYear).toLocaleString() + ' BCE' : timelineYear + ' CE'}</div>
+        </div>
+        <input aria-label="Historical year from 10,000 BCE to present" type="range" min="-10000" max={new Date().getUTCFullYear()} step="10" value={timelineYear} onChange={(e) => setTimelineYear(Number(e.target.value))} className="w-full accent-amber-400 cursor-pointer" />
+        <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400"><span>10,000 BCE</span><span>{timelineYearsAgo.toLocaleString()} years before present</span><span>Present</span></div>
+        <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. Sky precession is first-order (~50.29″/yr); year-only rotation phase is illustrative, not an exact historical time-of-day. Berger 1978 describes long-term orbital/climate cycles, not a precision star-position catalogue.</div>
+      </div>
 
       {/* 3D Canvas */}
       <canvas
