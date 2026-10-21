@@ -221,7 +221,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // First-order general-precession visualization (~50.29 arcsec/year): shift ecliptic
   // longitude, then transform back to equatorial XYZ. This is illustrative, not a precision
   // IAU/astrometry solution over 12 millennia.
-  const celestialPosition = (star: CelestialStar, radius = (isEarthModeActive ? 2.7 : 7.8)): SpatialPosition => {
+  const celestialPosition = (star: CelestialStar, radius = 7.8): SpatialPosition => {
     const ra = (star.raDeg * Math.PI) / 180;
     const dec = (star.decDeg * Math.PI) / 180;
     const eps = 23.439281 * Math.PI / 180;
@@ -460,7 +460,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const centerPt = project3D(0, 0, 0, width, height);
 
       // 1. Render Top Plane Uploaded Image Overlay (if active)
-      if (!isEarthModeActive && overlay.visible && overlayImageRef.current) {
+      if (overlay.visible && overlayImageRef.current) {
         ctx.save();
         ctx.globalAlpha = overlay.opacity;
 
@@ -504,7 +504,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       // No synthetic background particles: render catalogued celestial objects only.
 
-      if (!isEarthModeActive) {
       // 3. Draw 3D AudioCube Room Wireframe
       ctx.lineWidth = 1;
       const gridSteps = 4;
@@ -570,8 +569,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           ctx.strokeStyle = isStarModeActive ? 'rgba(99, 102, 241, 0.18)' : 'rgba(168, 85, 247, 0.18)';
           ctx.stroke();
         });
-      }
-
       }
 
       if (!isEarthModeActive) {
@@ -723,7 +720,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       }
 
-      if (!isEarthModeActive) {
       // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
       const listenerFloor = project3D(0, -bound, 0, width, height);
 
@@ -774,8 +770,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.font = '9px "JetBrains Mono", monospace';
         ctx.fillStyle = '#c084fc';
         ctx.fillText('LISTENER', centerPt.sx - 22, centerPt.sy + 20);
-      }
-
       }
 
       // 5. Render Real-World Stars and Constellation Edges (Star Mode)
@@ -1123,12 +1117,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
-      // Draw Channel A, B, C pucks only in the original spatial-room view.
-      if (!isEarthModeActive) {
-        drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
-        drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
-        drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
-      }
+      // Draw Channel A, B, C pucks.
+      drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
+      drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
+      drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
 
       // 8. Hovered Star Info Card (if hovered)
       if (isStarModeActive && hoveredStar && !clickedStar) {
@@ -1916,9 +1908,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       {/* Earth stays inside the original space viewport: a centered globe, not a separate full-screen Earth layout. */}
       {isEarthModeActive && (
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-          <div className="relative h-[min(66vw,72vh,680px)] w-[min(66vw,72vh,680px)] max-w-[78%] max-h-[78%] pointer-events-auto">
-            <Globe3D ref={globeRef} width={Math.min(containerRef.current?.clientWidth || 800, containerRef.current?.clientHeight || 600) * 0.68}
-              height={Math.min(containerRef.current?.clientWidth || 800, containerRef.current?.clientHeight || 600) * 0.68}
+          <div className="relative h-[min(28vw,30vh,300px)] w-[min(28vw,30vh,300px)] max-w-[78%] max-h-[78%] pointer-events-auto">
+            <Globe3D ref={globeRef} width={Math.min(containerRef.current?.clientWidth || 800, containerRef.current?.clientHeight || 600) * 0.28}
+              height={Math.min(containerRef.current?.clientWidth || 800, containerRef.current?.clientHeight || 600) * 0.28}
               globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
