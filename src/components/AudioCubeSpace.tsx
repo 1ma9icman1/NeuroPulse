@@ -626,7 +626,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
         ctx.font = 'bold 9px "JetBrains Mono", monospace';
         ctx.fillStyle = '#fde047';
-        ctx.fillText('UNIVERSE CORE (0,0,0)', centerPt.sx - 52, centerPt.sy + 24);
+        ctx.fillText('EARTH / UNIVERSE CORE', centerPt.sx - 58, centerPt.sy + 24);
       } else {
         ctx.beginPath();
         ctx.arc(centerPt.sx, centerPt.sy, 8, 0, Math.PI * 2);
