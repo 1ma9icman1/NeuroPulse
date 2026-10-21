@@ -147,7 +147,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [constellationsEnabled, setConstellationsEnabled] = useState<Record<string, boolean>>(() => Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, true])));
   const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
   const [show110HzResearchComets, setShow110HzResearchComets] = useState<boolean>(false);
-  const [moonOrbitPhase, setMoonOrbitPhase] = useState<number>(0);
   const setAllConstellations = (enabled: boolean) => setConstellationsEnabled(Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, enabled])));
   const isConstellationEnabled = (name: string) => constellationsEnabled[name === 'Boötes' ? 'Bootes' : name] !== false;
   // Historical sky timeline spanning the last 12,000 years.
