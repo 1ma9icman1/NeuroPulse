@@ -29,7 +29,11 @@ export function LeafletSiteMap({ site, sites = [], layer, audioSites = [], onMap
     };
     layersRef.current[layer].addTo(map);
     markersRef.current = L.layerGroup().addTo(map);
-    map.on('click', (event: L.LeafletMouseEvent) => mapPointClickRef.current?.({ name: 'Pinned Earth Location', lat: event.latlng.lat, lon: event.latlng.lng, color: '#38bdf8' }));
+    map.on('click', (event: L.LeafletMouseEvent) => {
+      const target = event.originalEvent.target as HTMLElement | null;
+      if (target?.closest('.leaflet-interactive, .np-audio-frequency-icon, .leaflet-control')) return;
+      mapPointClickRef.current?.({ name: 'Pinned Earth Location', lat: event.latlng.lat, lon: event.latlng.lng, color: '#38bdf8' });
+    });
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
   }, []);
