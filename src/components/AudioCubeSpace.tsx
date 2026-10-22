@@ -40,6 +40,7 @@ import {
   Pause,
   X,
   Sparkles,
+  Sun,
 } from 'lucide-react';
 import {
   REAL_CELESTIAL_STARS,
