@@ -298,7 +298,7 @@ export default function App() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleRunTrinauralTest}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border shadow-sm ${
+            className={`hidden flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border shadow-sm ${
               trinauralTestStatus
                 ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.3)] animate-pulse'
                 : 'bg-[#060a12] border-slate-700 text-slate-300 hover:text-white hover:border-slate-500'
@@ -348,7 +348,7 @@ export default function App() {
 
           <button
             onClick={handleTogglePlay}
-            className={`px-5 py-1.5 text-xs font-mono font-bold tracking-wider rounded-md transition-all shadow-md ${
+            className={`hidden px-5 py-1.5 text-xs font-mono font-bold tracking-wider rounded-md transition-all shadow-md ${
               isRunning
                 ? 'bg-red-500 hover:bg-red-600 text-white shadow-[0_0_12px_rgba(239,68,68,0.5)]'
                 : 'bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-[0_0_12px_rgba(52,211,153,0.4)]'
