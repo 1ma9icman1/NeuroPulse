@@ -13,6 +13,7 @@ export interface AncientStructureDimension {
   approximateHeightFt: number;
   heightBasis: string;
   evidenceNote: string;
+  geometryClaim?: string;
   sourceUrl: string;
 }
 
@@ -78,6 +79,7 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     approximateHeightFt: 215,
     heightBasis: 'Approximate surviving monument height.',
     evidenceNote: 'A comparison with Egyptian pyramids does not by itself establish a shared universal engineering threshold.',
+    geometryClaim: 'Claimed perimeter/height match is not exact with the quoted values: 2,932 / 215 ≈ 13.64, while 4π ≈ 12.57. Treat the exact 4π claim as unverified.',
     sourceUrl: 'https://whc.unesco.org/en/list/414/'
   },
   {
@@ -107,4 +109,35 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     evidenceNote: 'Stonehenge contains stones of different types and dimensions; 24 ft should not be treated as the average height of all sarsens or bluestones.',
     sourceUrl: 'https://whc.unesco.org/en/list/373/'
   }
+
+  {
+    id: 'parthenon-athens',
+    name: 'Parthenon',
+    lat: 37.9715, lon: 23.7267, location: 'Athens, Greece',
+    approximateHeightFt: 45,
+    heightBasis: 'Approximate height to roofline; published dimensions depend on measurement convention.',
+    evidenceNote: 'Known for careful proportions and optical refinements. Claims that its facade or column spacing exactly encodes the golden ratio depend on which dimensions are selected and are debated.',
+    geometryClaim: 'A visual resemblance to phi ≈ 1.618 is not proof that builders used the golden ratio as an explicit design rule.',
+    sourceUrl: 'https://whc.unesco.org/en/list/404/'
+  },
+  {
+    id: 'temple-of-kukulkan-chichen-itza',
+    name: 'Temple of Kukulkan (El Castillo)',
+    lat: 20.6829, lon: -88.5686, location: 'Chichen Itza, Yucatan, Mexico',
+    approximateHeightFt: 98,
+    heightBasis: 'Approximate overall height; values vary by measurement datum.',
+    evidenceNote: 'Four stairways are commonly described as having 91 steps each; 4 × 91 plus the top platform is interpreted as 365. Equinox-season light and shadow effects are documented, but visibility depends on conditions.',
+    geometryClaim: 'The 365-step interpretation is a widely discussed calendrical reading, not proof that every feature was engineered with modern mathematical precision.',
+    sourceUrl: 'https://whc.unesco.org/en/list/483/'
+  },
+  {
+    id: 'borobudur-temple',
+    name: 'Borobudur Temple',
+    lat: -7.6079, lon: 110.2038, location: 'Central Java, Indonesia',
+    approximateHeightFt: 115,
+    heightBasis: 'Approximate height above surrounding ground; estimates depend on restoration and datum.',
+    evidenceNote: 'Borobudur has square terraces and circular upper platforms in a Buddhist cosmological layout. A specific 4:6:9 scaling rule or direct Fibonacci relationship is not established here.',
+    geometryClaim: 'Treat exact 4:6:9 and golden-ratio claims as hypotheses unless supported by dimension-by-dimension architectural analysis.',
+    sourceUrl: 'https://whc.unesco.org/en/list/592/'
+  },
 ];
