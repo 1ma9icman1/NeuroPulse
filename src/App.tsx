@@ -297,6 +297,7 @@ export default function App() {
         {/* Center: Live Trinaural Test Button & Real-Time Readouts */}
         <div className="flex items-center gap-3">
           <button
+            style={{ display: "none" }}
             onClick={handleRunTrinauralTest}
             className={`hidden items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border shadow-sm ${
               trinauralTestStatus
@@ -347,6 +348,7 @@ export default function App() {
           </button>
 
           <button
+            style={{ display: "none" }}
             onClick={handleTogglePlay}
             className={`hidden px-5 py-1.5 text-xs font-mono font-bold tracking-wider rounded-md transition-all shadow-md ${
               isRunning
