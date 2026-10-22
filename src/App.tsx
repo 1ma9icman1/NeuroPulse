@@ -69,6 +69,9 @@ export default function App() {
   const [trinauralTestStatus, setTrinauralTestStatus] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGaiaSkyPanelOpen, setIsGaiaSkyPanelOpen] = useState(false);
+  // When enabled, a channel's physical 3D position deterministically controls its
+  // oscillator frequency. Manual frequency/preset edits switch this mode off.
+  const [positionPitchMode, setPositionPitchMode] = useState(true);
 
   const audioEngineRef = useRef<AudioEngine | null>(null);
 
@@ -113,6 +116,47 @@ export default function App() {
       return updated;
     });
   }, []);
+
+  // Convert the normalized XYZ position into a continuous musical pitch shift.
+  // This is an intentional synthesis mapping, not a claim that a geographic site
+  // has a scientifically measured frequency. X/Z control horizontal pitch; Y
+  // controls a smaller elevation contribution. 432 Hz is the reference center.
+  const frequencyFromPosition = useCallback((position: SpatialPosition): number => {
+    const normalize = (value: number) => Math.max(-1, Math.min(1, value / 8));
+    const semitoneShift =
+      normalize(position.x) * 10 +
+      normalize(position.z) * 10 +
+      normalize(position.y) * 4;
+    const hz = 432 * Math.pow(2, semitoneShift / 12);
+    return Number(Math.max(10, Math.min(2000, hz)).toFixed(2));
+  }, []);
+
+  const handlePositionChange = useCallback((channel: ChannelId, position: SpatialPosition) => {
+    if (!positionPitchMode) {
+      if (channel === 'a') handleUpdateConfig({ aPos: position });
+      else if (channel === 'b') handleUpdateConfig({ bPos: position });
+      else handleUpdateConfig({ cPos: position });
+      return;
+    }
+
+    // Keep each channel independently tied to its own location. Location-pitch
+    // mode and a fixed A/B/C delta lock are mutually exclusive by design.
+    if (channel === 'a') handleUpdateConfig({ aPos: position, aFreq: frequencyFromPosition(position), isDeltaLocked: false });
+    else if (channel === 'b') handleUpdateConfig({ bPos: position, bFreq: frequencyFromPosition(position), isDeltaLocked: false });
+    else handleUpdateConfig({ cPos: position, cFreq: frequencyFromPosition(position), isDeltaLocked: false });
+  }, [positionPitchMode, frequencyFromPosition, handleUpdateConfig]);
+
+  const handleTogglePositionPitchMode = useCallback(() => {
+    if (!positionPitchMode) {
+      handleUpdateConfig({
+        isDeltaLocked: false,
+        aFreq: frequencyFromPosition(config.aPos),
+        bFreq: frequencyFromPosition(config.bPos),
+        cFreq: frequencyFromPosition(config.cPos),
+      });
+    }
+    setPositionPitchMode((enabled) => !enabled);
+  }, [positionPitchMode, config.aPos, config.bPos, config.cPos, frequencyFromPosition, handleUpdateConfig]);
 
   // Master Play / Stop
   const handleTogglePlay = async () => {
@@ -172,6 +216,7 @@ export default function App() {
 
   // Direct Channel A Frequency Tuning
   const handleUpdateAFreq = (val: number) => {
+    setPositionPitchMode(false);
     if (config.isDeltaLocked) {
       handleUpdateConfig({
         aFreq: val,
@@ -185,6 +230,7 @@ export default function App() {
 
   // Direct Channel B Frequency Tuning
   const handleUpdateBFreq = (val: number) => {
+    setPositionPitchMode(false);
     if (config.isDeltaLocked) {
       const newDeltaAB = Math.abs(val - config.aFreq);
       handleUpdateConfig({
@@ -198,6 +244,7 @@ export default function App() {
 
   // Direct Channel C Frequency Tuning
   const handleUpdateCFreq = (val: number) => {
+    setPositionPitchMode(false);
     if (config.isDeltaLocked) {
       const newDeltaBC = Math.abs(val - config.bFreq);
       handleUpdateConfig({
@@ -222,6 +269,7 @@ export default function App() {
 
   // Quick Delta Snap from Brainwave Band
   const handleSetQuickDelta = (delta: number) => {
+    setPositionPitchMode(false);
     handleUpdateConfig({
       bFreq: Number((config.aFreq + delta).toFixed(2)),
       cFreq: Number((config.aFreq + delta * 2).toFixed(2)),
@@ -232,6 +280,7 @@ export default function App() {
 
   // Solfeggio Tone Routing
   const handleApplySolfeggio = (freq: number, target: 'base' | ChannelId | 'tri-spread') => {
+    setPositionPitchMode(false);
     if (target === 'base') {
       const deltaAB = config.isDeltaLocked ? config.lockedDeltaAB : Math.abs(config.bFreq - config.aFreq);
       const deltaBC = config.isDeltaLocked ? config.lockedDeltaBC : Math.abs(config.cFreq - config.bFreq);
@@ -268,6 +317,7 @@ export default function App() {
 
   // Apply Preset
   const handleSelectPreset = (preset: Preset) => {
+    setPositionPitchMode(false);
     setSelectedPresetId(preset.id);
     const newDeltaAB = Math.abs(preset.bFreq - preset.aFreq);
     const newDeltaBC = Math.abs(preset.cFreq - preset.bFreq);
@@ -404,9 +454,11 @@ export default function App() {
             bFreq={config.bFreq + config.bFineTune}
             cFreq={config.cFreq + config.cFineTune}
             isRunning={isRunning}
-            onUpdateAPos={(pos: SpatialPosition) => handleUpdateConfig({ aPos: pos })}
-            onUpdateBPos={(pos: SpatialPosition) => handleUpdateConfig({ bPos: pos })}
-            onUpdateCPos={(pos: SpatialPosition) => handleUpdateConfig({ cPos: pos })}
+            positionPitchMode={positionPitchMode}
+            onTogglePositionPitchMode={handleTogglePositionPitchMode}
+            onUpdateAPos={(pos: SpatialPosition) => handlePositionChange('a', pos)}
+            onUpdateBPos={(pos: SpatialPosition) => handlePositionChange('b', pos)}
+            onUpdateCPos={(pos: SpatialPosition) => handlePositionChange('c', pos)}
             onUpdateSpatialMode={(mode: SpatialRoutingMode) => handleUpdateConfig({ spatialMode: mode })}
             onUpdateCameraView={(view: CameraView) => handleUpdateConfig({ cameraView: view })}
             onUpdateCameraAngles={(yaw: number, pitch: number) =>
@@ -449,7 +501,7 @@ export default function App() {
             onUpdateFineTune={(fine) => handleUpdateConfig({ aFineTune: fine })}
             onUpdateWaveform={(wave: WaveformType) => handleUpdateConfig({ aWaveform: wave })}
             onUpdateGain={(g) => handleUpdateConfig({ aGain: g })}
-            onUpdateElevation={(elev) => handleUpdateConfig({ aPos: { ...config.aPos, y: elev } })}
+            onUpdateElevation={(elev) => handlePositionChange('a', { ...config.aPos, y: elev })}
             onToggleMute={() => handleUpdateConfig({ aMuted: !config.aMuted })}
           />
 
@@ -468,7 +520,7 @@ export default function App() {
             onUpdateFineTune={(fine) => handleUpdateConfig({ bFineTune: fine })}
             onUpdateWaveform={(wave: WaveformType) => handleUpdateConfig({ bWaveform: wave })}
             onUpdateGain={(g) => handleUpdateConfig({ bGain: g })}
-            onUpdateElevation={(elev) => handleUpdateConfig({ bPos: { ...config.bPos, y: elev } })}
+            onUpdateElevation={(elev) => handlePositionChange('b', { ...config.bPos, y: elev })}
             onToggleMute={() => handleUpdateConfig({ bMuted: !config.bMuted })}
           />
 
@@ -487,7 +539,7 @@ export default function App() {
             onUpdateFineTune={(fine) => handleUpdateConfig({ cFineTune: fine })}
             onUpdateWaveform={(wave: WaveformType) => handleUpdateConfig({ cWaveform: wave })}
             onUpdateGain={(g) => handleUpdateConfig({ cGain: g })}
-            onUpdateElevation={(elev) => handleUpdateConfig({ cPos: { ...config.cPos, y: elev } })}
+            onUpdateElevation={(elev) => handlePositionChange('c', { ...config.cPos, y: elev })}
             onToggleMute={() => handleUpdateConfig({ cMuted: !config.cMuted })}
           />
         </section>
