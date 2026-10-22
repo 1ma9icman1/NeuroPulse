@@ -969,19 +969,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.shadowBlur = isCity ? 3 : 7;
         ctx.fill();
         ctx.shadowBlur = 0;
-        // Keep the globe clean at orbital scale; reveal names once zoomed closer.
-        if (false && cameraZoom >= (isCity ? 1.35 : 1.08)) {
-          const isMeasuredAcousticSite = name.includes('MEASURED') || ACOUSTIC_SITE_EVIDENCE.some((site) => name.includes(site.name));
-          const isAncientStructure = name.includes('ANCIENT') || isMeasuredAcousticSite;
-          const fontSize = isCity ? Math.max(8, Math.min(12, 8 + cameraZoom)) : isMeasuredAcousticSite ? Math.max(13, Math.min(21, 13 + cameraZoom * 1.6)) : isAncientStructure ? Math.max(11, Math.min(17, 11 + cameraZoom * 1.25)) : Math.max(9, Math.min(13, 9 + cameraZoom));
-          ctx.font = `${isCity ? '500' : isMeasuredAcousticSite ? '700' : '600'} ${fontSize}px system-ui, sans-serif`;
-          ctx.lineWidth = 3;
-          ctx.strokeStyle = 'rgba(3, 10, 22, 0.92)';
-          ctx.strokeText(name, p.sx + 5, p.sy - 5);
-          const displayColor = showAcousticColorSystem ? (isMeasuredAcousticSite ? '#fb923c' : isAncientStructure ? '#facc15' : isCity ? '#dbeafe' : color) : '#e2e8f0';
-          ctx.fillStyle = isCity ? (showAcousticColorSystem ? 'rgba(219, 234, 254, 0.96)' : '#e2e8f0') : displayColor;
-          ctx.fillText(name, p.sx + 5, p.sy - 5);
-        }
+        // Earth stays dot-only; select a dot to open its information panel.
       };
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
       if (showCities) majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
