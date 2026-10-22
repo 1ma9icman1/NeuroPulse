@@ -2420,7 +2420,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                     <Minimize className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                   <button
                     onClick={(event) => { event.stopPropagation(); setIsStarModeActive((prev) => !prev); }}
                     aria-pressed={isStarModeActive}
