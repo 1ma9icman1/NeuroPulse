@@ -169,4 +169,29 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     numberSystemNote: 'The evidence does not establish the Indus civilization’s complete counting notation as definitively decimal or vigesimal.',
     sourceUrl: 'https://whc.unesco.org/en/list/138/'
   },
+
+  {
+    id: 'pantheon-rome',
+    name: 'Pantheon',
+    lat: 41.8986, lon: 12.4769, location: 'Rome, Italy',
+    approximateHeightFt: 142,
+    heightBasis: 'Approximate interior height to dome apex; the interior diameter is also about 142 ft.',
+    evidenceNote: 'The interior is famously organized around a near-spherical relationship between height and diameter. Roman builders used geometric setting-out methods; modern decimal measurements do not imply they used decimal fractions.',
+    geometryClaim: 'The approximate equality of interior height and diameter is a geometric relationship, not evidence that the architects encoded an irrational decimal.',
+    numberSystem: 'mixed-or-context-dependent',
+    numberSystemNote: 'Roman measures and practical geometric construction were used. Do not attribute modern decimal notation to builders because dimensions are now expressed in decimal feet or metres.',
+    sourceUrl: 'https://whc.unesco.org/en/list/91/'
+  },
+  {
+    id: 'tikal-maya-ceremonial-center',
+    name: 'Tikal — Maya ceremonial center',
+    lat: 17.2220, lon: -89.6237, location: 'Petén, Guatemala',
+    approximateHeightFt: 230,
+    heightBasis: 'Approximate height commonly cited for a tallest temple-pyramid; not representative of every Tikal structure.',
+    evidenceNote: 'Tikal belongs to the broader Maya architectural and calendrical tradition. Individual building heights vary substantially.',
+    geometryClaim: 'Maya numeration was generally vigesimal (base 20), but this does not prove a single base-20 rule governed every architectural dimension.',
+    numberSystem: 'vigesimal',
+    numberSystemNote: 'Maya mathematics used a base-20 system and place-value notation, with calendar-specific conventions.',
+    sourceUrl: 'https://whc.unesco.org/en/list/64/'
+  },
 ];
