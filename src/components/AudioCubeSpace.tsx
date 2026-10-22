@@ -901,34 +901,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      const traceEarthLine = (coords: [number, number][], stroke: string, lineWidth: number) => {
-        ctx.beginPath();
-        let previousVisible = false;
-        for (const [lat, lon] of coords) {
-          const v = earthPoint(lat, lon);
-          const visible = cameraFront(v);
-          const p = project3D(v.x, v.y, v.z, width, height);
-          if (visible) {
-            if (!previousVisible) ctx.moveTo(p.sx, p.sy);
-            else ctx.lineTo(p.sx, p.sy);
-          }
-          previousVisible = visible;
-        }
-        ctx.strokeStyle = stroke;
-        ctx.lineWidth = lineWidth;
-        ctx.stroke();
-      };
-      for (let lat = -60; lat <= 60; lat += 30) {
-        const line: [number, number][] = [];
-        for (let lon = -180; lon <= 180; lon += 4) line.push([lat, lon]);
-        traceEarthLine(line, 'rgba(125, 211, 252, 0.28)', 0.65);
-      }
-      for (let lon = -180; lon < 180; lon += 30) {
-        const line: [number, number][] = [];
-        for (let lat = -88; lat <= 88; lat += 3) line.push([lat, lon]);
-        traceEarthLine(line, 'rgba(125, 211, 252, 0.28)', 0.65);
-      }
-      CONTINENTAL_COASTLINES.forEach((polygon) => traceEarthLine(polygon, 'rgba(45, 212, 191, 0.9)', 1.15));
+      // Textured Earth with directional limb shading; no wireframe overlays.
+      const limbShade = ctx.createRadialGradient(
+        earthCenter.sx - earthScreenRadius * 0.34,
+        earthCenter.sy - earthScreenRadius * 0.38,
+        earthScreenRadius * 0.12,
+        earthCenter.sx + earthScreenRadius * 0.12,
+        earthCenter.sy + earthScreenRadius * 0.1,
+        earthScreenRadius * 1.08
+      );
+      limbShade.addColorStop(0, 'rgba(255,255,255,0.12)');
+      limbShade.addColorStop(0.52, 'rgba(5,18,36,0.04)');
+      limbShade.addColorStop(0.82, 'rgba(2,8,20,0.30)');
+      limbShade.addColorStop(1, 'rgba(0,4,14,0.82)');
+      ctx.beginPath();
+      ctx.arc(earthCenter.sx, earthCenter.sy, earthScreenRadius * 0.995, 0, Math.PI * 2);
+      ctx.fillStyle = limbShade;
+      ctx.fill();
       // Major cities and named landmarks become readable as the user zooms in.
       // Coordinates are geographic locations, projected onto the same rotating Earth.
       const majorCities: Array<{ name: string; lat: number; lon: number }> = [
@@ -957,19 +946,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.shadowBlur = isCity ? 3 : 7;
         ctx.fill();
         ctx.shadowBlur = 0;
-        // Keep the globe clean at orbital scale; reveal names once zoomed closer.
-        if (cameraZoom >= (isCity ? 1.35 : 1.08)) {
-          const isMeasuredAcousticSite = name.includes('MEASURED') || ACOUSTIC_SITE_EVIDENCE.some((site) => name.includes(site.name));
-          const isAncientStructure = name.includes('ANCIENT') || isMeasuredAcousticSite;
-          const fontSize = isCity ? Math.max(8, Math.min(12, 8 + cameraZoom)) : isMeasuredAcousticSite ? Math.max(13, Math.min(21, 13 + cameraZoom * 1.6)) : isAncientStructure ? Math.max(11, Math.min(17, 11 + cameraZoom * 1.25)) : Math.max(9, Math.min(13, 9 + cameraZoom));
-          ctx.font = `${isCity ? '500' : isMeasuredAcousticSite ? '700' : '600'} ${fontSize}px system-ui, sans-serif`;
-          ctx.lineWidth = 3;
-          ctx.strokeStyle = 'rgba(3, 10, 22, 0.92)';
-          ctx.strokeText(name, p.sx + 5, p.sy - 5);
-          const displayColor = showAcousticColorSystem ? (isMeasuredAcousticSite ? '#fb923c' : isAncientStructure ? '#facc15' : isCity ? '#dbeafe' : color) : '#e2e8f0';
-          ctx.fillStyle = isCity ? (showAcousticColorSystem ? 'rgba(219, 234, 254, 0.96)' : '#e2e8f0') : displayColor;
-          ctx.fillText(name, p.sx + 5, p.sy - 5);
-        }
+        // Site markers remain small dots at every zoom level; no text labels on the globe.
       };
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
       if (showCities) majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
