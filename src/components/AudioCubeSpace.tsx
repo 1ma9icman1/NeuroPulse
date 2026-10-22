@@ -84,6 +84,8 @@ interface AudioCubeSpaceProps {
   bFreq: number;
   cFreq: number;
   isRunning: boolean;
+  positionPitchMode: boolean;
+  onTogglePositionPitchMode: () => void;
   onUpdateAPos: (pos: SpatialPosition) => void;
   onUpdateBPos: (pos: SpatialPosition) => void;
   onUpdateCPos: (pos: SpatialPosition) => void;
@@ -107,6 +109,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   bFreq,
   cFreq,
   isRunning,
+  positionPitchMode,
+  onTogglePositionPitchMode,
   onUpdateAPos,
   onUpdateBPos,
   onUpdateCPos,
@@ -805,6 +809,36 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     [cameraView, cameraYaw, cameraPitch, cameraZoom]
   );
 
+  // Celestial projection is deliberately separated from the room projection.
+  // The 3D orbit camera remains untouched; when Top Plane/Earth is active we keep
+  // stars, planets and constellation lines in the same perspective camera frame.
+  const projectCelestial3D = useCallback(
+    (x: number, y: number, z: number, w: number, h: number) => {
+      if (cameraView !== 'top') return project3D(x, y, z, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+      const baseScale = Math.min(w, h) * 0.042 * cameraZoom;
+      const radYaw = (cameraYaw * Math.PI) / 180;
+      const radPitch = (cameraPitch * Math.PI) / 180;
+      const rx = x * Math.cos(radYaw) - z * Math.sin(radYaw);
+      const rz = x * Math.sin(radYaw) + z * Math.cos(radYaw);
+      const ry = y * Math.cos(radPitch) - rz * Math.sin(radPitch);
+      const rz2 = y * Math.sin(radPitch) + rz * Math.cos(radPitch);
+      const cameraDist = 28;
+      const fov = 350;
+      const depth = cameraDist + rz2;
+      const factor = fov / Math.max(6, depth);
+
+      return {
+        sx: cx + rx * factor * baseScale * 0.065,
+        sy: cy - ry * factor * baseScale * 0.065,
+        depthScale: factor / (fov / cameraDist),
+      };
+    },
+    [cameraView, cameraYaw, cameraPitch, cameraZoom, project3D]
+  );
+
   const unprojectOrbitPlane = (
     screenX: number,
     screenY: number,
@@ -1378,7 +1412,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             ctx.beginPath();
             path.forEach(([raDeg, decDeg], index) => {
               const pos = celestialPosition({ raDeg, decDeg });
-              const screen = project3D(pos.x, pos.y, pos.z, width, height);
+              const screen = projectCelestial3D(pos.x, pos.y, pos.z, width, height);
               if (index === 0) ctx.moveTo(screen.sx, screen.sy);
               else ctx.lineTo(screen.sx, screen.sy);
               renderedConstellationPoints.set(`${raDeg.toFixed(3)}:${decDeg.toFixed(3)}`, { sx: screen.sx, sy: screen.sy });
@@ -1404,7 +1438,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         // The constellation toggles above only control the connecting paths.
         REAL_CELESTIAL_STARS.forEach((star) => {
           const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+          const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const isAssignedA = star.id === starAId;
           const isAssignedB = star.id === starBId;
           const isAssignedC = star.id === starCId;
@@ -1448,7 +1482,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         // They appear with Star Mode and update whenever the historical year changes.
         timelinePlanetPositions.forEach((planet: ReturnType<typeof getPlanetSkyPositions>[number]) => {
           const planetPosition = celestialPosition({ raDeg: planet.raDeg, decDeg: planet.decDeg });
-          const pp = project3D(planetPosition.x, planetPosition.y, planetPosition.z, width, height);
+          const pp = projectCelestial3D(planetPosition.x, planetPosition.y, planetPosition.z, width, height);
           const radius = Math.max(2.5, planet.size * pp.depthScale);
           ctx.save();
           ctx.beginPath();
@@ -1474,7 +1508,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           const star = REAL_CELESTIAL_STARS.find((s) => s.id === starId);
           if (!star) return;
           const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+          const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const pp = project3D(puckPos.x, puckPos.y, puckPos.z, width, height);
 
           // Ray from Center to Star
@@ -1497,9 +1531,11 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           ctx.setLineDash([]);
         };
 
-        drawTether(starAId, aPos, '#00f0ff');
-        drawTether(starBId, bPos, '#ff007f');
-        drawTether(starCId, cPos, '#fbbf24');
+        if (!isEarthModeActive) {
+          drawTether(starAId, aPos, '#00f0ff');
+          drawTether(starBId, bPos, '#ff007f');
+          drawTether(starCId, cPos, '#fbbf24');
+        }
       }
 
       // 6. Draw 3D Sound Puck Helper
@@ -1571,6 +1607,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         );
       };
 
+      // Keep cube-space pucks/triangle confined to the 3D orbit view. In Earth
+      // mode, geographic A/B/C targets are rendered as pins on the globe.
+      if (!isEarthModeActive) {
       // 7. Draw Trinaural Acoustic Triangular Web between A, B, and C
       const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
       const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
@@ -1752,10 +1791,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
       drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
 
+      }
+
       // 8. Hovered Star Info Card (if hovered)
       if (isStarModeActive && hoveredStar && !clickedStar) {
         const hoverPosition = celestialPosition(hoveredStar);
-        const hp = project3D(hoverPosition.x, hoverPosition.y, hoverPosition.z, width, height);
+        const hp = projectCelestial3D(hoverPosition.x, hoverPosition.y, hoverPosition.z, width, height);
         ctx.save();
         ctx.fillStyle = 'rgba(6, 10, 18, 0.94)';
         ctx.strokeStyle = '#facc15';
@@ -1819,6 +1860,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     overlay,
     relation711.isHarmonic711,
     project3D,
+    projectCelestial3D,
     activeDrag,
     hoverNode,
     showTriangleAngles,
@@ -1826,6 +1868,33 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   ]);
 
   // Pointer interactions
+  // In Earth/top-plane mode, the globe receives pointer events. Intercept a
+  // pointer-down only if it hits a celestial star; other interactions continue
+  // to the globe, preserving globe rotate/zoom and geographic location-pinning.
+  const handleEarthStarPointerDownCapture = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isEarthModeActive || !isStarModeActive) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || !target.closest('canvas')) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    for (const star of REAL_CELESTIAL_STARS) {
+      const point = celestialPosition(star);
+      const screen = projectCelestial3D(point.x, point.y, point.z, rect.width, rect.height);
+      if (Math.hypot(x - screen.sx, y - screen.sy) < 18) {
+        event.preventDefault();
+        event.stopPropagation();
+        handleSnapChannelToStar(snapTargetChannel, star);
+        setClickedStar(star);
+        setHoveredStar(star);
+        return;
+      }
+    }
+  };
+
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -1861,7 +1930,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     if (isStarModeActive) {
       for (const star of REAL_CELESTIAL_STARS) {
         const starPosition = celestialPosition(star);
-        const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+        const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
         if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
           handleSnapChannelToStar(snapTargetChannel, star);
           setClickedStar(star);
@@ -1969,7 +2038,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         let found: CelestialStar | null = null;
         for (const star of REAL_CELESTIAL_STARS) {
           const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+          const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
             found = star;
             break;
@@ -2004,6 +2073,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   return (
     <div
       ref={containerRef}
+      onPointerDownCapture={handleEarthStarPointerDownCapture}
       className={`relative w-full h-full bg-[#060a12] rounded-xl border border-slate-800 shadow-2xl overflow-hidden select-none flex flex-col ${
         isStageFullscreen ? 'fixed inset-0 z-[100] rounded-none' : ''
       }`}
@@ -2018,7 +2088,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       />
 
       {/* Top 3D Deck Controls */}
-      <div className="absolute top-3 left-3 right-3 z-30 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
+      <div className="absolute top-3 left-3 right-3 z-[70] flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
         {/* Left: View Mode Switches & Orbit Reset */}
         <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg">
           <button
@@ -2085,7 +2155,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 <Minimize className="w-3 h-3" />
               </button>
             ) : (
-              <div className="flex flex-col gap-1 p-2 rounded-lg border border-amber-500/40 bg-[#0b1220]/95 backdrop-blur-md shadow-xl">
+              <div className="relative z-[80] flex flex-col gap-1 p-2 rounded-lg border border-amber-500/40 bg-[#0b1220]/95 backdrop-blur-md shadow-xl pointer-events-auto">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] uppercase tracking-wider text-amber-300">Star Alignment</span>
                   <button onClick={() => setIsStarPanelExpanded(false)} className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-700" title="Minimize Star Alignment">
@@ -2094,7 +2164,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => setIsStarModeActive((prev) => !prev)}
+                    onClick={(event) => { event.stopPropagation(); setIsStarModeActive((prev) => !prev); }}
+                    aria-pressed={isStarModeActive}
                     className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-bold rounded border transition-all ${
                       isStarModeActive ? 'bg-amber-400 text-slate-950 border-amber-300' : 'bg-slate-900 text-amber-300 border-amber-500/40'
                     }`}
@@ -2103,15 +2174,25 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                     <Star className={`w-3 h-3 ${isStarModeActive ? 'fill-current' : ''}`} />
                     {isStarModeActive ? 'STARS ON' : 'STARS OFF'}
                   </button>
+                  <button
+                    onClick={(event) => { event.stopPropagation(); setShowConstellationLines((value) => !value); }}
+                    aria-pressed={showConstellationLines}
+                    className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${showConstellationLines ? 'bg-sky-400 text-slate-950 border-sky-300' : 'bg-slate-900 text-slate-300 border-slate-700'}`}
+                    title="Toggle constellation connecting lines independently from star visibility"
+                  >
+                    CONSTELLATIONS {showConstellationLines ? 'ON' : 'OFF'}
+                  </button>
+                  <button
+                    onClick={(event) => { event.stopPropagation(); onTogglePositionPitchMode(); }}
+                    aria-pressed={positionPitchMode}
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono font-bold border ${positionPitchMode ? 'bg-emerald-400 text-slate-950 border-emerald-300' : 'bg-slate-900 text-emerald-300 border-emerald-500/40'}`}
+                    title="When on, moving A, B, or C changes its oscillator Hz based on XYZ location"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    LOCATION→HZ {positionPitchMode ? 'ON' : 'OFF'}
+                  </button>
                   {(isStarModeActive || isEarthAssignMode) && (
                     <>
-                      <button
-                        onClick={() => setShowConstellationLines((value) => !value)}
-                        className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${showConstellationLines ? 'bg-sky-400 text-slate-950 border-sky-300' : 'bg-slate-900 text-slate-300 border-slate-700'}`}
-                        title="Toggle constellation connecting lines without hiding individual stars"
-                      >
-                        CONSTELLATIONS {showConstellationLines ? 'ON' : 'OFF'}
-                      </button>
                       <button
                         onClick={() => setIsEarthAssignMode((value) => !value)}
                         className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${isEarthAssignMode ? 'bg-emerald-400 text-slate-950 border-emerald-300' : 'bg-slate-900 text-emerald-300 border-emerald-500/40'}`}
