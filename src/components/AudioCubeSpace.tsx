@@ -723,6 +723,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       setShowAllStars(false);
       return;
     }
+    setIsStarModeActive(true);
     setShowAllStars(true);
     if (allStarCatalog.length === 0) void loadAllStars();
   };
