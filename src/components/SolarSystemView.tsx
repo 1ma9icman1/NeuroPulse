@@ -10,6 +10,18 @@ interface SolarSystemViewProps {
 const TAU = Math.PI * 2;
 const MOON_SIDEREAL_PERIOD_DAYS = 27.321661;
 const EARTH_SIDEREAL_DAY_DAYS = 0.9972695663;
+const PLANET_TEXTURE_URLS: Record<string, string> = {
+  mercury: 'https://www.solarsystemscope.com/textures/download/2k_mercury.jpg',
+  venus: 'https://www.solarsystemscope.com/textures/download/2k_venus_surface.jpg',
+  earth: 'https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg',
+  mars: 'https://www.solarsystemscope.com/textures/download/2k_mars.jpg',
+  jupiter: 'https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg',
+  saturn: 'https://www.solarsystemscope.com/textures/download/2k_saturn.jpg',
+  uranus: 'https://www.solarsystemscope.com/textures/download/2k_uranus.jpg',
+  neptune: 'https://www.solarsystemscope.com/textures/download/2k_neptune.jpg',
+  pluto: 'https://www.solarsystemscope.com/textures/download/2k_pluto.jpg',
+  moon: 'https://www.solarsystemscope.com/textures/download/2k_moon.jpg',
+};
 
 function solveEccentricAnomaly(meanAnomaly: number, eccentricity: number) {
   let mean = meanAnomaly % TAU;
@@ -54,7 +66,7 @@ function drawCrater(ctx: CanvasRenderingContext2D, x: number, y: number, radius:
   ctx.beginPath(); ctx.ellipse(x - radius * .08, y - radius * .06, radius * .87, radius * .62, -0.24, Math.PI * 1.06, Math.PI * 1.94); ctx.stroke();
 }
 
-function drawPlanetDisk(ctx: CanvasRenderingContext2D, body: HeliocentricOrbitElement, x: number, y: number, radius: number, elapsedDays: number) {
+function drawPlanetDisk(ctx: CanvasRenderingContext2D, body: HeliocentricOrbitElement, x: number, y: number, radius: number, elapsedDays: number, textures: Record<string, HTMLImageElement>) {
   const id = body.id;
   const spinDays = PLANET_SPIN_DAYS[id] || 1;
   const spin = elapsedDays / spinDays * TAU;
@@ -82,12 +94,15 @@ function drawPlanetDisk(ctx: CanvasRenderingContext2D, body: HeliocentricOrbitEl
   const r = radius;
 
   const surface = ctx.createRadialGradient(-r * .38, -r * .42, r * .03, r * .15, r * .14, r * 1.22);
-  surface.addColorStop(0, id === 'sun' ? '#fff7b1' : base);
+  surface.addColorStop(0, base);
   surface.addColorStop(.76, base);
   surface.addColorStop(1, '#07101e');
   ctx.fillStyle = surface; ctx.fillRect(-r, -r, 2 * r, 2 * r);
 
-  if (id === 'mercury' || id === 'pluto') {
+  const texture = textures[id];
+  if (texture) ctx.drawImage(texture, -r, -r, 2 * r, 2 * r);
+
+  if (!texture && (id === 'mercury' || id === 'pluto')) {
     const craters = id === 'mercury'
       ? [[-.48,-.42,.18],[.24,-.55,.12],[.56,-.15,.21],[-.12,.05,.22],[.37,.42,.15],[-.52,.48,.12],[.03,.6,.11]]
       : [[-.5,-.35,.19],[.24,-.43,.13],[.45,.1,.2],[-.15,.2,.22],[.18,.58,.12],[-.55,.48,.1]];
@@ -96,7 +111,7 @@ function drawPlanetDisk(ctx: CanvasRenderingContext2D, body: HeliocentricOrbitEl
       ctx.fillStyle = 'rgba(249,231,205,.55)';
       ctx.beginPath(); ctx.ellipse(-r * .15, -r * .2, r * .28, r * .18, -.3, 0, TAU); ctx.fill();
     }
-  } else if (id === 'venus') {
+  } else if (!texture && id === 'venus') {
     ctx.globalAlpha = .72;
     for (let band = -3; band <= 3; band += 1) {
       ctx.strokeStyle = band % 2 ? '#f1d8ac' : '#b18d62';
@@ -107,7 +122,7 @@ function drawPlanetDisk(ctx: CanvasRenderingContext2D, body: HeliocentricOrbitEl
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
-  } else if (id === 'earth') {
+  } else if (!texture && id === 'earth') {
     // Simplified continent silhouettes with cloud swirls; textured enough to read as Earth at this scale.
     ctx.fillStyle = '#348653';
     ctx.beginPath(); ctx.moveTo(-r*.72,-r*.13); ctx.lineTo(-r*.53,-r*.49); ctx.lineTo(-r*.19,-r*.55); ctx.lineTo(-r*.04,-r*.27); ctx.lineTo(-r*.22,-r*.06); ctx.lineTo(-r*.29,r*.18); ctx.lineTo(-r*.47,r*.34); ctx.lineTo(-r*.57,r*.12); ctx.closePath(); ctx.fill();
@@ -121,14 +136,14 @@ function drawPlanetDisk(ctx: CanvasRenderingContext2D, body: HeliocentricOrbitEl
     }
     ctx.fillStyle = 'rgba(239,248,255,.72)';
     ctx.beginPath(); ctx.ellipse(0,-r*.83,r*.47,r*.12,0,0,TAU); ctx.fill();
-  } else if (id === 'mars') {
+  } else if (!texture && id === 'mars') {
     ctx.fillStyle = 'rgba(87,38,31,.55)';
     ctx.beginPath(); ctx.ellipse(-r*.32,-r*.12,r*.34,r*.2,-.45,0,TAU); ctx.fill();
     ctx.beginPath(); ctx.ellipse(r*.38,r*.27,r*.29,r*.17,.3,0,TAU); ctx.fill();
     ctx.fillStyle = 'rgba(255,210,176,.55)';
     ctx.beginPath(); ctx.ellipse(-r*.06,-r*.82,r*.4,r*.11,-.08,0,TAU); ctx.fill();
     drawCrater(ctx, r*.2, -r*.05, r*.12);
-  } else if (id === 'jupiter' || id === 'saturn') {
+  } else if (!texture && (id === 'jupiter' || id === 'saturn')) {
     const bands = id === 'jupiter'
       ? [{ y:-.72, h:.13, c:'#ead0aa' },{ y:-.5,h:.09,c:'#9b6e53' },{y:-.3,h:.18,c:'#e8c69c'},{y:-.08,h:.11,c:'#9c6a51'},{y:.15,h:.14,c:'#e8c9a2'},{y:.4,h:.17,c:'#9c7158'},{y:.65,h:.1,c:'#e8d0ae'}]
       : [{y:-.7,h:.12,c:'#f1dfb9'},{y:-.48,h:.1,c:'#9f8a69'},{y:-.25,h:.15,c:'#f4dfb0'},{y:0,h:.11,c:'#b89b73'},{y:.24,h:.17,c:'#ead3a5'},{y:.5,h:.1,c:'#a89070'},{y:.7,h:.08,c:'#e9d6af'}];
@@ -143,7 +158,7 @@ function drawPlanetDisk(ctx: CanvasRenderingContext2D, body: HeliocentricOrbitEl
     } else {
       ctx.fillStyle = 'rgba(245,232,197,.72)'; ctx.beginPath(); ctx.ellipse(0,-r*.82,r*.32,r*.09,0,0,TAU); ctx.fill();
     }
-  } else if (id === 'uranus' || id === 'neptune') {
+  } else if (!texture && (id === 'uranus' || id === 'neptune')) {
     for (let band = -3; band <= 3; band += 1) {
       ctx.strokeStyle = band % 2 ? 'rgba(219,250,255,.22)' : 'rgba(8,54,130,.24)';
       ctx.lineWidth = Math.max(.8,r*.11);
@@ -203,6 +218,31 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
   const [daysPerSecond, setDaysPerSecond] = useState(5);
   const [isSimulationPaused, setIsSimulationPaused] = useState(false);
   const [elapsedDaysDisplay, setElapsedDaysDisplay] = useState(0);
+  const planetTexturesRef = useRef<Record<string, HTMLImageElement>>({});
+  const [planetTextureRevision, setPlanetTextureRevision] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const images: HTMLImageElement[] = [];
+    Object.entries(PLANET_TEXTURE_URLS).forEach(([body, url]) => {
+      const image = new Image();
+      image.crossOrigin = 'anonymous';
+      image.onload = () => {
+        if (cancelled) return;
+        planetTexturesRef.current = { ...planetTexturesRef.current, [body]: image };
+        setPlanetTextureRevision((revision) => revision + 1);
+      };
+      image.onerror = () => {
+        // Procedural surface drawing remains available if a public texture fails.
+      };
+      image.src = url;
+      images.push(image);
+    });
+    return () => {
+      cancelled = true;
+      images.forEach((image) => { image.onload = null; image.onerror = null; });
+    };
+  }, []);
 
   useEffect(() => {
     bodiesRef.current = getHeliocentricOrbitElements(epochMs);
@@ -326,7 +366,7 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
         positionById[body.id] = { x: p.x, y: p.y, z: 0, radius };
 
         // Distinct surface features, rotating texture marks, atmospheric shading and rim light.
-        drawPlanetDisk(ctx, body, p.x, p.y, radius, elapsedDays);
+        drawPlanetDisk(ctx, body, p.x, p.y, radius, elapsedDays, planetTexturesRef.current);
 
         ctx.font = body.id === 'earth' ? 'bold 10px ui-monospace, monospace' : '9px ui-monospace, monospace';
         ctx.fillStyle = body.color;
@@ -394,7 +434,7 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
     };
     animationFrame = requestAnimationFrame(renderFrame);
     return () => cancelAnimationFrame(animationFrame);
-  }, [epochMs, isSimulationPaused]);
+  }, [epochMs, isSimulationPaused, planetTextureRevision]);
 
   const simulatedDateMs = epochMs + elapsedDaysDisplay * 86400000;
   const totalEarthDays = elapsedDaysDisplay.toLocaleString();
@@ -411,7 +451,7 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
           <div className="mt-1 text-[10px] font-mono text-sky-200">
             DATE {formatDate(simulatedDateMs)} · +{totalEarthDays} SIMULATED DAYS · {daysPerSecond} DAY{daysPerSecond === 1 ? '' : 'S'}/SEC
           </div>
-          <div className="mt-1 text-[9px] leading-relaxed text-slate-500">Orbit radii and planet sizes are compressed for visibility. Orbital periods are derived from semimajor axis using Kepler's third law; perturbations are not simulated.</div>
+          <div className="mt-1 text-[9px] leading-relaxed text-slate-500">Orbit radii and planet sizes are compressed for visibility. Orbital periods are derived from semimajor axis using Kepler's third law; perturbations are not simulated. Surface maps: Solar System Scope, based on NASA imagery/elevation data · CC BY 4.0; drawn details are local fallbacks.</div>
         </div>
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/90 p-2 shadow-xl pointer-events-auto">
           <label className="flex items-center gap-2 text-[10px] font-mono text-slate-300">
