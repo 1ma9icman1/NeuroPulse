@@ -23,8 +23,8 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
   {
     id: 'hal-saflieni-hypogeum',
     name: 'Ħal Saflieni Hypogeum — Oracle Room',
-    lat: 35.8728,
-    lon: 14.5069,
+    lat: 35.8696,
+    lon: 14.5068,
     region: 'Paola, Malta',
     period: 'Neolithic; commonly dated broadly to the 4th–3rd millennium BCE',
     measuredFrequenciesHz: [70, 114],
@@ -92,7 +92,7 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     sources: [{ label: 'Archaeoacoustics around the World: A Literature Review (2016–2022)', url: 'https://doi.org/10.3390/app13042361', year: 2023, publication: 'Applied Sciences 13(4), 2361; Table 2 measurement summary' }]
   },
   {
-    id: 'newgrange-chamber-resonance', name: 'Newgrange Passage Tomb — central chamber', lat: 53.6947, lon: -6.4756,
+    id: 'newgrange-chamber-resonance', name: 'Newgrange Passage Tomb — central chamber', lat: 53.6946, lon: -6.4756,
     region: 'County Meath, Ireland', period: 'Neolithic passage tomb, c. 3200 BCE',
     measuredFrequenciesHz: [110], researchBandHz: 110, status: 'published-measurement',
     summary: 'A 1996 archaeoacoustic study reported a primary chamber resonance at approximately 110 Hz at Newgrange.',
@@ -124,7 +124,7 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
   },
 
   {
-    id: 'waylands-smithy-resonance', name: "Wayland's Smithy — east and west chambers", lat: 51.5708, lon: -1.5678,
+    id: 'waylands-smithy-resonance', name: "Wayland's Smithy — east and west chambers", lat: 51.5663, lon: -1.5976,
     region: 'Oxfordshire, England', period: 'Neolithic chambered long barrow',
     measuredFrequenciesHz: [102, 117], status: 'published-measurement',
     summary: "A published summary of the 1996 ancient-structure measurements reports different chamber resonances at Wayland's Smithy: about 102 Hz in the west chamber and 117 Hz in the east chamber.",
@@ -135,7 +135,7 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
       { label: 'The phenomenon of resonance in the Labyrinth of Ravne — includes summary of six-site study and Wayland chamber values', url: 'https://sbresearchgroup.eu/index.php/en/articoli-in-inglese/99-the-phenomenon-of-resonance-in-the-labyrinth-of-ravne-preliminary-results', year: 2012, publication: 'Research summary' }]
   },
   {
-    id: 'cairn-l-loughcrew-cohort', name: 'Cairn L — Loughcrew passage tomb (cohort resonance range)', lat: 53.7425, lon: -6.7334,
+    id: 'cairn-l-loughcrew-cohort', name: 'Cairn L — Loughcrew passage tomb (cohort resonance range)', lat: 53.7431, lon: -7.1124,
     region: 'County Meath, Ireland', period: 'Neolithic passage tomb',
     measuredFrequenciesHz: [95, 120], status: 'published-measurement',
     summary: 'Cairn L is listed among the six prehistoric structures investigated in the 1996 acoustic-resonance study; the study reports the six-site group resonances within 95–120 Hz.',
@@ -155,7 +155,7 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     sources: [{ label: 'Jahn, Devereux & Ibison (1996), Acoustical resonances of assorted ancient structures', url: 'https://doi.org/10.1121/1.414642', year: 1996, publication: 'Journal of the Acoustical Society of America 99(2), 649–658' }]
   },
   {
-    id: 'chun-quoit-cohort', name: 'Chûn Quoit — chambered tomb (cohort resonance range)', lat: 50.1398, lon: -5.6206,
+    id: 'chun-quoit-cohort', name: 'Chûn Quoit — chambered tomb (cohort resonance range)', lat: 50.1504, lon: -5.6358,
     region: 'Cornwall, England', period: 'Neolithic chambered tomb',
     measuredFrequenciesHz: [95, 120], status: 'published-measurement',
     summary: 'Chûn Quoit is listed among the structures in the six-site 1996 acoustic-resonance study; the available summary reports the group range as 95–120 Hz.',
@@ -163,5 +163,60 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     measurements: [{ parameter: 'Cohort resonance range (not site-specific)', frequencyBand: '95–120 Hz across six structures', reportedValue: 95, unit: 'Hz lower bound', method: 'Published study summary; individual Chûn Quoit peak not extracted from available source' }],
     caveat: 'Range-only cohort evidence; do not claim a site-specific 110–112 Hz peak without the original per-site measurement.',
     sources: [{ label: 'Jahn, Devereux & Ibison (1996), Acoustical resonances of assorted ancient structures', url: 'https://doi.org/10.1121/1.414642', year: 1996, publication: 'Journal of the Acoustical Society of America 99(2), 649–658' }]
+  },
+
+  {
+    id: 'west-kennet-long-barrow-candidate', name: 'West Kennet Long Barrow — acoustic candidate', lat: 51.4087, lon: -1.8509,
+    region: 'Wiltshire, England', period: 'Neolithic long barrow, c. 3650 BCE',
+    measuredFrequenciesHz: [110], researchBandHz: 110, status: 'candidate-only',
+    summary: 'Added as a research candidate for low-frequency chamber acoustics; a reliable site-specific 110 Hz measurement was not verified from the supplied references.',
+    measurementContext: 'The supplied list assigns approximately 110 Hz, but the evidence available here does not establish a reproducible measured resonance peak at this exact frequency.',
+    caveat: 'Do not present 110 Hz as a confirmed measurement until a primary acoustic study with method, measurement position and uncertainty is identified.',
+    sources: [{ label: 'Jahn, Devereux & Ibison (1996), Acoustical resonances of assorted ancient structures — background research', url: 'https://doi.org/10.1121/1.414642', year: 1996, publication: 'Journal of the Acoustical Society of America 99(2), 649–658' }]
+  },
+  {
+    id: 'great-pyramid-kings-chamber-candidate', name: "Great Pyramid — King's Chamber acoustic candidate", lat: 29.9792, lon: 31.1342,
+    region: 'Giza, Egypt', period: 'Old Kingdom, 4th Dynasty, c. 26th century BCE',
+    measuredFrequenciesHz: [110, 117], researchBandHz: 110, status: 'candidate-only',
+    summary: 'Research marker for claims that the granite King’s Chamber has low-frequency acoustic modes in the broad 110–117 Hz region; the supplied exact values are not treated as confirmed field measurements.',
+    measurementContext: 'Chamber modes depend on room geometry, boundary conditions, furnishings, source and receiver positions. No validated primary source was established here for a site-specific 110–117 Hz measured peak.',
+    caveat: 'Candidate only. These frequencies must not be described as proven tuning, an acoustic transformer, or intentional 110 Hz design without a traceable measurement study.',
+    sources: [{ label: 'User-supplied reference: Interesting Engineering — temples and 111 Hz', url: 'https://interestingengineering.com/science/temples-resonates-frequency-111-hz', year: 2026, publication: 'Popular science article; claim requires primary-source verification' }]
+  },
+  {
+    id: 'tarxien-temples-candidate', name: 'Tarxien Temples — low-frequency acoustic candidate', lat: 35.8692, lon: 14.5121,
+    region: 'Tarxien, Malta', period: 'Neolithic temple complex, c. 3150–2500 BCE',
+    measuredFrequenciesHz: [111], researchBandHz: 110, status: 'candidate-only',
+    summary: 'Included as a site to investigate for low-frequency acoustics. The supplied 111 Hz claim has not been verified here as a published, site-specific resonance measurement.',
+    measurementContext: 'A frequency label supplied in a secondary list is retained as a candidate search target, not as confirmed measurement data.',
+    caveat: 'Do not infer that the temple shares the Hypogeum’s resonance merely because both are in Malta or have megalithic architecture.',
+    sources: [{ label: 'User-supplied reference: Interesting Engineering — temples and 111 Hz', url: 'https://interestingengineering.com/science/temples-resonates-frequency-111-hz', year: 2026, publication: 'Popular science article; primary measurement source needs verification' }]
+  },
+  {
+    id: 'mnajdra-temples-candidate', name: 'Mnajdra Temple Complex — low-frequency acoustic candidate', lat: 35.8272, lon: 14.4361,
+    region: 'Qrendi, Malta', period: 'Neolithic temple complex, c. 3600–2500 BCE',
+    measuredFrequenciesHz: [110], researchBandHz: 110, status: 'candidate-only',
+    summary: 'Added as a research target for possible low-frequency acoustic behavior; no traceable primary measurement confirming exactly 110 Hz was established here.',
+    measurementContext: 'The 110 Hz value comes from the supplied secondary list and is a hypothesis/search target, not a confirmed measurement in this catalog.',
+    caveat: 'Solar alignments and architectural acoustics are separate questions; one does not demonstrate the other.',
+    sources: [{ label: 'User-supplied reference: Interesting Engineering — temples and 111 Hz', url: 'https://interestingengineering.com/science/temples-resonates-frequency-111-hz', year: 2026, publication: 'Popular science article; primary measurement source needs verification' }]
+  },
+  {
+    id: 'hagar-qim-candidate', name: 'Ħaġar Qim — low-frequency acoustic candidate', lat: 35.8277, lon: 14.4423,
+    region: 'Qrendi, Malta', period: 'Neolithic temple complex, c. 3600–2500 BCE',
+    measuredFrequenciesHz: [111], researchBandHz: 110, status: 'candidate-only',
+    summary: 'Added as a research target for possible low-frequency acoustic behavior; the supplied 111 Hz claim has not been verified as a published site-specific measurement.',
+    measurementContext: 'The frequency is preserved as a candidate research value from the supplied list, not as a confirmed acoustic peak.',
+    caveat: 'Limestone construction alone does not establish a specific resonance frequency. A reproducible measurement study is needed.',
+    sources: [{ label: 'User-supplied reference: Interesting Engineering — temples and 111 Hz', url: 'https://interestingengineering.com/science/temples-resonates-frequency-111-hz', year: 2026, publication: 'Popular science article; primary measurement source needs verification' }]
+  },
+  {
+    id: 'bet-guvrin-bell-caves-candidate', name: 'Bet Guvrin Bell Caves — acoustic candidate', lat: 31.6062, lon: 34.8967,
+    region: 'Judean Lowlands, Israel', period: 'Ancient quarry and bell-shaped cave complex; periods vary by cave',
+    measuredFrequenciesHz: [110], researchBandHz: 110, status: 'candidate-only',
+    summary: 'Added for future investigation of low-frequency behavior and reverberation in the bell caves. The supplied 110 Hz claim is not confirmed here as a measured resonance.',
+    measurementContext: 'Cave reverberation or amplification does not by itself establish a fixed resonance at 110 Hz; this candidate needs a traceable field study.',
+    caveat: 'Do not treat the secondary-list frequency as measured fact until primary measurements and the tested cave/position are documented.',
+    sources: [{ label: 'User-supplied reference: The History Blog — ancient acoustic sites', url: 'https://www.thehistoryblog.com/archives/4114', year: 2009, publication: 'Secondary article; primary measurement source needs verification' }]
   },
 ];
