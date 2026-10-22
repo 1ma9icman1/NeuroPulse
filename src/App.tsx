@@ -20,7 +20,8 @@ import { AudioCubeSpace } from './components/AudioCubeSpace';
 import { DeltaHUD } from './components/DeltaHUD';
 import { OscillatorDeck } from './components/OscillatorDeck';
 import { FrequencyMatrix } from './components/FrequencyMatrix';
-import { CheckCircle2, Volume2, Triangle, Maximize, Minimize } from 'lucide-react';
+import { CheckCircle2, Volume2, Triangle, Maximize, Minimize, Orbit } from 'lucide-react';
+import { GaiaSkyBridgePanel } from './components/GaiaSkyBridgePanel';
 
 const INITIAL_CONFIG: TrinauralConfig = {
   // Channel A (Left / Cyan)
@@ -67,6 +68,7 @@ export default function App() {
   const [selectedPresetId, setSelectedPresetId] = useState<string>(DAW_PRESETS[0].id);
   const [trinauralTestStatus, setTrinauralTestStatus] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isGaiaSkyPanelOpen, setIsGaiaSkyPanelOpen] = useState(false);
 
   const audioEngineRef = useRef<AudioEngine | null>(null);
 
@@ -309,6 +311,16 @@ export default function App() {
             <span>{trinauralTestStatus || 'RUN TRINAURAL TEST'}</span>
           </button>
 
+          <button
+            type="button"
+            onClick={() => setIsGaiaSkyPanelOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-cyan-700/60 bg-cyan-950/30 px-3 py-1.5 text-xs font-mono font-bold text-cyan-200 transition-colors hover:border-cyan-400 hover:bg-cyan-900/40"
+            title="Connect NeuroPulse to the local Gaia Sky 3D universe application"
+          >
+            <Orbit className="h-3.5 w-3.5" />
+            GAIA SKY
+          </button>
+
           <div className="hidden lg:flex items-center gap-3 text-xs font-mono text-slate-400 border-l border-slate-800 pl-4">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block" />
@@ -358,6 +370,8 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {isGaiaSkyPanelOpen && <GaiaSkyBridgePanel onClose={() => setIsGaiaSkyPanelOpen(false)} />}
 
       {/* Main Production Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col gap-4">
