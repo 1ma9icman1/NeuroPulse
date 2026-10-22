@@ -1003,7 +1003,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               ctx.beginPath(); ctx.moveTo(p.sx - dx * 0.7, p.sy - dy * 0.7); ctx.lineTo(p.sx + dx * 0.3, p.sy + dy * 0.3); ctx.stroke();
               ctx.beginPath(); ctx.arc(p.sx, p.sy, 3 + phase * 2, 0, Math.PI * 2); ctx.fillStyle = '#ffedd5'; ctx.fill();
               ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-              ctx.font = '8px "JetBrains Mono", monospace'; ctx.fillStyle = '#fed7aa'; ctx.fillText('110 Hz candidate*', p.sx + 5, p.sy - 6);
+              // Keep the Earth view dot-only; frequency details belong in the info panel.
               ctx.restore();
             }
           }
@@ -1027,11 +1027,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             ctx.beginPath(); ctx.moveTo(p.sx - dx * 0.7, p.sy - dy * 0.7); ctx.lineTo(p.sx + dx * 0.3, p.sy + dy * 0.3); ctx.stroke();
             ctx.beginPath(); ctx.arc(p.sx, p.sy, 4 + phase * 2, 0, Math.PI * 2); ctx.fillStyle = '#fff7ed'; ctx.fill();
             ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-            ctx.font = 'bold 8px "JetBrains Mono", monospace'; ctx.fillStyle = '#fed7aa'; ctx.fillText('114 Hz MEASURED', p.sx + 6, p.sy - 7);
+            // The dot and pulse identify this measured site without crowding the globe.
             ctx.restore();
           }
         }
       }
+      if (!isEarthModeActive) {
       // Moon position shares the Earth origin and camera rotation. Orbit is compressed for visibility;
       // actual mean Earth-Moon distance is 384,400 km (about 60.3 Earth radii).
       const moonOrbitRadius = earthRadius * 1.72;
@@ -1048,10 +1049,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
       ctx.restore();
+      }
 
       }
 
       // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
+      if (!isEarthModeActive) {
       const listenerFloor = project3D(0, -bound, 0, width, height);
 
       // Floor Shadow & Drop line for Observer
@@ -1103,8 +1106,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.fillText('LISTENER', centerPt.sx - 22, centerPt.sy + 20);
       }
 
-      // 5. Render the original star field over Earth as well as in Star Mode.
-      if (isStarModeActive || isEarthModeActive) {
+      }
+
+      // 5. Render real catalogued stars only when Stars mode is enabled.
+      if (isStarModeActive) {
         // Draw Constellation Lines
         ctx.save();
         const pulsePhase = (performance.now() / 70) % 18;
@@ -1565,7 +1570,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     mapPointerOriginRef.current = { x: e.clientX, y: e.clientY };
     mapDragMovedRef.current = false;
 
-    // 1. Check if user clicked directly on any real star
+    // A/B/C handles always win hit-testing, independently of star/constellation overlays.
+    const puckA = project3D(aPos.x, aPos.y, aPos.z, width, height);
+    const puckB = project3D(bPos.x, bPos.y, bPos.z, width, height);
+    const puckC = project3D(cPos.x, cPos.y, cPos.z, width, height);
+    if (Math.hypot(x - puckA.sx, y - puckA.sy) < 25) { setActiveDrag('a'); (e.target as HTMLElement).setPointerCapture(e.pointerId); return; }
+    if (Math.hypot(x - puckB.sx, y - puckB.sy) < 25) { setActiveDrag('b'); (e.target as HTMLElement).setPointerCapture(e.pointerId); return; }
+    if (Math.hypot(x - puckC.sx, y - puckC.sy) < 25) { setActiveDrag('c'); (e.target as HTMLElement).setPointerCapture(e.pointerId); return; }
+
+    // Select an individual catalogued star only when Stars mode is explicitly on.
     if (isStarModeActive) {
       for (const star of REAL_CELESTIAL_STARS.filter((item) => isConstellationEnabled(item.constellation))) {
         const starPosition = celestialPosition(star);
