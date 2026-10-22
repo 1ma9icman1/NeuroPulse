@@ -55,7 +55,7 @@ const INITIAL_CONFIG: TrinauralConfig = {
   // Master & 3D Spatial
   masterVolume: 0.8,
   spatialMode: 'trinaural-isolated',
-  cameraView: 'top',
+  cameraView: 'perspective',
   cameraYaw: 30,
   cameraPitch: 22,
   cameraZoom: 1.0,
@@ -260,7 +260,7 @@ export default function App() {
       cameraYaw: 30,
       cameraPitch: 22,
       cameraZoom: 1.0,
-      cameraView: 'top',
+      cameraView: 'perspective',
     });
   };
 
