@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Globe3D from 'react-globe.gl';
 import { EarthSiteExplorer } from './EarthSiteExplorer';
+import { SolarSystemView } from './SolarSystemView';
 import type { EarthSiteSelection } from './EarthSiteExplorer';
 import {
   CameraView,
@@ -410,6 +411,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [isCelestialDeckCollapsed, setIsCelestialDeckCollapsed] = useState<boolean>(false);
   const [showDetailedStarInfo, setShowDetailedStarInfo] = useState<boolean>(true);
   const [is24HourRotationActive, setIs24HourRotationActive] = useState(false);
+  const [isSolarSystemMode, setIsSolarSystemMode] = useState(false);
+  const [showSunCenterPrompt, setShowSunCenterPrompt] = useState(false);
+  const [solarSystemEpochMs, setSolarSystemEpochMs] = useState(() => Date.now());
   const [dailyRotationDegrees, setDailyRotationDegrees] = useState(0);
   const dailyRotationDegreesRef = useRef(0);
   const dailyRotationSessionStartRef = useRef<number | null>(null);
@@ -960,6 +964,30 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     },
     [cameraView, cameraYaw, cameraPitch, cameraZoom, project3D]
   );
+
+  const handleSunCenterHit = useCallback((screenX: number, screenY: number, width: number, height: number) => {
+    if (!isStarModeActive || isSolarSystemMode) return false;
+    const sun = timelinePlanetPositions.find((planet) => planet.id === 'sun');
+    if (!sun) return false;
+    const sunPosition = celestialPosition(sun);
+    const projected = projectCelestial3D(sunPosition.x, sunPosition.y, sunPosition.z, width, height);
+    if (Math.hypot(screenX - projected.sx, screenY - projected.sy) > 22) return false;
+    setShowSunCenterPrompt(true);
+    return true;
+  }, [isStarModeActive, isSolarSystemMode, timelinePlanetPositions, projectCelestial3D]);
+
+  const startSolarSystemMode = () => {
+    const start = new Date(0);
+    start.setUTCFullYear(timelineYear, 0, 1);
+    start.setUTCHours(12, 0, 0, 0);
+    setSolarSystemEpochMs(start.getTime());
+    setShowSunCenterPrompt(false);
+    setIsSolarSystemMode(true);
+    setIsStarPanelExpanded(false);
+    setIsCelestialDeckCollapsed(true);
+    setIsEarthAssignMode(false);
+    setSelectedEarthSite(null);
+  };
 
   const unprojectOrbitPlane = (
     screenX: number,
@@ -1999,7 +2027,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // pointer-down only if it hits a celestial star; other interaction continues
   // to the globe, preserving rotate/zoom and location-pinning.
   const handleEarthStarPointerDownCapture = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isEarthModeActive || !isStarModeActive) return;
+    if (!isStarModeActive || isSolarSystemMode) return;
     const target = event.target;
     if (!(target instanceof HTMLElement) || !target.closest('canvas')) return;
     const container = containerRef.current;
@@ -2007,6 +2035,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const rect = container.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+
+    // Intercept the Sun first in Earth view or the 3D celestial overlay.
+    if (handleSunCenterHit(x, y, rect.width, rect.height)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (!isEarthModeActive) return;
 
     for (const star of REAL_CELESTIAL_STARS) {
       const point = celestialPosition(star);
@@ -2030,6 +2066,11 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const y = e.clientY - rect.top;
     const width = rect.width;
     const height = rect.height;
+    if (handleSunCenterHit(x, y, width, height)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
     const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
     const pc = project3D(cPos.x, cPos.y, cPos.z, width, height);
@@ -2942,7 +2983,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
 
       {/* Large interactive Earth fills the Top Plane viewport; Globe controls retain drag-to-rotate and wheel zoom. */}
-      {isEarthModeActive && (
+      {isEarthModeActive && !isSolarSystemMode && (
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
           <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto flex items-center justify-center">
             <Globe3D ref={globeRef} width={Math.max(320, (containerRef.current?.clientWidth || 800) * 0.96)}
@@ -3049,8 +3090,25 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
-        className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`}
+        className={`absolute inset-0 z-10 w-full h-full touch-none ${isSolarSystemMode ? 'hidden' : ''} ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`}
       />
+
+      {isSolarSystemMode && <SolarSystemView epochMs={solarSystemEpochMs} onClose={() => setIsSolarSystemMode(false)} />}
+
+      {showSunCenterPrompt && !isSolarSystemMode && (
+        <div className="absolute inset-0 z-[95] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="sun-center-question">
+          <div className="w-full max-w-md rounded-2xl border border-amber-400/60 bg-[#07101d] p-5 shadow-[0_0_50px_rgba(251,191,36,.16)]">
+            <div className="flex items-center gap-2 text-amber-300"><Sun className="h-5 w-5" /><span className="text-[10px] font-mono font-bold tracking-[.2em]">SUN SELECTED</span></div>
+            <h2 id="sun-center-question" className="mt-3 text-lg font-semibold text-white">Make the Sun the center of the universe?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-300">Open a Sun-centered Solar System with Mercury through Pluto on inclined elliptical orbits, plus Earth’s Moon orbiting Earth with the same 27.321661-day sidereal orbit and rotation period.</p>
+            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">This switches to a dedicated heliocentric view. Orbit radii and planet sizes are compressed for visibility; orbital periods and ellipse shapes use the app’s low-precision Kepler elements.</p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => setShowSunCenterPrompt(false)} className="rounded-lg border border-slate-600 px-3 py-2 text-xs font-mono text-slate-300 hover:bg-slate-800">NO · KEEP CURRENT VIEW</button>
+              <button type="button" onClick={startSolarSystemMode} className="rounded-lg border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-mono font-bold text-slate-950 hover:bg-amber-300">YES · CENTER ON SUN</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <EarthSiteExplorer
         site={selectedEarthSite}
@@ -3065,6 +3123,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       />
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
+      {!isSolarSystemMode && (
       <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
         {/* CH-A Elevation */}
         <div className="flex flex-col items-center gap-1">
@@ -3139,6 +3198,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </span>
         </div>
       </div>
+      )}
 
       {/* Bottom Status Deck */}
       <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
