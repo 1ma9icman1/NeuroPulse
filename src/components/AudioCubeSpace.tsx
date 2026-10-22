@@ -2887,16 +2887,18 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 if (d.isChannelTarget) {
                   const badge = document.createElement('button');
                   badge.type = 'button';
-                  badge.textContent = d.channel.toUpperCase();
-                  badge.title = `CH-${d.channel.toUpperCase()} · click to select this channel`;
-                  badge.setAttribute('aria-label', `Select channel ${d.channel.toUpperCase()}`);
-                  badge.style.width = '28px';
+                  badge.textContent = `${d.channel.toUpperCase()}${d.locked ? ' 🔒' : ' ↔'}`;
+                  badge.title = d.locked
+                    ? `CH-${d.channel.toUpperCase()} · LOCKED at ${Number(d.lat).toFixed(3)}°, ${Number(d.lon).toFixed(3)}° · click to unlock`
+                    : `CH-${d.channel.toUpperCase()} · target saved at ${Number(d.lat).toFixed(3)}°, ${Number(d.lon).toFixed(3)}° · click to lock here`;
+                  badge.setAttribute('aria-label', d.locked ? `Unlock channel ${d.channel.toUpperCase()} from this Earth location` : `Lock channel ${d.channel.toUpperCase()} to this Earth location`);
+                  badge.style.width = '42px';
                   badge.style.height = '28px';
-                  badge.style.borderRadius = '50%';
+                  badge.style.borderRadius = '999px';
                   badge.style.border = `2px solid ${d.color}`;
                   badge.style.background = 'rgba(3, 10, 22, 0.94)';
                   badge.style.color = d.color;
-                  badge.style.font = 'bold 12px "JetBrains Mono", monospace';
+                  badge.style.font = 'bold 10px "JetBrains Mono", monospace';
                   badge.style.boxShadow = `0 0 12px ${d.color}99`;
                   badge.style.cursor = 'pointer';
                   badge.style.pointerEvents = 'auto';
@@ -2906,6 +2908,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   badge.onclick = (event) => {
                     event.stopPropagation();
                     setSnapTargetChannel(d.channel);
+                    handleToggleChannelLock(d.channel);
                   };
                   return badge;
                 }
@@ -2959,7 +2962,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`}
       />
 
-      <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} />
+      <EarthSiteExplorer
+        site={selectedEarthSite}
+        onClose={() => setSelectedEarthSite(null)}
+        description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''}
+        alignmentSites={earthSites.filter((place: any) => !place.isCity)}
+        lockedChannels={lockedChannels}
+        earthChannelTargets={earthChannelTargets}
+        onAssignChannel={(channel, site) => handlePinChannelToEarth(channel, site.lat, site.lon)}
+        onToggleChannelLock={handleToggleChannelLock}
+        onSelectMapLocation={(site) => openEarthSite(site)}
+      />
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
       <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
@@ -3045,7 +3058,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <span className="w-2 h-2 rounded-full bg-[#00f0ff]" />
             <span className="text-cyan-400 font-bold">
               A: ({aPos.x.toFixed(1)}, {aPos.y.toFixed(1)}, {aPos.z.toFixed(1)}m)
-              {isStarModeActive && lockedChannels.a && <span className="text-[10px] text-cyan-300 ml-1">★ LOCKED</span>}
+              {lockedChannels.a && <span className="text-[10px] text-cyan-300 ml-1">{earthChannelTargets.a ? "🌍 LOCKED · " + earthChannelTargets.a.lat.toFixed(2) + "°, " + earthChannelTargets.a.lng.toFixed(2) + "°" : starAId ? "★ LOCKED" : "🔒 LOCKED"}</span>}
             </span>
           </div>
 
@@ -3055,7 +3068,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <span className="w-2 h-2 rounded-full bg-[#ff007f]" />
             <span className="text-pink-400 font-bold">
               B: ({bPos.x.toFixed(1)}, {bPos.y.toFixed(1)}, {bPos.z.toFixed(1)}m)
-              {isStarModeActive && lockedChannels.b && <span className="text-[10px] text-pink-300 ml-1">★ LOCKED</span>}
+              {lockedChannels.b && <span className="text-[10px] text-pink-300 ml-1">{earthChannelTargets.b ? "🌍 LOCKED · " + earthChannelTargets.b.lat.toFixed(2) + "°, " + earthChannelTargets.b.lng.toFixed(2) + "°" : starBId ? "★ LOCKED" : "🔒 LOCKED"}</span>}
             </span>
           </div>
 
@@ -3065,7 +3078,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <span className="w-2 h-2 rounded-full bg-[#fbbf24]" />
             <span className="text-amber-400 font-bold">
               C: ({cPos.x.toFixed(1)}, {cPos.y.toFixed(1)}, {cPos.z.toFixed(1)}m)
-              {isStarModeActive && lockedChannels.c && <span className="text-[10px] text-amber-300 ml-1">★ LOCKED</span>}
+              {lockedChannels.c && <span className="text-[10px] text-amber-300 ml-1">{earthChannelTargets.c ? "🌍 LOCKED · " + earthChannelTargets.c.lat.toFixed(2) + "°, " + earthChannelTargets.c.lng.toFixed(2) + "°" : starCId ? "★ LOCKED" : "🔒 LOCKED"}</span>}
             </span>
           </div>
         </div>
