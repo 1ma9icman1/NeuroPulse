@@ -55,7 +55,6 @@ import { ANCIENT_STRUCTURE_DIMENSIONS } from '../data/ancientStructureDimensions
 import {
   DEFAULT_EARTH_POINTS,
   LEGACY_HISTORICAL_SITES,
-  CONTINENTAL_COASTLINES,
   latLonToCartesian,
   cartesianToLatLon,
 } from '../data/earthData';
@@ -935,7 +934,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         { name: 'Moscow', lat: 55.7558, lon: 37.6173 }, { name: 'Reykjavik', lat: 64.1466, lon: -21.9426 },
         { name: 'Honolulu', lat: 21.3099, lon: -157.8581 }, { name: 'Anchorage', lat: 61.2181, lon: -149.9003 },
       ];
-      const labelEarthPoint = (name: string, lat: number, lon: number, color: string, isCity = false) => {
+      const labelEarthPoint = (_name: string, lat: number, lon: number, color: string, isCity = false) => {
         const v = earthPoint(lat, lon, earthRadius * 1.012);
         if (!cameraFront(v)) return;
         const p = project3D(v.x, v.y, v.z, width, height);
