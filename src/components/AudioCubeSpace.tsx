@@ -1723,6 +1723,26 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     document.head.appendChild(script);
   }), []);
 
+  useEffect(() => {
+    if (!earthEnginePanelOpen || !earthEngineClientId || !earthEngineProjectId || (window as any).ee) return;
+    let active = true;
+    setEarthEngineBusy(true);
+    setEarthEngineStatus('Loading Google Earth Engine…');
+    loadEarthEngineApi()
+      .then(() => {
+        if (!active) return;
+        setEarthEngineStatus('Ready to connect');
+        setEarthEngineBusy(false);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setEarthEngineError(error instanceof Error ? error.message : String(error));
+        setEarthEngineStatus('Could not load Earth Engine');
+        setEarthEngineBusy(false);
+      });
+    return () => { active = false; };
+  }, [earthEnginePanelOpen, earthEngineClientId, earthEngineProjectId, loadEarthEngineApi]);
+
   const renderEarthEngineTexture = useCallback((ee: any, layer: 'surface' | 'terrain') => {
     setEarthEngineBusy(true);
     setEarthEngineError(null);
@@ -1773,18 +1793,22 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     }
   }, []);
 
-  const handleConnectEarthEngine = useCallback(async () => {
+  const handleConnectEarthEngine = useCallback(() => {
     setEarthEngineError(null);
     if (!earthEngineClientId || !earthEngineProjectId) {
       setEarthEngineStatus('Configuration required');
       setEarthEngineError('Set VITE_EARTH_ENGINE_CLIENT_ID and VITE_EARTH_ENGINE_PROJECT_ID in your local .env file or deployment environment, then restart/redeploy.');
       return;
     }
+    const ee = (window as any).ee;
+    if (!ee) {
+      setEarthEngineStatus('Loading Google Earth Engine…');
+      setEarthEngineError('The Earth Engine library is still loading. Wait a moment, then click Connect again.');
+      return;
+    }
     setEarthEngineBusy(true);
-    setEarthEngineStatus('Loading Google Earth Engine…');
-    try {
-      const ee = await loadEarthEngineApi();
-      const onAuthenticated = () => {
+    setEarthEngineStatus('Waiting for Google sign-in…');
+    const onAuthenticated = () => {
         ee.initialize(
           null,
           null,
@@ -1819,13 +1843,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         },
         true,
       );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setEarthEngineError(message);
-      setEarthEngineStatus('Could not load Earth Engine');
-      setEarthEngineBusy(false);
-    }
-  }, [earthEngineClientId, earthEngineProjectId, earthEngineLayer, loadEarthEngineApi, renderEarthEngineTexture]);
+  }, [earthEngineClientId, earthEngineProjectId, earthEngineLayer, renderEarthEngineTexture]);
 
   const handleEarthEngineLayerChange = useCallback((layer: 'surface' | 'terrain') => {
     setEarthEngineLayer(layer);
