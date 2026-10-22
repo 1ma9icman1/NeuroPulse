@@ -1,0 +1,22 @@
+name: Earth Universe Core CI
+
+on:
+  push:
+    branches:
+      - feature/earth-universe-core
+      - feature/realistic-earth-globe
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run lint
+      - run: npm run build

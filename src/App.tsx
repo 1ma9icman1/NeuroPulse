@@ -55,7 +55,7 @@ const INITIAL_CONFIG: TrinauralConfig = {
   // Master & 3D Spatial
   masterVolume: 0.8,
   spatialMode: 'trinaural-isolated',
-  cameraView: 'perspective',
+  cameraView: 'top',
   cameraYaw: 30,
   cameraPitch: 22,
   cameraZoom: 1.0,
@@ -260,7 +260,7 @@ export default function App() {
       cameraYaw: 30,
       cameraPitch: 22,
       cameraZoom: 1.0,
-      cameraView: 'perspective',
+      cameraView: 'top',
     });
   };
 
@@ -297,8 +297,9 @@ export default function App() {
         {/* Center: Live Trinaural Test Button & Real-Time Readouts */}
         <div className="flex items-center gap-3">
           <button
+            style={{ display: "none" }}
             onClick={handleRunTrinauralTest}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border shadow-sm ${
+            className={`hidden items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border shadow-sm ${
               trinauralTestStatus
                 ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.3)] animate-pulse'
                 : 'bg-[#060a12] border-slate-700 text-slate-300 hover:text-white hover:border-slate-500'
@@ -347,8 +348,9 @@ export default function App() {
           </button>
 
           <button
+            style={{ display: "none" }}
             onClick={handleTogglePlay}
-            className={`px-5 py-1.5 text-xs font-mono font-bold tracking-wider rounded-md transition-all shadow-md ${
+            className={`hidden px-5 py-1.5 text-xs font-mono font-bold tracking-wider rounded-md transition-all shadow-md ${
               isRunning
                 ? 'bg-red-500 hover:bg-red-600 text-white shadow-[0_0_12px_rgba(239,68,68,0.5)]'
                 : 'bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-[0_0_12px_rgba(52,211,153,0.4)]'
@@ -361,8 +363,8 @@ export default function App() {
 
       {/* Main Production Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col gap-4">
-        {/* Master transport and volume UI hidden by request; audio engine and state remain intact. */}
-        <div style={{ display: 'none' }} aria-hidden="true">
+        {/* Audio controls are intentionally hidden; audio state and handlers remain active. */}
+        <div style={{ display: "none" }} aria-hidden="true">
           <MasterTransport
             isRunning={isRunning}
             masterVolume={config.masterVolume}
@@ -510,6 +512,8 @@ export default function App() {
           <span>Native Web Audio API Oscillators</span>
         </div>
       </footer>
+
+
     </div>
   );
 }

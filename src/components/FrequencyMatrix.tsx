@@ -252,6 +252,40 @@ export const FrequencyMatrix: React.FC<FrequencyMatrixProps> = ({
           </div>
         </div>
       )}
+
+      {/* Evidence-led physical frequency reference: measured quantities are kept separate from musical tuning claims. */}
+      {activeTab === 'all' && (
+        <section className="rounded-lg border border-slate-700 bg-[#080d17] p-3 flex flex-col gap-3">
+          <div>
+            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-300">Physical Frequency Checks · Evidence Only</h3>
+            <p className="mt-1 text-[10px] leading-relaxed text-slate-400">These values are not interchangeable: a musical pitch, an electromagnetic resonance, and Earth's rotation are different physical quantities. A numerical match is not proof of an ancient connection.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
+            <div className="rounded-md border border-slate-800 bg-slate-950 p-3">
+              <div className="text-sm font-mono font-bold text-emerald-200">≈ 7.83 Hz</div>
+              <div className="mt-1 text-[10px] font-semibold text-slate-200">Schumann fundamental</div>
+              <p className="mt-1 text-[10px] leading-relaxed text-slate-400">Measured global electromagnetic resonance in the Earth–ionosphere cavity; it varies. It is not an audible sound tone.</p>
+              <a className="mt-2 inline-block text-[10px] text-sky-300 hover:text-sky-100" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5551208/" target="_blank" rel="noreferrer">Research source ↗</a>
+            </div>
+            <div className="rounded-md border border-slate-800 bg-slate-950 p-3">
+              <div className="text-sm font-mono font-bold text-amber-200">432 Hz</div>
+              <div className="mt-1 text-[10px] font-semibold text-slate-200">Alternative A4 tuning</div>
+              <p className="mt-1 text-[10px] leading-relaxed text-slate-400">A musical tuning choice for the A4 reference note. It is not an established measured frequency of Earth.</p>
+            </div>
+            <div className="rounded-md border border-slate-800 bg-slate-950 p-3">
+              <div className="text-sm font-mono font-bold text-cyan-200">110 Hz</div>
+              <div className="mt-1 text-[10px] font-semibold text-slate-200">A2 musical note</div>
+              <p className="mt-1 text-[10px] leading-relaxed text-slate-400">A2 in 12-tone equal temperament when A4 = 440 Hz. No established Earth resonance at 110 Hz is identified here.</p>
+            </div>
+            <div className="rounded-md border border-slate-800 bg-slate-950 p-3">
+              <div className="text-sm font-mono font-bold text-violet-200">≈ 0.0000116 Hz</div>
+              <div className="mt-1 text-[10px] font-semibold text-slate-200">Earth sidereal rotation</div>
+              <p className="mt-1 text-[10px] leading-relaxed text-slate-400">Calculated as 1 ÷ 86,164.0905 seconds per sidereal rotation. This is a rotation rate, not an acoustic resonance.</p>
+            </div>
+          </div>
+          <p className="text-[10px] leading-relaxed text-slate-500">Audit rule: every candidate value must include its physical definition, units, source, uncertainty, calculation, and a comparison against a chance baseline before the app labels it significant.</p>
+        </section>
+      )}
     </div>
   );
 };
