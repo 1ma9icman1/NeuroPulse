@@ -302,6 +302,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // Historical sky timeline spanning the last 12,000 years.
   const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
+
+  // Independent deep-time geology slider adapted from typpo/ancient-earth.
+  // Keep the existing 12,000-year archaeology/sky timeline unchanged.
+  const [geologicalTimeMa, setGeologicalTimeMa] = useState<number>(0);
+  const paleogeographyAgesMa = [20, 35, 50, 65, 90, 105, 120, 150, 170, 200, 220, 240, 260, 280, 300, 340, 370, 400, 430, 450, 470, 500, 540, 560, 600];
+  const geologicalTextureUrl = geologicalTimeMa <= 0
+    ? '//unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
+    : `https://raw.githubusercontent.com/typpo/ancient-earth/master/images/scrape/${String(paleogeographyAgesMa.reduce((best, age) => Math.abs(age - geologicalTimeMa) < Math.abs(best - geologicalTimeMa) ? age : best, paleogeographyAgesMa[0])).padStart(3, '0')}Marect.jpg`;
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
   const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#60a5fa' : '#facc15', size: site.isCity ? 0.10 : 0.12, altitude: 0.012, layerCategory: site.isCity ? 'CITY' : 'ANCIENT SITE' })), ...(showAncientStructures ? ANCIENT_STRUCTURE_DIMENSIONS.filter((structure) => !earthSites.some((site: any) => !site.isCity && Math.abs(site.lat - structure.lat) < 0.08 && Math.abs(site.lon - structure.lon) < 0.08)).map((structure) => ({ name: structure.name, lat: structure.lat, lon: structure.lon, year: -3500, color: '#facc15', size: 0.12, altitude: 0.012, layerCategory: 'ANCIENT STRUCTURE HEIGHT', structuralHeightFt: structure.approximateHeightFt, heightBasis: structure.heightBasis, heightNote: structure.evidenceNote, numberSystem: structure.numberSystem, numberSystemNote: structure.numberSystemNote, orientationNote: structure.orientationNote, ritualContext: structure.ritualContext, isDimensionRecord: true })) : []), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.14, altitude: 0.016, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : [])];
   const triangleCandidates = showAlignmentTriangles && showAncientStructures ? visibleEarthSites.filter((site: any) => !site.isCity && !site.evidenceStatus) : [];
@@ -2334,6 +2342,19 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
+      {/* Deep-time geology control: separate from the existing archaeology/sky timeline. */}
+      {isEarthModeActive && (
+        <div className="absolute top-3 left-3 z-20 pointer-events-auto w-[min(390px,calc(100%-24px))] rounded-xl border border-sky-400/35 bg-[#06101c]/90 backdrop-blur-md px-3 py-2 shadow-xl">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-200">Earth Through Deep Time</span>
+            <span className="text-xs font-mono text-white">{geologicalTimeMa === 0 ? 'PRESENT DAY' : `${geologicalTimeMa} MILLION YEARS AGO`}</span>
+          </div>
+          <input aria-label="Geological age from present to 600 million years ago" type="range" min="0" max="600" step="5" value={geologicalTimeMa} onChange={(e) => setGeologicalTimeMa(Number(e.target.value))} className="w-full accent-sky-400 cursor-pointer" />
+          <div className="flex items-center justify-between text-[9px] font-mono text-slate-400"><span>Present</span><span>200 Ma</span><span>400 Ma</span><span>600 Ma</span></div>
+          {geologicalTimeMa > 0 && <div className="mt-1 text-[9px] leading-tight text-sky-100/80">Reconstructed paleogeography from Ancient Earth. Modern archaeological markers are hidden because today's coordinates do not map accurately onto ancient continents.</div>}
+        </div>
+      )}
+
       {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
       {isTimelineActive ? (
         <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-2xl rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
@@ -2358,19 +2379,24 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto flex items-center justify-center">
             <Globe3D ref={globeRef} width={Math.max(320, (containerRef.current?.clientWidth || 800) * 0.96)}
               height={Math.max(320, (containerRef.current?.clientHeight || 600) * 0.96)}
-              globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-              bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+              globeImageUrl={geologicalTextureUrl}
+              bumpImageUrl={geologicalTimeMa === 0 ? "//unpkg.com/three-globe/example/img/earth-topology.png" : undefined}
+              backgroundImageUrl="https://raw.githubusercontent.com/typpo/ancient-earth/master/images/galaxy_starfield.png"
               backgroundColor="rgba(0,0,0,0)"
-              showGraticules={false} showAtmosphere={earthAtmosphere}
-              arcsData={showAlignmentTriangles && showAncientStructures && cameraView !== 'front' ? triangleEdges : []}
+              showGraticules={false}
+              showAtmosphere={earthAtmosphere}
+              atmosphereColor="#68c9ff"
+              atmosphereAltitude={0.18}
+              animateIn={false}
+              arcsData={geologicalTimeMa === 0 && showAlignmentTriangles && showAncientStructures && cameraView !== 'front' ? triangleEdges : []}
               arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
               arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
               arcColor={() => showAcousticColorSystem ? '#38bdf8' : '#e2e8f0'} arcStroke={0.65} arcAltitude={0.008}
-              polygonsData={showAlignmentTriangles && showAncientStructures && cameraView !== 'front' ? trianglePolygons : []}
+              polygonsData={geologicalTimeMa === 0 && showAlignmentTriangles && showAncientStructures && cameraView !== 'front' ? trianglePolygons : []}
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={() => showAcousticColorSystem ? 'rgba(56,189,248,0.08)' : 'rgba(226,232,240,0.04)'}
               polygonSideColor={() => 'rgba(56,189,248,0.03)'} polygonStrokeColor={() => showAcousticColorSystem ? 'rgba(125,211,252,0.72)' : 'rgba(226,232,240,0.55)'} polygonAltitude={0.012}
-              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointsData={geologicalTimeMa === 0 ? visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures) : []} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => d.evidenceStatus ? `${d.layerCategory || 'SOUND'} · ${d.name} — ${d.measurementSummary || 'published acoustic record'} · reported values/bands: ${(d.measuredFrequenciesHz || []).join(', ')} Hz (check measurement context; range endpoints may not be site-specific peaks) · click to inspect` : d.isDimensionRecord ? `${d.layerCategory} · ${d.name}${d.structuralHeightFt ? ' · approximately ' + d.structuralHeightFt + ' ft' : ''} · ${d.heightBasis} · ${d.heightNote}${d.numberSystem ? ' · Number system: ' + d.numberSystem + (d.numberSystemNote ? ' — ' + d.numberSystemNote : '') : ''}${d.orientationNote ? ' · Orientation: ' + d.orientationNote : ''}${d.ritualContext ? ' · Ritual context: ' + d.ritualContext : ''}` : d.isCity ? `CITY · ${d.name} · click to open map and alignment explorer` : `ANCIENT SITE · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
               htmlElementsData={showAncientStructures && showMeasuredSoundSites && cameraView !== 'front' && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : []}
