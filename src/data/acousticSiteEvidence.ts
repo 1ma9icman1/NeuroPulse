@@ -179,8 +179,8 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     region: 'Giza, Egypt', period: 'Old Kingdom, 4th Dynasty, c. 26th century BCE',
     measuredFrequenciesHz: [110, 117], researchBandHz: 110, status: 'candidate-only',
     summary: 'Research marker for claims of low-frequency chamber modes around 110–117 Hz and separate claims linking the chamber to A=432 Hz tuning. Neither claim is treated as proof that the chamber was intentionally tuned to either pitch.',
-    measurementContext: 'Chamber modes depend on room geometry, boundary conditions, source and receiver positions. The 110–117 Hz figures and the A=432 Hz association remain research claims here, not verified site-specific measurements of an acoustic tuning system.'
-    caveat: 'Candidate only. A=432 Hz is a musical tuning reference, not evidence of a room resonance; quartz in granite is piezoelectric under suitable stress, but no evidence here proves the chamber was built to exploit that effect or tuned for 432 Hz / 110 Hz as a designed system.'
+    measurementContext: 'Chamber modes depend on room geometry, boundary conditions, source and receiver positions. The 110–117 Hz figures and the A=432 Hz association remain research claims here, not verified site-specific measurements of an acoustic tuning system.',
+    caveat: 'Candidate only. A=432 Hz is a musical tuning reference, not evidence of a room resonance; quartz in granite is piezoelectric under suitable stress, but no evidence here proves the chamber was built to exploit that effect or tuned for 432 Hz / 110 Hz as a designed system.',
     sources: [{ label: 'User-supplied reference: Interesting Engineering — temples and 111 Hz', url: 'https://interestingengineering.com/science/temples-resonates-frequency-111-hz', year: 2026, publication: 'Popular science article; claim requires primary-source verification' }]
   },
   {
