@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import Globe3D from 'react-globe.gl';
+import { MapLibreEarth } from './MapLibreEarth';
 import { EarthSiteExplorer } from './EarthSiteExplorer';
 import type { EarthSiteSelection } from './EarthSiteExplorer';
 import {
@@ -2353,49 +2353,20 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
 
       {/* Large interactive Earth fills the Top Plane viewport; Globe controls retain drag-to-rotate and wheel zoom. */}
-      {isEarthModeActive && (
+      {true && (
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
           <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto flex items-center justify-center">
-            <Globe3D ref={globeRef} width={Math.max(320, (containerRef.current?.clientWidth || 800) * 0.96)}
-              height={Math.max(320, (containerRef.current?.clientHeight || 600) * 0.96)}
-              globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-              bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-              backgroundColor="rgba(0,0,0,0)"
-              showGraticules={false} showAtmosphere={earthAtmosphere}
-              arcsData={showAlignmentTriangles && showAncientStructures && cameraView !== 'front' ? triangleEdges : []}
-              arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
-              arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
-              arcColor={() => showAcousticColorSystem ? '#38bdf8' : '#e2e8f0'} arcStroke={0.65} arcAltitude={0.008}
-              polygonsData={showAlignmentTriangles && showAncientStructures && cameraView !== 'front' ? trianglePolygons : []}
-              polygonGeoJsonGeometry={(d: any) => d.geometry}
-              polygonCapColor={() => showAcousticColorSystem ? 'rgba(56,189,248,0.08)' : 'rgba(226,232,240,0.04)'}
-              polygonSideColor={() => 'rgba(56,189,248,0.03)'} polygonStrokeColor={() => showAcousticColorSystem ? 'rgba(125,211,252,0.72)' : 'rgba(226,232,240,0.55)'} polygonAltitude={0.012}
-              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
-              pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-              pointLabel={(d: any) => d.evidenceStatus ? `${d.layerCategory || 'SOUND'} · ${d.name} — ${d.measurementSummary || 'published acoustic record'} · reported values/bands: ${(d.measuredFrequenciesHz || []).join(', ')} Hz (check measurement context; range endpoints may not be site-specific peaks) · click to inspect` : d.isDimensionRecord ? `${d.layerCategory} · ${d.name}${d.structuralHeightFt ? ' · approximately ' + d.structuralHeightFt + ' ft' : ''} · ${d.heightBasis} · ${d.heightNote}${d.numberSystem ? ' · Number system: ' + d.numberSystem + (d.numberSystemNote ? ' — ' + d.numberSystemNote : '') : ''}${d.orientationNote ? ' · Orientation: ' + d.orientationNote : ''}${d.ritualContext ? ' · Ritual context: ' + d.ritualContext : ''}` : d.isCity ? `CITY · ${d.name} · click to open map and alignment explorer` : `ANCIENT SITE · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
-              htmlElementsData={showAncientStructures && showMeasuredSoundSites && cameraView !== 'front' && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : []}
-              htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
-              htmlElement={(d: any) => {
-                const marker = document.createElement('div');
-                marker.style.width = '52px'; marker.style.height = showCosmicBeam && d.evidenceStatus === 'published-measurement' ? '300px' : '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
-                marker.title = d.evidenceStatus === 'published-measurement' ? `Published acoustic measurement: ${d.measuredHz} Hz (not 110 Hz)` : '110 Hz research candidate · resonance unverified at this location';
-                if (showCosmicBeam && d.evidenceStatus === 'published-measurement') {
-                  const beam = document.createElement('div');
-                  beam.style.position = 'absolute'; beam.style.left = '25px'; beam.style.top = '0px'; beam.style.width = '3px'; beam.style.height = '150px';
-                  beam.style.transform = 'translateX(-50%)'; beam.style.background = 'linear-gradient(to top, rgba(251,146,60,.1), rgba(251,146,60,.8), rgba(255,255,255,.95), transparent)';
-                  beam.style.boxShadow = '0 0 12px 3px rgba(251,146,60,.5)'; beam.style.borderRadius = '99px';
-                  beam.animate([{opacity:.45, transform:'translateX(-50%) scaleY(.72)'},{opacity:1,transform:'translateX(-50%) scaleY(1)'},{opacity:.5,transform:'translateX(-50%) scaleY(.82)'}],{duration:1800,iterations:Infinity});
-                  marker.append(beam);
-                }
-                const comet = document.createElement('div');
-                comet.style.position = 'absolute'; comet.style.left = '4px'; comet.style.top = '20px'; comet.style.width = '34px'; comet.style.height = '3px';
-                comet.style.transform = 'rotate(-42deg)'; comet.style.transformOrigin = 'right center';
-                comet.style.background = 'linear-gradient(90deg, transparent, rgba(251,146,60,.15), #fdba74, #fff7ed)';
-                comet.style.filter = 'drop-shadow(0 0 5px #fb923c)';
-                comet.animate([{ opacity: 0.12, transform: 'translate(-4px, 5px) rotate(-42deg) scaleX(.25)' }, { opacity: 1, transform: 'translate(0, 0) rotate(-42deg) scaleX(1)' }, { opacity: 0.05, transform: 'translate(8px, -8px) rotate(-42deg) scaleX(.2)' }], { duration: 1450, iterations: Infinity, delay: (Math.abs(d.lat * 11 + d.lon) % 900) });
-                marker.append(comet); return marker;
-              }}
-              onPointClick={(d: any) => openEarthSite(d)} />
+            <div className="w-full h-full flex items-center justify-center">
+              <div style={{ width: isEarthModeActive ? '100%' : '76%', height: isEarthModeActive ? '100%' : '88%', transition: 'width 220ms ease, height 220ms ease' }}>
+                <MapLibreEarth
+                  ref={globeRef}
+                  points={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)}
+                  onPointClick={(site: any) => openEarthSite(site)}
+                  zoom={cameraZoom}
+                  compact={!isEarthModeActive}
+                />
+              </div>
+            </div>
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
             {showAlignmentTriangles && showAncientStructures && cameraView !== 'front' && <div className="absolute left-3 bottom-3 z-[6] max-w-[min(92%,440px)] rounded-lg border border-sky-400/40 bg-slate-950/90 p-2 text-[10px] font-mono text-slate-200 pointer-events-none"><div className="font-bold text-sky-200">EARTH TRIANGULATION · nearest 3 neighbors/site</div><div className="mt-1">{trianglePolygons.length} connected triangles · repeated 5° angle bins: {repeatedTriangleAngles.length ? repeatedTriangleAngles.slice(0,5).map(([angle,count]) => angle+'° × '+count).join(' · ') : 'none detected in current set'}</div><div className="mt-1 text-slate-400">Approximate local-plane angles; projection, site coordinates and chance patterns matter.</div></div>}
             <div className={`absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden ${isEarthModeActive ? 'hidden' : ''}`}>
