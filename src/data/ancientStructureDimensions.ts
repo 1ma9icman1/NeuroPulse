@@ -207,4 +207,17 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     numberSystemNote: 'Mesopotamian scribal mathematics used sexagesimal notation. Modern time and angle conventions have a long history and should not be attributed to one monument.',
     sourceUrl: 'https://whc.unesco.org/en/list/113'
   },
+
+  {
+    id: 'ancient-babylon-precinct',
+    name: 'Ancient Babylon — monumental precinct',
+    lat: 32.5364, lon: 44.4200, location: 'Babil Governorate, Iraq',
+    approximateHeightFt: 0,
+    heightBasis: 'City and monumental precinct; no single structure height assigned.',
+    evidenceNote: 'Babylonian scribal culture used and developed sexagesimal mathematical methods. The site includes multiple structures and historical phases.',
+    geometryClaim: 'Base-60 methods are well documented in Mesopotamian mathematics; linking them to a specific monument’s proportions requires separate evidence.',
+    numberSystem: 'sexagesimal',
+    numberSystemNote: 'Sexagesimal methods were used in Mesopotamian mathematics and astronomy. Modern time and angle conventions reflect long historical transmission.',
+    sourceUrl: 'https://whc.unesco.org/en/list/278/'
+  },
 ];
