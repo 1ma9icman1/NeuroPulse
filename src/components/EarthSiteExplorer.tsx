@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LeafletSiteMap } from './LeafletSiteMap';
 import { X, MapPin, ExternalLink } from 'lucide-react';
 
 export interface EarthSiteSelection {
@@ -12,10 +13,6 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description,
   const [mapView, setMapView] = useState<'map' | 'terrain' | 'satellite'>('satellite');
   if (!site) return null;
   const yearLabel = site.year < 0 ? Math.abs(site.year).toLocaleString() + ' BCE' : site.year + ' CE';
-  const bounds = [site.lon - 0.08, Math.max(-85, site.lat - 0.05), site.lon + 0.08, Math.min(85, site.lat + 0.05)].join(',');
-  const mapUrl = mapView === 'map'
-    ? 'https://www.openstreetmap.org/export/embed.html?bbox=' + bounds + '&layer=mapnik&marker=' + site.lat + ',' + site.lon
-    : 'https://maps.google.com/maps?q=' + site.lat + ',' + site.lon + '&t=' + (mapView === 'satellite' ? 'k' : 'p') + '&z=14&output=embed';
   const nearestSites = site ? alignmentSites.filter((other) => other.name !== site.name).map((other) => {
     const dLat = (other.lat - site.lat) * Math.PI / 180;
     const dLon = (other.lon - site.lon) * Math.PI / 180;
@@ -61,7 +58,7 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description,
         </section>
         <section className="min-h-[280px] overflow-hidden rounded-xl border border-sky-500/30 bg-slate-950">
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-700/70"><span className="text-[10px] font-mono font-bold tracking-wider text-sky-200">MAP VIEW · {mapView.toUpperCase()}</span><div className="flex gap-1">{([['map','ROAD'],['terrain','TERRAIN'],['satellite','SATELLITE']] as const).map(([view,label])=><button key={view} onClick={()=>setMapView(view)} className={'rounded border px-2 py-1 text-[9px] font-mono ' + (mapView===view?'border-sky-400 bg-sky-950 text-white':'border-slate-700 text-slate-400 hover:text-white')}>{label}</button>)}</div></div>
-          <iframe title={'Map of ' + site.name} className="w-full h-[310px] md:h-[390px] border-0" loading="lazy" src={mapUrl}/>
+          <LeafletSiteMap site={site} sites={alignmentSites} layer={mapView} />
           <div className="flex flex-wrap gap-3 px-3 py-2"><a className="text-[10px] text-sky-300 hover:text-white" href={'https://www.google.com/maps/search/?api=1&query=' + site.lat + ',' + site.lon} target="_blank" rel="noreferrer"><MapPin className="inline w-3 h-3 mr-1"/>OPEN FULL MAP ↗</a><a className="text-[10px] text-sky-300 hover:text-white" href={'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + site.lat + ',' + site.lon} target="_blank" rel="noreferrer">STREET VIEW ↗</a></div>
         </section>
         <section className="min-h-[280px] rounded-xl border border-emerald-500/30 bg-[#08111b] p-3 md:p-4 flex flex-col gap-3">
