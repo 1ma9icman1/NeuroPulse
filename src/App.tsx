@@ -20,7 +20,7 @@ import { AudioCubeSpace } from './components/AudioCubeSpace';
 import { DeltaHUD } from './components/DeltaHUD';
 import { OscillatorDeck } from './components/OscillatorDeck';
 import { FrequencyMatrix } from './components/FrequencyMatrix';
-import { CheckCircle2, Volume2, Triangle, Maximize, Minimize, Orbit, X, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Volume2, Triangle, Maximize, Minimize } from 'lucide-react';
 
 const INITIAL_CONFIG: TrinauralConfig = {
   // Channel A (Left / Cyan)
@@ -55,7 +55,7 @@ const INITIAL_CONFIG: TrinauralConfig = {
   // Master & 3D Spatial
   masterVolume: 0.8,
   spatialMode: 'trinaural-isolated',
-  cameraView: 'perspective',
+  cameraView: 'top',
   cameraYaw: 30,
   cameraPitch: 22,
   cameraZoom: 1.0,
@@ -67,7 +67,6 @@ export default function App() {
   const [selectedPresetId, setSelectedPresetId] = useState<string>(DAW_PRESETS[0].id);
   const [trinauralTestStatus, setTrinauralTestStatus] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showSolarSystem, setShowSolarSystem] = useState(false);
 
   const audioEngineRef = useRef<AudioEngine | null>(null);
 
@@ -261,7 +260,7 @@ export default function App() {
       cameraYaw: 30,
       cameraPitch: 22,
       cameraZoom: 1.0,
-      cameraView: 'perspective',
+      cameraView: 'top',
     });
   };
 
@@ -334,15 +333,6 @@ export default function App() {
 
         {/* Right: Master Run/Stop Toggle & Fullscreen Button */}
         <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => setShowSolarSystem(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold rounded-md border border-indigo-400/40 bg-indigo-400/10 text-indigo-200 hover:bg-indigo-400/20 hover:border-indigo-300 transition-all shadow-sm"
-            title="Open textured planetary rotation and orbital timeline simulation"
-          >
-            <Orbit className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">SOLAR SYSTEM</span>
-          </button>
-
           <button
             onClick={handleToggleFullscreen}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold rounded-md border transition-all shadow-sm ${
@@ -519,46 +509,7 @@ export default function App() {
         </div>
       </footer>
 
-      {showSolarSystem && (
-        <div className="fixed inset-0 z-[100] bg-[#030611]/95 backdrop-blur-sm flex flex-col p-2 sm:p-4" role="dialog" aria-modal="true" aria-label="Solar system simulation">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-xl border border-indigo-400/30 bg-[#080d18] px-4 py-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-indigo-300/30 bg-indigo-400/10 text-indigo-200">
-                <Orbit className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-sm sm:text-base font-bold tracking-wide text-white">PLANETARY ROTATION & ORBITAL TIMELINE</h2>
-                <p className="text-[11px] sm:text-xs text-slate-400">Textured worlds · axial tilt · time controls · stars · spacecraft missions</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <a href="https://pcwilliams.design/solarsystem/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-[11px] font-mono font-bold text-cyan-100 hover:bg-cyan-400/20">
-                <ExternalLink className="h-3.5 w-3.5" /> OPEN FULL SIMULATOR
-              </a>
-              <a href="https://github.com/prinz-ai/Solar-System" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[11px] font-mono text-slate-300 hover:text-white">
-                SIMULATION SOURCE
-              </a>
-              <button onClick={() => setShowSolarSystem(false)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[11px] font-mono font-bold text-slate-200 hover:border-red-400/60 hover:text-white" aria-label="Close solar system simulation">
-                <X className="h-4 w-4" /> CLOSE
-              </button>
-            </div>
-          </div>
-          <div className="relative min-h-0 flex-1 overflow-hidden rounded-b-xl border-x border-b border-indigo-400/30 bg-black">
-            <iframe
-              title="Interactive textured solar system simulation"
-              src="https://pcwilliams.design/solarsystem/"
-              className="h-full w-full border-0 bg-black"
-              allow="fullscreen; autoplay"
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
-            <div className="pointer-events-none absolute bottom-3 left-3 max-w-[min(90%,34rem)] rounded-lg border border-white/10 bg-black/70 px-3 py-2 text-[10px] leading-relaxed text-slate-300 backdrop-blur">
-              Planetary motion and rotation follow published orbital/IAU models; textures, star catalogue, and mission visualizations are provided by the embedded open-source simulator. If embedding is blocked by the host, use OPEN FULL SIMULATOR above.
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
