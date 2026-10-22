@@ -8,7 +8,10 @@ export function filterHistoricalGeoJson(collection: GeoJSON.FeatureCollection, y
         if (typeof value === 'number' && Number.isFinite(value)) return value;
         if (typeof value === 'string') {
           const match = value.match(/-?\d{1,6}/);
-          if (match) return Number(match[0]);
+          if (match) {
+            const numeric = Number(match[0]);
+            return /\\b(?:BCE|BC)\\b/i.test(value) ? -Math.abs(numeric) : numeric;
+          }
         }
       }
       return undefined;
