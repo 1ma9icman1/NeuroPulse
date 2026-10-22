@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LeafletSiteMap } from './LeafletSiteMap';
+import type { LeafletAudioPoint } from './LeafletSiteMap';
+import { ACOUSTIC_SITE_EVIDENCE } from '../data/acousticSiteEvidence';
 import { X, MapPin, ExternalLink } from 'lucide-react';
 
 export interface EarthSiteSelection {
@@ -7,10 +9,40 @@ export interface EarthSiteSelection {
   color?: string; size?: number; altitude?: number;
 }
 
-interface Props { site: EarthSiteSelection | null; onClose: () => void; description: string; alignmentSites?: Array<{ name: string; lat: number; lon: number }>; }
+interface Props {
+  site: EarthSiteSelection | null;
+  onClose: () => void;
+  description: string;
+  alignmentSites?: Array<{ name: string; lat: number; lon: number }>;
+  audioSites?: LeafletAudioPoint[];
+  onAssignChannel?: (channel: 'a' | 'b' | 'c', site: EarthSiteSelection) => void;
+}
 
-export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description, alignmentSites = [] }) => {
+export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description, alignmentSites = [], audioSites = [], onAssignChannel }) => {
   const [mapView, setMapView] = useState<'map' | 'terrain' | 'satellite'>('satellite');
+  const [activeFrequency, setActiveFrequency] = useState<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const oscillatorRef = useRef<OscillatorNode | null>(null);
+  useEffect(() => () => { try { oscillatorRef.current?.stop(); } catch { /* oscillator already stopped */ } void audioContextRef.current?.close(); }, []);
+  const playReferenceTone = async (frequency: number) => {
+    try {
+      if (oscillatorRef.current) { try { oscillatorRef.current.stop(); } catch { /* oscillator already stopped */ } oscillatorRef.current = null; }
+      if (activeFrequency === frequency) { setActiveFrequency(null); return; }
+      const audioContext = audioContextRef.current || new window.AudioContext();
+      audioContextRef.current = audioContext;
+      await audioContext.resume();
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = 'sine'; oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.12, audioContext.currentTime + 0.04);
+      gain.gain.setValueAtTime(0.12, audioContext.currentTime + 1.6);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1.9);
+      oscillator.connect(gain); gain.connect(audioContext.destination); oscillator.start(); oscillator.stop(audioContext.currentTime + 1.92);
+      oscillatorRef.current = oscillator; setActiveFrequency(frequency);
+      oscillator.onended = () => { if (oscillatorRef.current === oscillator) oscillatorRef.current = null; setActiveFrequency((current) => current === frequency ? null : current); };
+    } catch (error) { console.warn('Unable to play reference tone:', error); }
+  };
   if (!site) return null;
   const yearLabel = site.year < 0 ? Math.abs(site.year).toLocaleString() + ' BCE' : site.year + ' CE';
   const nearestSites = site ? alignmentSites.filter((other) => other.name !== site.name).map((other) => {
@@ -30,6 +62,8 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description,
     return [angle(points[0], points[1], points[2]), angle(points[1], points[2], points[0]), angle(points[2], points[0], points[1])].map((value) => value.toFixed(1));
   })() : [];
   const modelKind = /Giza|Pyramid/i.test(site.name) ? 'pyramid' : /Stonehenge|Carnac/i.test(site.name) ? 'stones' : /Chich|Teotihuacan|Tenochtitlan/i.test(site.name) ? 'temple' : 'ruins';
+  const acousticRecord = ACOUSTIC_SITE_EVIDENCE.find((record) => record.name.toLowerCase() === site.name.toLowerCase()) || ACOUSTIC_SITE_EVIDENCE.find((record) => Math.abs(record.lat - site.lat) < 0.025 && Math.abs(record.lon - site.lon) < 0.025);
+  const recordedFrequencies = acousticRecord?.measuredFrequenciesHz || [];
   return (
     <div className="absolute inset-2 md:inset-4 z-[70] overflow-y-auto rounded-2xl border border-amber-400/70 bg-[#050b15]/[.98] p-3 md:p-5 shadow-2xl backdrop-blur-xl pointer-events-auto">
       <header className="flex flex-wrap items-start justify-between gap-3 mb-4 border-b border-slate-800 pb-3">
@@ -58,15 +92,24 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description,
         </section>
         <section className="min-h-[280px] overflow-hidden rounded-xl border border-sky-500/30 bg-slate-950">
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-700/70"><span className="text-[10px] font-mono font-bold tracking-wider text-sky-200">MAP VIEW · {mapView.toUpperCase()}</span><div className="flex gap-1">{([['map','ROAD'],['terrain','TERRAIN'],['satellite','SATELLITE']] as const).map(([view,label])=><button key={view} onClick={()=>setMapView(view)} className={'rounded border px-2 py-1 text-[9px] font-mono ' + (mapView===view?'border-sky-400 bg-sky-950 text-white':'border-slate-700 text-slate-400 hover:text-white')}>{label}</button>)}</div></div>
-          <LeafletSiteMap site={site} sites={alignmentSites} layer={mapView} />
+          <LeafletSiteMap site={site} sites={alignmentSites} layer={mapView} audioSites={audioSites} />
           <div className="flex flex-wrap gap-3 px-3 py-2"><a className="text-[10px] text-sky-300 hover:text-white" href={'https://www.google.com/maps/search/?api=1&query=' + site.lat + ',' + site.lon} target="_blank" rel="noreferrer"><MapPin className="inline w-3 h-3 mr-1"/>OPEN FULL MAP ↗</a><a className="text-[10px] text-sky-300 hover:text-white" href={'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + site.lat + ',' + site.lon} target="_blank" rel="noreferrer">STREET VIEW ↗</a></div>
         </section>
         <section className="min-h-[280px] rounded-xl border border-emerald-500/30 bg-[#08111b] p-3 md:p-4 flex flex-col gap-3">
           <div><div className="text-[10px] font-mono font-bold tracking-wider text-emerald-200">SITE FILE · WHAT IS DOCUMENTED</div><p className="mt-2 text-sm leading-relaxed text-slate-200">{description}</p></div>
-          <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-3"><div className="text-[10px] font-mono font-bold text-amber-200">FREQUENCY CHECK · NO ASSUMED MATCH</div><div className="mt-2 grid grid-cols-2 gap-2"><div className="rounded border border-slate-800 p-2"><div className="text-lg font-mono text-white">432 Hz</div><div className="text-[10px] text-slate-400">Alternative A4 tuning reference; not a measured Earth/site resonance.</div></div><div className="rounded border border-slate-800 p-2"><div className="text-lg font-mono text-white">110 Hz</div><div className="text-[10px] text-slate-400">A2 note under A4 = 440 Hz tuning; not a measured resonance for this site.</div></div></div><p className="mt-2 text-[10px] leading-relaxed text-slate-500">No frequency is assigned unless traceable measurements, units, method, uncertainty, and source are available.</p></div>
+          <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-3"><div className="text-[10px] font-mono font-bold text-amber-200">LOCATION AUDIO · MEASUREMENTS + REFERENCE TONES</div>
+            {acousticRecord ? <><div className="mt-2 text-[10px] leading-relaxed text-slate-300">{acousticRecord.status === 'published-measurement' ? 'Published acoustic measurement record' : 'Candidate-only acoustic association'} · {acousticRecord.region}</div><div className="mt-1 flex flex-wrap gap-1.5">{recordedFrequencies.map((hz) => <span key={hz} className="rounded border border-orange-500/50 bg-orange-950/40 px-2 py-1 text-[10px] font-mono text-orange-200">{hz} Hz measured</span>)}</div><p className="mt-1 text-[9px] leading-relaxed text-slate-500">{acousticRecord.caveat}</p><div className="mt-1 flex flex-wrap gap-2">{acousticRecord.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="text-[9px] text-sky-300 hover:text-white">{source.label} ↗</a>)}</div></> : <p className="mt-2 text-[10px] leading-relaxed text-slate-400">No site-specific measured frequency record is linked to this marker. The tones below are synthetic reference tones, not recordings or proof of site resonance.</p>}
+            <div className="mt-2 grid grid-cols-2 gap-2">{[110, 432].map((hz) => <button key={hz} type="button" onClick={() => void playReferenceTone(hz)} className={'rounded border px-2 py-2 text-left transition-all ' + (activeFrequency === hz ? 'border-cyan-300 bg-cyan-950/70 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,.35)]' : 'border-slate-700 bg-slate-900 text-slate-200 hover:border-cyan-500')}><span className="block text-sm font-mono">{activeFrequency === hz ? '◉' : '▶'} {hz} Hz</span><span className="block text-[9px] text-slate-400">Play synthetic reference tone</span></button>)}</div>
+            <div className="relative mt-2 h-10 overflow-hidden rounded border border-slate-800 bg-slate-950 flex items-center justify-center gap-1.5">{Array.from({ length: 28 }, (_, index) => <span key={index} className={'w-1 rounded-full bg-gradient-to-t from-cyan-600 to-amber-300 ' + (activeFrequency ? 'animate-pulse' : 'opacity-35')} style={{ height: `${activeFrequency ? 8 + ((index * 7 + activeFrequency) % 24) : 5 + (index % 5) * 2}px`, animationDelay: `${index * 18}ms` }} />)}<span className="absolute right-2 bottom-1 text-[8px] font-mono text-slate-500">{activeFrequency ? `${activeFrequency} Hz PLAYING` : 'AUDIO SIGNATURE'}</span></div>
+          </div>
           <div className="rounded-lg border border-sky-500/30 bg-slate-950/80 p-3">
             <div className="text-[10px] font-mono font-bold text-sky-200">SITE TRIANGLE · NEAREST NEIGHBORS</div>
             {nearestSites.length === 2 ? <><div className="mt-2 text-xs text-white">{site.name} · {nearestSites[0].name} · {nearestSites[1].name}</div><div className="mt-1 text-[10px] leading-relaxed text-slate-300">Approximate local-plane interior angles: {triangleAngles.join('° · ')}°. Nearby site distances: {nearestSites.map((near) => near.name + ' ' + Math.round(near.distanceKm).toLocaleString() + ' km').join(' · ')}.</div><div className="mt-1 text-[9px] text-slate-500">Geographic triangle for exploration only; the local-plane approximation is not a surveyed ancient alignment.</div></> : <div className="mt-2 text-[10px] text-slate-400">Not enough reference sites to calculate a triangle.</div>}
+          </div>
+          <div className="rounded-lg border border-cyan-500/30 bg-slate-950/80 p-3">
+            <div className="text-[10px] font-mono font-bold text-cyan-200">LOCK A / B / C TO THIS EARTH LOCATION</div>
+            <div className="mt-2 grid grid-cols-3 gap-2">{(['a', 'b', 'c'] as const).map((channel) => <button key={channel} type="button" onClick={() => onAssignChannel?.(channel, site)} className={'rounded border px-2 py-2 text-[10px] font-mono font-bold transition-all ' + (channel === 'a' ? 'border-cyan-500/60 bg-cyan-950/50 text-cyan-200 hover:bg-cyan-900' : channel === 'b' ? 'border-pink-500/60 bg-pink-950/50 text-pink-200 hover:bg-pink-900' : 'border-amber-500/60 bg-amber-950/50 text-amber-200 hover:bg-amber-900')}>LOCK CH-{channel.toUpperCase()}</button>)}</div>
+            <p className="mt-2 text-[9px] text-slate-500">Moves the selected channel to this location and locks it there in the spatial scene.</p>
           </div>
           <div className="rounded-lg border border-violet-500/30 bg-slate-950/80 p-3">
             <div className="text-[10px] font-mono font-bold text-violet-200">STAR & MOON COMPARISON</div>
