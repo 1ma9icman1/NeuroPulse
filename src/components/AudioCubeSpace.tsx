@@ -2481,14 +2481,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               }}
               onGlobeClick={(coordinates: { lat: number; lng: number }) => handleEarthGlobeClick(coordinates)}
                onPointClick={(d: any) => {
+                 if (isPlacingEarthPoint) { placeEarthChannelPoint(d.lat, d.lon); return; }
                  if (d.isEarthChannelPoint) {
                    setEarthPlacementChannel(d.channel);
-                   setIsPlacingEarthPoint(true);
-                   setEarthChannelPoints((previous) => ({ ...previous, [d.channel]: previous[d.channel] ? { ...previous[d.channel]!, locked: false } : null }));
-                   setSnapFeedback(`Select a new globe location for point ${d.channel.toUpperCase()}`);
+                   setIsPlacingEarthPoint(!d.locked);
+                   setSnapFeedback(d.locked ? `Point ${d.channel.toUpperCase()} is locked. Use Move to reposition it.` : `Choose a new location for point ${d.channel.toUpperCase()}`);
                    return;
                  }
-                 if (isPlacingEarthPoint) { placeEarthChannelPoint(d.lat, d.lon); return; }
                  openEarthSite(d);
                }} />
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
