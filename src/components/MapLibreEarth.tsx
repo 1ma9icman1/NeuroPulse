@@ -82,6 +82,7 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
       style: {
         version: 8,
         projection: { type: 'globe' },
+        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
         sources: {
           imagery: {
             type: 'raster',
@@ -120,7 +121,7 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
           { id: 'imported-history-points', type: 'circle', source: 'historicalImports', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 3.5, 'circle-color': ['coalesce', ['get', 'color'], '#fb923c'], 'circle-stroke-color': '#fff7ed', 'circle-stroke-width': 0.8 } },
           { id: 'audio-wave-rings', type: 'circle', source: 'audioSites', paint: { 'circle-radius': 8, 'circle-color': ['coalesce', ['get', 'waveColor'], '#38bdf8'], 'circle-opacity': 0.32, 'circle-stroke-color': ['coalesce', ['get', 'waveColor'], '#38bdf8'], 'circle-stroke-width': 1.6, 'circle-stroke-opacity': 0.9 } },
           { id: 'audio-site-core', type: 'circle', source: 'audioSites', paint: { 'circle-radius': 3.5, 'circle-color': ['coalesce', ['get', 'waveColor'], '#38bdf8'], 'circle-opacity': 1, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 0.8 } },
-          { id: 'audio-frequency-labels', type: 'symbol', source: 'audioSites', layout: { 'text-field': ['get', 'frequencyLabel'], 'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'], 'text-size': 10, 'text-offset': [0, 1.25], 'text-anchor': 'top', 'text-allow-overlap': false }, paint: { 'text-color': ['coalesce', ['get', 'waveColor'], '#7dd3fc'], 'text-halo-color': '#020617', 'text-halo-width': 1.2 } },
+          { id: 'audio-frequency-labels', type: 'symbol', source: 'audioSites', layout: { 'text-field': ['get', 'frequencyLabel'], 'text-font': ['Open Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.25], 'text-anchor': 'top', 'text-allow-overlap': false }, paint: { 'text-color': ['coalesce', ['get', 'waveColor'], '#7dd3fc'], 'text-halo-color': '#020617', 'text-halo-width': 1.2 } },
           { id: 'historical-site-dots', type: 'circle', source: 'sites', paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 0, 2.4, 3, 3.4, 7, 5],
             'circle-color': ['coalesce', ['get', 'color'], '#facc15'],
@@ -150,7 +151,7 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
       if (point) callbackRef.current(point);
     });
     map.on('click', (event) => {
-      const interactive = map.queryRenderedFeatures(event.point, { layers: ['audio-site-core', 'historical-site-dots'] });
+      const interactive = map.queryRenderedFeatures(event.point, { layers: ['audio-site-core', 'audio-frequency-labels', 'historical-site-dots'] });
       if (interactive.length) return;
       callbackRef.current({ name: 'Pinned Earth Location', lat: event.lngLat.lat, lon: event.lngLat.lng, year: yearRef.current, color: '#38bdf8' });
     });
