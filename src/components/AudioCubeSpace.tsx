@@ -296,7 +296,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Lisbon', lat: 38.7223, lon: -9.1393, year: 2026, isCity: true },
     { name: 'Kyoto', lat: 35.0116, lon: 135.7681, year: 2026, isCity: true },
   ];
-  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(1.2, 5.2 - cameraZoom) }, 250); }, [isEarthModeActive, cameraZoom]);
+  // Start Top Plane with Earth filling most of the viewport; larger cameraZoom values move closer.
+  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(0.8, 1.95 - cameraZoom * 0.95) }, 350); }, [isEarthModeActive, cameraZoom]);
 
   useEffect(() => {
     setEarthTextureLoaded(false);
@@ -2617,7 +2618,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       {/* Floating Celestial Star & 7-11 Astrometric Deck (When Star Mode is active) */}
       {isStarModeActive && !isCelestialDeckCollapsed && (
-        <div className="absolute top-16 left-3 z-30 max-w-sm w-full bg-[#0b1220]/95 backdrop-blur-md p-3.5 rounded-xl border border-amber-500/40 shadow-2xl flex flex-col gap-2.5">
+        <div className="absolute top-16 left-3 z-30 max-w-sm w-full max-h-[calc(100%-5rem)] overflow-y-auto overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-3.5 rounded-xl border border-amber-500/40 shadow-2xl flex flex-col gap-2.5">
           {/* Header & 7-11 Match Badge */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5">
@@ -2881,6 +2882,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={() => showAcousticColorSystem ? 'rgba(56,189,248,0.08)' : 'rgba(226,232,240,0.04)'}
               polygonSideColor={() => 'rgba(56,189,248,0.03)'} polygonStrokeColor={() => showAcousticColorSystem ? 'rgba(125,211,252,0.72)' : 'rgba(226,232,240,0.55)'} polygonAltitude={0.012}
+              labelsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)}
+              labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon}
+              labelText={(d: any) => d.name} labelSize={0.42} labelColor={(d: any) => d.color || '#facc15'}
+              labelAltitude={0.025} labelResolution={2} labelIncludeDot={false}
+              labelLabel={(d: any) => `${d.name} · click to view site details and assign A/B/C`}
+              onLabelClick={(d: any) => {
+                if (isEarthAssignMode) handlePinChannelToEarth(snapTargetChannel, d.lat, d.lon);
+                else openEarthSite(d);
+              }}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => d.evidenceStatus ? `${d.layerCategory || 'SOUND'} · ${d.name} — ${d.measurementSummary || 'published acoustic record'} · reported values/bands: ${(d.measuredFrequenciesHz || []).join(', ')} Hz (check measurement context; range endpoints may not be site-specific peaks) · click to inspect` : d.isDimensionRecord ? `${d.layerCategory} · ${d.name}${d.structuralHeightFt ? ' · approximately ' + d.structuralHeightFt + ' ft' : ''} · ${d.heightBasis} · ${d.heightNote}${d.numberSystem ? ' · Number system: ' + d.numberSystem + (d.numberSystemNote ? ' — ' + d.numberSystemNote : '') : ''}${d.orientationNote ? ' · Orientation: ' + d.orientationNote : ''}${d.ritualContext ? ' · Ritual context: ' + d.ritualContext : ''}` : d.historicalRecord ? `${d.layerCategory} · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · ${d.researchReason} · click to inspect` : d.isCity ? `CITY · ${d.name} · click to open map and alignment explorer` : `${d.layerCategory || 'ANCIENT SITE'} · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
