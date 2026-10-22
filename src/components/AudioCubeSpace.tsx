@@ -362,14 +362,19 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [selectedEarthSite, setSelectedEarthSite] = useState<EarthSiteSelection | null>(null);
   type EarthChannel = 'a' | 'b' | 'c';
   type EarthChannelPoint = { lat: number; lon: number; locked: boolean };
-  const [earthChannelPoints, setEarthChannelPoints] = useState<Record<EarthChannel, EarthChannelPoint | null>>({ a: null, b: null, c: null });
+  const earthChannelColors: Record<EarthChannel, string> = { a: '#22d3ee', b: '#f472b6', c: '#fbbf24' };
+  const initialEarthPoint = (position: SpatialPosition): EarthChannelPoint | null => {
+    if (Math.hypot(position.x, position.y, position.z) < 0.1) return null;
+    const geographic = cartesianToLatLon(position.x, position.y, position.z);
+    return { lat: geographic.lat, lon: geographic.lon, locked: false };
+  };
+  const [earthChannelPoints, setEarthChannelPoints] = useState<Record<EarthChannel, EarthChannelPoint | null>>(() => ({ a: initialEarthPoint(aPos), b: initialEarthPoint(bPos), c: initialEarthPoint(cPos) }));
   const [earthPlacementChannel, setEarthPlacementChannel] = useState<EarthChannel>('a');
   const [isPlacingEarthPoint, setIsPlacingEarthPoint] = useState(false);
-  const earthChannelColors: Record<EarthChannel, string> = { a: '#22d3ee', b: '#f472b6', c: '#fbbf24' };
-  const earthChannelPointData = (['a', 'b', 'c'] as EarthChannel[]).flatMap((channel) => {
+  const earthChannelPointData = (['a', 'b', 'c'] as EarthChannel[]).map((channel) => {
     const point = earthChannelPoints[channel];
-    return point ? [{ name: `Point ${channel.toUpperCase()}`, channel, lat: point.lat, lon: point.lon, locked: point.locked, color: earthChannelColors[channel], size: 0.22, altitude: 0.025, isEarthChannelPoint: true }] : [];
-  });
+    return point ? { name: channel.toUpperCase(), channel, lat: point.lat, lon: point.lon, locked: point.locked, color: earthChannelColors[channel], size: 0.22, altitude: 0.045, isEarthChannelPoint: true } : null;
+  }).filter(Boolean);
   const placeEarthChannelPoint = (lat: number, lon: number, channel: EarthChannel = earthPlacementChannel) => {
     const spatialPoint = latLonToCartesian(lat, lon, 7.8);
     if (channel === 'a') onUpdateAPos(spatialPoint);
@@ -377,13 +382,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     if (channel === 'c') onUpdateCPos(spatialPoint);
     setLockedChannels((previous) => ({ ...previous, [channel]: true }));
     setEarthChannelPoints((previous) => ({ ...previous, [channel]: { lat, lon, locked: true } }));
-    setEarthPlacementChannel(channel);
     setIsPlacingEarthPoint(false);
-    setSnapFeedback(`Point ${channel.toUpperCase()} locked to ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`);
   };
   const handleEarthGlobeClick = (coordinates: { lat: number; lng: number }) => {
-    if (!isPlacingEarthPoint) return;
+    if (!isPlacingEarthPoint || earthChannelPoints[earthPlacementChannel]?.locked) return;
     placeEarthChannelPoint(coordinates.lat, coordinates.lng);
+  };
+  const toggleEarthChannelLock = (channel: EarthChannel) => {
+    const point = earthChannelPoints[channel];
+    if (!point) { setEarthPlacementChannel(channel); setIsPlacingEarthPoint(true); setLockedChannels((previous) => ({ ...previous, [channel]: false })); return; }
+    if (point.locked) {
+      setEarthPlacementChannel(channel); setEarthChannelPoints((previous) => ({ ...previous, [channel]: { ...point, locked: false } }));
+      setLockedChannels((previous) => ({ ...previous, [channel]: false })); setIsPlacingEarthPoint(true);
+    } else {
+      setEarthChannelPoints((previous) => ({ ...previous, [channel]: { ...point, locked: true } }));
+      setLockedChannels((previous) => ({ ...previous, [channel]: true }));
+      if (earthPlacementChannel === channel) setIsPlacingEarthPoint(false);
+    }
   };
   const openEarthSite = (site: EarthSiteSelection) => {
     setSelectedEarthSite(site);
@@ -2376,7 +2391,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       {/* Deep-time geology control: simple presets, clear age readout, and quick camera/light controls. */}
       {isEarthModeActive && (
-        <div className="absolute top-3 left-3 z-20 pointer-events-auto w-[min(410px,calc(100%-24px))] rounded-2xl border border-white/10 bg-slate-950/75 backdrop-blur-xl px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.38)] ring-1 ring-sky-300/10">
+        <div className="absolute top-3 left-3 z-20 pointer-events-auto w-[min(350px,calc(100%-24px))] rounded-2xl border border-white/10 bg-[#060b14]/80 backdrop-blur-2xl px-3.5 py-3 shadow-[0_20px_70px_rgba(0,0,0,0.5)] ring-1 ring-sky-200/10">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-200/90">
@@ -2431,9 +2446,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400"><span>10,000 BCE</span><span>{timelineYearsAgo.toLocaleString()} years before present</span><span>Present</span></div>
           <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. Sky precession is first-order (~50.29″/yr); year-only rotation phase is illustrative, not an exact historical time-of-day. Berger 1978 describes long-term orbital/climate cycles, not a precision star-position catalogue.</div>
         </div>
-      ) : (
-        <button onClick={() => setIsTimelineActive(true)} className="absolute top-[4.6rem] left-3 z-20 pointer-events-auto rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-3 py-1.5 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline">TIMELINE OFF · SHOW</button>
-      )}
+      ) : null}
 
       {/* Large interactive Earth fills the Top Plane viewport; Globe controls retain drag-to-rotate and wheel zoom. */}
       {isEarthModeActive && (
@@ -2459,16 +2472,29 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={() => showAcousticColorSystem ? 'rgba(56,189,248,0.08)' : 'rgba(226,232,240,0.04)'}
               polygonSideColor={() => 'rgba(56,189,248,0.03)'} polygonStrokeColor={() => showAcousticColorSystem ? 'rgba(125,211,252,0.72)' : 'rgba(226,232,240,0.55)'} polygonAltitude={0.012}
-              pointsData={[...earthChannelPointData, ...(geologicalTimeMa === 0 ? visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures) : [])]} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
-               pointColor={(d: any) => d.isEarthChannelPoint ? d.color : showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.isEarthChannelPoint ? 0.2 : d.size} pointAltitude={(d: any) => d.altitude}
-               pointLabel={(d: any) => d.isEarthChannelPoint ? `POINT ${d.channel.toUpperCase()} · ${d.locked ? 'LOCKED' : 'UNLOCKED'} · click to reposition` : d.evidenceStatus ? `${d.layerCategory || 'SOUND'} · ${d.name} — ${d.measurementSummary || 'published acoustic record'} · reported values/bands: ${(d.measuredFrequenciesHz || []).join(', ')} Hz (check measurement context; range endpoints may not be site-specific peaks) · click to inspect` : d.isDimensionRecord ? `${d.layerCategory} · ${d.name}${d.structuralHeightFt ? ' · approximately ' + d.structuralHeightFt + ' ft' : ''} · ${d.heightBasis} · ${d.heightNote}${d.numberSystem ? ' · Number system: ' + d.numberSystem + (d.numberSystemNote ? ' — ' + d.numberSystemNote : '') : ''}${d.orientationNote ? ' · Orientation: ' + d.orientationNote : ''}${d.ritualContext ? ' · Ritual context: ' + d.ritualContext : ''}` : d.isCity ? `CITY · ${d.name} · click to open map and alignment explorer` : `ANCIENT SITE · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
-              htmlElementsData={showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : []}
-              htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
-              htmlElement={(d: any) => {
-                const marker = document.createElement('div');
-                marker.style.width = '52px'; marker.style.height = showCosmicBeam && d.evidenceStatus === 'published-measurement' ? '300px' : '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
-                marker.title = d.evidenceStatus === 'published-measurement' ? `Published acoustic measurement: ${d.measuredHz} Hz (not 110 Hz)` : '110 Hz research candidate · resonance unverified at this location';
-                if (showCosmicBeam && d.evidenceStatus === 'published-measurement') {
+              pointsData={[...(geologicalTimeMa === 0 ? visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures) : [])]} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
+               pointLabel={(d: any) => d.evidenceStatus ? `${d.layerCategory || 'SOUND'} · ${d.name} — ${d.measurementSummary || 'published acoustic record'} · reported values/bands: ${(d.measuredFrequenciesHz || []).join(', ')} Hz (check measurement context; range endpoints may not be site-specific peaks) · click to inspect` : d.isDimensionRecord ? `${d.layerCategory} · ${d.name}${d.structuralHeightFt ? ' · approximately ' + d.structuralHeightFt + ' ft' : ''} · ${d.heightBasis} · ${d.heightNote}${d.numberSystem ? ' · Number system: ' + d.numberSystem + (d.numberSystemNote ? ' — ' + d.numberSystemNote : '') : ''}${d.orientationNote ? ' · Orientation: ' + d.orientationNote : ''}${d.ritualContext ? ' · Ritual context: ' + d.ritualContext : ''}` : d.isCity ? `CITY · ${d.name} · click to open map and alignment explorer` : `ANCIENT SITE · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
+              htmlElementsData={[...earthChannelPointData, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isEarthChannelPoint ? 0.055 : 0.04}
+               htmlElement={(d: any) => {
+                 const marker = document.createElement('div');
+                 if (d.isEarthChannelPoint) {
+                   marker.style.pointerEvents = 'auto'; marker.style.cursor = 'pointer'; marker.style.transform = 'translate(-50%, -50%)';
+                   marker.style.display = 'flex'; marker.style.alignItems = 'center'; marker.style.gap = '4px';
+                   marker.style.padding = '4px 6px'; marker.style.borderRadius = '999px';
+                   marker.style.border = `1px solid ${d.color}cc`; marker.style.background = 'rgba(3, 8, 18, 0.92)';
+                   marker.style.boxShadow = `0 0 14px ${d.color}55, inset 0 0 8px ${d.color}22`;
+                   marker.style.color = d.color; marker.style.font = '700 11px/1 system-ui, sans-serif'; marker.style.letterSpacing = '.02em'; marker.style.userSelect = 'none';
+                   marker.title = `Point ${d.channel.toUpperCase()} · ${d.locked ? 'locked to globe' : 'unlocked — click globe to reposition'}`;
+                   const label = document.createElement('span'); label.textContent = d.channel.toUpperCase(); marker.append(label);
+                   const lock = document.createElement('span'); lock.textContent = d.locked ? '⌑' : '↗'; lock.style.fontSize = '10px'; lock.style.opacity = '.8'; marker.append(lock);
+                   marker.addEventListener('click', (event) => { event.stopPropagation(); toggleEarthChannelLock(d.channel); });
+                   return marker;
+                 }
+                 marker.style.width = '52px'; marker.style.height = showCosmicBeam && d.evidenceStatus === 'published-measurement' ? '300px' : '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
+                 marker.title = d.evidenceStatus === 'published-measurement' ? `Published acoustic measurement: ${d.measuredHz} Hz (not 110 Hz)` : '110 Hz research candidate · resonance unverified at this location';
+if (showCosmicBeam && d.evidenceStatus === 'published-measurement') {
                   const beam = document.createElement('div');
                   beam.style.position = 'absolute'; beam.style.left = '25px'; beam.style.top = '0px'; beam.style.width = '3px'; beam.style.height = '150px';
                   beam.style.transform = 'translateX(-50%)'; beam.style.background = 'linear-gradient(to top, rgba(251,146,60,.1), rgba(251,146,60,.8), rgba(255,255,255,.95), transparent)';
@@ -2485,16 +2511,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 marker.append(comet); return marker;
               }}
               onGlobeClick={(coordinates: { lat: number; lng: number }) => handleEarthGlobeClick(coordinates)}
-               onPointClick={(d: any) => {
-                 if (isPlacingEarthPoint) { placeEarthChannelPoint(d.lat, d.lon); return; }
-                 if (d.isEarthChannelPoint) {
-                   setEarthPlacementChannel(d.channel);
-                   setIsPlacingEarthPoint(!d.locked);
-                   setSnapFeedback(d.locked ? `Point ${d.channel.toUpperCase()} is locked. Use Move to reposition it.` : `Choose a new location for point ${d.channel.toUpperCase()}`);
-                   return;
-                 }
-                 openEarthSite(d);
-               }} />
+               onPointClick={(d: any) => openEarthSite(d)} />
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
             {showAlignmentTriangles && showAncientStructures && <div className="absolute left-3 bottom-3 z-[6] max-w-[min(92%,440px)] rounded-lg border border-sky-400/40 bg-slate-950/90 p-2 text-[10px] font-mono text-slate-200 pointer-events-none"><div className="font-bold text-sky-200">EARTH TRIANGULATION · nearest 3 neighbors/site</div><div className="mt-1">{trianglePolygons.length} connected triangles · repeated 5° angle bins: {repeatedTriangleAngles.length ? repeatedTriangleAngles.slice(0,5).map(([angle,count]) => angle+'° × '+count).join(' · ') : 'none detected in current set'}</div><div className="mt-1 text-slate-400">Approximate local-plane angles; projection, site coordinates and chance patterns matter.</div></div>}
             <div className={`absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden ${isEarthModeActive ? 'hidden' : ''}`}>
@@ -2510,43 +2527,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} />
 
-      {/* A/B/C controls: geographic anchors on Earth, elevation controls in 3D views. */}
-      {isEarthModeActive ? (
-        <div className="absolute right-3 top-20 z-20 w-[min(260px,calc(100%-24px))] pointer-events-auto rounded-2xl border border-white/10 bg-[#070d18]/90 p-3 shadow-2xl backdrop-blur-xl">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Globe points</div>
-              <div className="mt-0.5 text-sm font-semibold text-white">A / B / C anchors</div>
-            </div>
-            <button type="button" onClick={() => { const next = !isPlacingEarthPoint; setIsPlacingEarthPoint(next); if (next) { setEarthChannelPoints((previous) => ({ ...previous, [earthPlacementChannel]: previous[earthPlacementChannel] ? { ...previous[earthPlacementChannel]!, locked: false } : null })); setLockedChannels((previous) => ({ ...previous, [earthPlacementChannel]: false })); } }} className={`h-8 rounded-lg border px-3 text-xs font-medium transition-colors ${isPlacingEarthPoint ? 'border-sky-300 bg-sky-300 text-slate-950' : 'border-white/15 bg-white/5 text-slate-200 hover:bg-white/10'}`}>
-              {isPlacingEarthPoint ? 'Cancel' : 'Place point'}
-            </button>
-          </div>
-          <div className="space-y-2">
-            {(['a', 'b', 'c'] as EarthChannel[]).map((channel) => {
-              const point = earthChannelPoints[channel];
-              const active = earthPlacementChannel === channel;
-              return <div key={channel} className={`rounded-xl border p-2.5 transition-colors ${active ? 'border-white/25 bg-white/[0.07]' : 'border-white/[0.08] bg-black/20'}`}>
-                <div className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold" style={{ backgroundColor: earthChannelColors[channel] + '22', color: earthChannelColors[channel], border: `1px solid ${earthChannelColors[channel]}55` }}>{channel.toUpperCase()}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-white">{point ? `${point.lat.toFixed(3)}°, ${point.lon.toFixed(3)}°` : 'Not placed'}</div>
-                    <div className="mt-0.5 text-[10px] text-slate-400">{point ? (point.locked ? 'Pinned to globe' : 'Ready to reposition') : 'Choose a location on the globe'}</div>
-                  </div>
-                  <button type="button" onClick={() => { setEarthPlacementChannel(channel); setIsPlacingEarthPoint(true); setEarthChannelPoints((previous) => ({ ...previous, [channel]: previous[channel] ? { ...previous[channel]!, locked: false } : null })); setLockedChannels((previous) => ({ ...previous, [channel]: false })); }} className={`h-8 min-w-[62px] rounded-lg border px-2 text-[11px] font-medium transition-colors ${active && isPlacingEarthPoint ? 'border-sky-300 bg-sky-300 text-slate-950' : 'border-white/15 bg-white/5 text-slate-200 hover:bg-white/10'}`}>{point ? 'Move' : 'Place'}</button>
-                </div>
-                {point && <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-2">
-                  <span className="text-[10px] text-slate-500">Geographic anchor</span>
-                  <button type="button" onClick={() => setEarthChannelPoints((previous) => ({ ...previous, [channel]: previous[channel] ? { ...previous[channel]!, locked: !previous[channel]!.locked } : null }))} className="flex h-7 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[10px] font-medium text-slate-300 transition-colors hover:bg-white/10">
-                    {point.locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}{point.locked ? 'Locked' : 'Unlocked'}
-                  </button>
-                </div>}
-              </div>;
-            })}
-          </div>
-          {isPlacingEarthPoint && <p className="mt-2 rounded-lg bg-sky-300/10 px-2.5 py-2 text-[11px] leading-relaxed text-sky-100">Click the globe or a site marker to place point {earthPlacementChannel.toUpperCase()}. It will lock to that coordinate.</p>}
-        </div>
-      ) : (
+      {/* A/B/C lock controls are attached to their points on the rotating globe. */}
+      {!isEarthModeActive && (
         <div className="absolute right-3 top-16 bottom-16 z-20 flex flex-col justify-center gap-3 rounded-2xl border border-white/10 bg-[#070d18]/90 p-2.5 shadow-2xl backdrop-blur-xl pointer-events-auto">
           {([
             { channel: 'a' as const, pos: aPos, update: onUpdateAPos, labelClass: 'text-cyan-300', accentClass: 'accent-cyan-400' },
@@ -2563,7 +2545,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
 
       {/* Bottom Status Deck */}
-      <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
+      <div className={`absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-auto ${isEarthModeActive ? 'hidden' : ''}`}>
         {/* Positions Readouts */}
         <div className="flex flex-wrap items-center gap-3 bg-[#0b1220]/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-mono">
           <div className="flex items-center gap-1.5">
