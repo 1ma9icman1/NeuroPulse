@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { MapLibreEarth } from './MapLibreEarth';
+import { HistoricalLayerPanel, HistoricalLayerKey } from './HistoricalLayerPanel';
 import { EarthSiteExplorer } from './EarthSiteExplorer';
 import type { EarthSiteSelection } from './EarthSiteExplorer';
 import {
@@ -287,6 +288,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
   const [show110HzResearchComets, setShow110HzResearchComets] = useState<boolean>(false);
   const [showCities, setShowCities] = useState<boolean>(false);
+  const [showAncientPlaces, setShowAncientPlaces] = useState<boolean>(true);
+  const [showImportedHistoricalData, setShowImportedHistoricalData] = useState<boolean>(false);
+  const [importedHistoricalGeoJson, setImportedHistoricalGeoJson] = useState<GeoJSON.FeatureCollection | null>(null);
+  const [importedHistoricalFileName, setImportedHistoricalFileName] = useState<string | null>(null);
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
@@ -300,10 +305,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const isConstellationEnabled = (name: string) => constellationsEnabled[name === 'Boötes' ? 'Bootes' : name] !== false;
   const hasConstellationGeometry = (name: string) => CONSTELLATION_LINE_SHAPES.some((shape) => normalizeConstellationName(shape.name) === normalizeConstellationName(name));
   // Historical sky timeline spanning the last 12,000 years.
-  const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
+  const currentTimelineYear = new Date().getUTCFullYear();
+  const timelineMinYear = currentTimelineYear - 12000;
+  const [timelineYear, setTimelineYear] = useState<number>(currentTimelineYear);
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
-  const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#60a5fa' : '#facc15', size: site.isCity ? 0.10 : 0.12, altitude: 0.012, layerCategory: site.isCity ? 'CITY' : 'ANCIENT SITE' })), ...(showAncientStructures ? ANCIENT_STRUCTURE_DIMENSIONS.filter((structure) => !earthSites.some((site: any) => !site.isCity && Math.abs(site.lat - structure.lat) < 0.08 && Math.abs(site.lon - structure.lon) < 0.08)).map((structure) => ({ name: structure.name, lat: structure.lat, lon: structure.lon, year: -3500, color: '#facc15', size: 0.12, altitude: 0.012, layerCategory: 'ANCIENT STRUCTURE HEIGHT', structuralHeightFt: structure.approximateHeightFt, heightBasis: structure.heightBasis, heightNote: structure.evidenceNote, numberSystem: structure.numberSystem, numberSystemNote: structure.numberSystemNote, orientationNote: structure.orientationNote, ritualContext: structure.ritualContext, isDimensionRecord: true })) : []), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.14, altitude: 0.016, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : [])];
+  const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#60a5fa' : '#facc15', size: site.isCity ? 0.10 : 0.12, altitude: 0.012, layerCategory: site.isCity ? 'CITY' : 'ANCIENT SITE' })), ...(showAncientStructures && timelineYear >= -3500 ? ANCIENT_STRUCTURE_DIMENSIONS.filter((structure) => !earthSites.some((site: any) => !site.isCity && Math.abs(site.lat - structure.lat) < 0.08 && Math.abs(site.lon - structure.lon) < 0.08)).map((structure) => ({ name: structure.name, lat: structure.lat, lon: structure.lon, year: -3500, color: '#facc15', size: 0.12, altitude: 0.012, layerCategory: 'ANCIENT STRUCTURE HEIGHT', structuralHeightFt: structure.approximateHeightFt, heightBasis: structure.heightBasis, heightNote: structure.evidenceNote, numberSystem: structure.numberSystem, numberSystemNote: structure.numberSystemNote, orientationNote: structure.orientationNote, ritualContext: structure.ritualContext, isDimensionRecord: true })) : []), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.14, altitude: 0.016, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : [])];
   const triangleCandidates = showAlignmentTriangles && showAncientStructures ? visibleEarthSites.filter((site: any) => !site.isCity && !site.evidenceStatus) : [];
   const triangleEdgeMap = new Map<string, { startLat: number; startLng: number; endLat: number; endLng: number }>();
   const triangleKey = (a: string, b: string) => [a, b].sort().join('::');
@@ -2336,7 +2343,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
       {isTimelineActive ? (
-        <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-2xl rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
+        <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-3xl max-h-[82vh] overflow-y-auto rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
             <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300">Historical Earth / Sky Timeline</div>
             <div className="flex items-center gap-2">
@@ -2344,9 +2351,24 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <button onClick={() => setIsTimelineActive(false)} className="rounded px-2 py-0.5 text-[10px] font-mono text-amber-300 border border-amber-500/40 hover:bg-amber-950/50" aria-label="Hide historical timeline">TIMELINE OFF</button>
             </div>
           </div>
-          <input aria-label="Historical year from 10,000 BCE to present" type="range" min="-10000" max={new Date().getUTCFullYear()} step="10" value={timelineYear} onChange={(e) => setTimelineYear(Number(e.target.value))} className="w-full accent-amber-400 cursor-pointer" />
-          <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400"><span>10,000 BCE</span><span>{timelineYearsAgo.toLocaleString()} years before present</span><span>Present</span></div>
-          <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. Sky precession is first-order (~50.29″/yr); year-only rotation phase is illustrative, not an exact historical time-of-day. Berger 1978 describes long-term orbital/climate cycles, not a precision star-position catalogue.</div>
+          <input aria-label="Historical year spanning the last 12,000 years to the present" type="range" min={timelineMinYear} max={currentTimelineYear} step="1" value={timelineYear} onChange={(e) => setTimelineYear(Number(e.target.value))} className="w-full accent-amber-400 cursor-pointer" />
+          <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400"><span>12,000 YEARS AGO ({timelineMinYear < 0 ? Math.abs(timelineMinYear).toLocaleString() + ' BCE' : timelineMinYear + ' CE'})</span><span>{timelineYearsAgo.toLocaleString()} years before present</span><span>Present</span></div>
+          <div className="mt-1 text-[9px] leading-tight text-slate-400">The year control moves in single-year increments across 12,000 years. Existing dated sites and imported GeoJSON features with year/start/end date properties follow this date. Dates and extents are only as precise as each source records.</div>
+          <HistoricalLayerPanel
+            layers={{ ancientPlaces: showAncientPlaces, structures: showAncientStructures, soundSites: showMeasuredSoundSites, cities: showCities, imported: showImportedHistoricalData }}
+            onToggle={(layer: HistoricalLayerKey, enabled: boolean) => {
+              const setters: Record<HistoricalLayerKey, (value: boolean) => void> = {
+                ancientPlaces: setShowAncientPlaces,
+                structures: setShowAncientStructures,
+                soundSites: setShowMeasuredSoundSites,
+                cities: setShowCities,
+                imported: setShowImportedHistoricalData,
+              };
+              setters[layer](enabled);
+            }}
+            onGeoJsonLoaded={(data, fileName) => { setImportedHistoricalGeoJson(data); setImportedHistoricalFileName(fileName); }}
+            loadedFileName={importedHistoricalFileName}
+          />
         </div>
       ) : (
         <button onClick={() => setIsTimelineActive(true)} className="absolute top-[4.6rem] left-3 z-20 pointer-events-auto rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-3 py-1.5 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline">TIMELINE OFF · SHOW</button>
@@ -2360,10 +2382,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <div style={{ width: isEarthModeActive ? '100%' : '76%', height: isEarthModeActive ? '100%' : '88%', transition: 'width 220ms ease, height 220ms ease' }}>
                 <MapLibreEarth
                   ref={globeRef}
-                  points={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)}
+                  points={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientPlaces)}
                   onPointClick={(site: any) => openEarthSite(site)}
                   zoom={cameraZoom}
                   compact={!isEarthModeActive}
+                  importedGeoJson={importedHistoricalGeoJson}
+                  showImportedHistoricalData={showImportedHistoricalData}
+                  timelineYear={timelineYear}
                 />
               </div>
             </div>
