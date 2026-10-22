@@ -144,4 +144,29 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     geometryClaim: 'Treat exact 4:6:9 and golden-ratio claims as hypotheses unless supported by dimension-by-dimension architectural analysis.',
     sourceUrl: 'https://whc.unesco.org/en/list/592/'
   },
+
+  {
+    id: 'mohenjo-daro-indus-city',
+    name: 'Mohenjo-daro',
+    lat: 27.3242, lon: 68.1385, location: 'Sindh, Pakistan',
+    approximateHeightFt: 0,
+    heightBasis: 'Urban archaeological site; no single comparable structure height assigned.',
+    evidenceNote: 'Indus Valley archaeology documents standardized weights, brick proportions and planned streets. The Indus script remains undeciphered, so the exact notation system behind these practices is uncertain.',
+    geometryClaim: 'Standardized measures show metrology, but do not prove that builders encoded decimal representations of pi or phi.',
+    numberSystem: 'mixed-or-context-dependent',
+    numberSystemNote: 'Do not label the Indus civilization definitively base-10: its full numerical notation is not securely known.',
+    sourceUrl: 'https://whc.unesco.org/en/list/138/'
+  },
+  {
+    id: 'harappa-indus-city',
+    name: 'Harappa',
+    lat: 30.6310, lon: 72.8656, location: 'Punjab, Pakistan',
+    approximateHeightFt: 0,
+    heightBasis: 'Urban archaeological site; no single comparable structure height assigned.',
+    evidenceNote: 'Harappan archaeology documents standardized bricks, weights and measures. The undeciphered Indus script limits certainty about their exact number notation.',
+    geometryClaim: 'Uniform brick ratios and planning are evidence of standardization, not direct proof that pi or phi was intentionally represented as a decimal.',
+    numberSystem: 'mixed-or-context-dependent',
+    numberSystemNote: 'The evidence does not establish the Indus civilization’s complete counting notation as definitively decimal or vigesimal.',
+    sourceUrl: 'https://whc.unesco.org/en/list/138/'
+  },
 ];
