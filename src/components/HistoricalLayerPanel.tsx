@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 
 export type HistoricalLayerKey = 'ancientPlaces' | 'structures' | 'soundSites' | 'cities' | 'imported' | 'openHistoricalMap';
 export type HistoricalLayerState = Record<HistoricalLayerKey, boolean>;
@@ -19,6 +19,8 @@ const SOURCES = [
 
 export const HistoricalLayerPanel: React.FC<Props> = ({ layers, onToggle, onGeoJsonLoaded, loadedFileName }) => {
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [geoJsonUrl, setGeoJsonUrl] = useState('');
+  const [urlError, setUrlError] = useState<string | null>(null);
   const options: Array<{ key: HistoricalLayerKey; label: string; detail: string }> = [
     { key: 'ancientPlaces', label: 'Ancient & historical places', detail: 'Existing site catalogue + Pleiades imports' },
     { key: 'openHistoricalMap', label: 'OpenHistoricalMap live data', detail: 'Zoom in to load dated features for the selected year' },
@@ -27,6 +29,26 @@ export const HistoricalLayerPanel: React.FC<Props> = ({ layers, onToggle, onGeoJ
     { key: 'cities', label: 'Modern cities', detail: 'Off by default; not part of ancient layers' },
     { key: 'imported', label: 'Imported GeoJSON', detail: loadedFileName || 'Pleiades, Chronas, ORBIS or other GeoJSON exports' },
   ];
+  const loadUrl = async () => {
+    const url = geoJsonUrl.trim();
+    if (!url) return;
+    try {
+      const parsedUrl = new URL(url);
+      if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') throw new Error('Use an HTTP(S) GeoJSON URL.');
+      const response = await fetch(parsedUrl.toString());
+      if (!response.ok) throw new Error(`Source returned HTTP ${response.status}`);
+      const parsed: any = await response.json();
+      const data = parsed?.type === 'FeatureCollection' ? parsed as GeoJSON.FeatureCollection
+        : parsed?.type === 'Feature' ? { type: 'FeatureCollection', features: [parsed] } as GeoJSON.FeatureCollection : null;
+      if (!data || !Array.isArray(data.features)) throw new Error('URL did not return a GeoJSON Feature or FeatureCollection.');
+      onGeoJsonLoaded(data, parsedUrl.hostname + ' · ' + data.features.length.toLocaleString() + ' features');
+      onToggle('imported', true);
+      setUrlError(null);
+    } catch (error) {
+      setUrlError(error instanceof Error ? error.message : 'Could not load GeoJSON URL (the host may block cross-origin requests).');
+    }
+  };
+
   const loadFile = async (file?: File) => {
     if (!file) return;
     try {
@@ -59,6 +81,11 @@ export const HistoricalLayerPanel: React.FC<Props> = ({ layers, onToggle, onGeoJ
         <input ref={fileRef} type="file" accept=".geojson,.json,application/geo+json,application/json" className="hidden" onChange={(event) => void loadFile(event.target.files?.[0])} />
         <span className="text-[9px] text-slate-500">Imported features are filtered against the selected year when date properties exist.</span>
       </div>
+      <div className="mt-2 flex flex-col sm:flex-row gap-1.5">
+        <input aria-label="GeoJSON URL" value={geoJsonUrl} onChange={(event) => setGeoJsonUrl(event.target.value)} placeholder="https://…/historical-layer.geojson" className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-600" />
+        <button type="button" onClick={() => void loadUrl()} className="rounded border border-cyan-500/40 px-2 py-1 text-[9px] font-mono text-cyan-200 hover:bg-cyan-950/50">LOAD GEOJSON URL</button>
+      </div>
+      {urlError && <div role="status" className="mt-1 text-[9px] text-rose-300">{urlError}</div>}
       <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
         {SOURCES.map((source) => (
           <a key={source.name} href={source.url} target="_blank" rel="noreferrer" className="rounded-md border border-slate-800 px-2 py-1.5 hover:border-slate-600">
