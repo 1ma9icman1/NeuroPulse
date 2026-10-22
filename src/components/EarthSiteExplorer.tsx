@@ -1,82 +1,143 @@
-import React, { useState } from 'react';
-import { X, MapPin, ExternalLink } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ArrowUpRight, MapPin, X } from 'lucide-react';
 
 export interface EarthSiteSelection {
-  name: string; lat: number; lon: number; year: number;
-  color?: string; size?: number; altitude?: number;
+  name: string;
+  lat: number;
+  lon: number;
+  year: number;
+  color?: string;
+  size?: number;
+  altitude?: number;
 }
 
-interface Props { site: EarthSiteSelection | null; onClose: () => void; description: string; alignmentSites?: Array<{ name: string; lat: number; lon: number }>; }
+interface Props {
+  site: EarthSiteSelection | null;
+  onClose: () => void;
+  description: string;
+  alignmentSites?: Array<{ name: string; lat: number; lon: number }>;
+}
+
+type MapView = 'map' | 'terrain' | 'satellite';
+
+const buttonBase = 'inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300';
+const buttonIdle = 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white';
+const buttonActive = 'border-sky-300/60 bg-sky-300/15 text-sky-100';
 
 export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description, alignmentSites = [] }) => {
-  const [mapView, setMapView] = useState<'map' | 'terrain' | 'satellite'>('satellite');
+  const [mapView, setMapView] = useState<MapView>('satellite');
+
+  const nearestSites = useMemo(() => {
+    if (!site) return [];
+    return alignmentSites
+      .filter((other) => other.name !== site.name)
+      .map((other) => {
+        const dLat = (other.lat - site.lat) * Math.PI / 180;
+        const dLon = (other.lon - site.lon) * Math.PI / 180;
+        const h = Math.sin(dLat / 2) ** 2
+          + Math.cos(site.lat * Math.PI / 180) * Math.cos(other.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return { ...other, distanceKm: 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h))) };
+      })
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, 3);
+  }, [site, alignmentSites]);
+
   if (!site) return null;
-  const yearLabel = site.year < 0 ? Math.abs(site.year).toLocaleString() + ' BCE' : site.year + ' CE';
-  const bounds = [site.lon - 0.08, Math.max(-85, site.lat - 0.05), site.lon + 0.08, Math.min(85, site.lat + 0.05)].join(',');
+
+  const yearLabel = site.year < 0
+    ? `${Math.abs(site.year).toLocaleString()} BCE`
+    : `${site.year.toLocaleString()} CE`;
   const mapUrl = mapView === 'map'
-    ? 'https://www.openstreetmap.org/export/embed.html?bbox=' + bounds + '&layer=mapnik&marker=' + site.lat + ',' + site.lon
-    : 'https://maps.google.com/maps?q=' + site.lat + ',' + site.lon + '&t=' + (mapView === 'satellite' ? 'k' : 'p') + '&z=14&output=embed';
-  const nearestSites = site ? alignmentSites.filter((other) => other.name !== site.name).map((other) => {
-    const dLat = (other.lat - site.lat) * Math.PI / 180;
-    const dLon = (other.lon - site.lon) * Math.PI / 180;
-    const h = Math.sin(dLat / 2) ** 2 + Math.cos(site.lat * Math.PI / 180) * Math.cos(other.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-    return { ...other, distanceKm: 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h))) };
-  }).sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 2) : [];
-  const localXY = (point: { lat: number; lon: number }) => ({ x: point.lon * Math.cos((site?.lat || 0) * Math.PI / 180), y: point.lat });
-  const triangleAngles = site && nearestSites.length === 2 ? (() => {
-    const points = [site, ...nearestSites].map(localXY);
-    const angle = (p: typeof points[number], q: typeof points[number], r: typeof points[number]) => {
-      const ux = q.x - p.x, uy = q.y - p.y, vx = r.x - p.x, vy = r.y - p.y;
-      const denom = Math.hypot(ux, uy) * Math.hypot(vx, vy);
-      return denom ? Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / denom))) * 180 / Math.PI : 0;
-    };
-    return [angle(points[0], points[1], points[2]), angle(points[1], points[2], points[0]), angle(points[2], points[0], points[1])].map((value) => value.toFixed(1));
-  })() : [];
-  const modelKind = /Giza|Pyramid/i.test(site.name) ? 'pyramid' : /Stonehenge|Carnac/i.test(site.name) ? 'stones' : /Chich|Teotihuacan|Tenochtitlan/i.test(site.name) ? 'temple' : 'ruins';
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${site.lon - 0.12},${Math.max(-85, site.lat - 0.08)},${site.lon + 0.12},${Math.min(85, site.lat + 0.08)}&layer=mapnik&marker=${site.lat},${site.lon}`
+    : `https://maps.google.com/maps?q=${site.lat},${site.lon}&t=${mapView === 'satellite' ? 'k' : 'p'}&z=13&output=embed`;
+  const coordinates = `${Math.abs(site.lat).toFixed(4)}° ${site.lat >= 0 ? 'N' : 'S'}, ${Math.abs(site.lon).toFixed(4)}° ${site.lon >= 0 ? 'E' : 'W'}`;
+
   return (
-    <div className="absolute inset-2 md:inset-4 z-[70] overflow-y-auto rounded-2xl border border-amber-400/70 bg-[#050b15]/[.98] p-3 md:p-5 shadow-2xl backdrop-blur-xl pointer-events-auto">
-      <header className="flex flex-wrap items-start justify-between gap-3 mb-4 border-b border-slate-800 pb-3">
-        <div><div className="text-[10px] font-mono font-bold tracking-[.22em] text-amber-300">ANCIENT PLACES · SITE EXPLORER</div>
-          <h2 className="mt-1 text-xl md:text-2xl font-semibold text-white">{site.name}</h2>
-          <div className="mt-1 text-xs font-mono text-slate-400">{Math.abs(site.lat).toFixed(4)}° {site.lat >= 0 ? 'N' : 'S'} · {Math.abs(site.lon).toFixed(4)}° {site.lon >= 0 ? 'E' : 'W'} · Approx. era marker: {yearLabel}</div>
+    <div className="absolute inset-2 md:inset-5 z-[70] overflow-hidden rounded-2xl border border-white/10 bg-[#080d16]/[.98] text-white shadow-2xl backdrop-blur-2xl pointer-events-auto">
+      <header className="flex min-h-[76px] items-center justify-between gap-4 border-b border-white/[0.08] px-4 py-3 md:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-300/20 bg-sky-300/10 text-sky-200">
+            <MapPin className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Earth atlas / site record</div>
+            <h2 className="mt-0.5 truncate text-lg font-semibold tracking-tight md:text-xl">{site.name}</h2>
+          </div>
         </div>
-        <button onClick={onClose} className="rounded-lg border border-slate-600 px-3 py-2 text-xs font-mono text-slate-200 hover:bg-slate-800"><X className="inline w-4 h-4 mr-1"/>BACK TO GLOBE</button>
+        <button type="button" onClick={onClose} aria-label="Close site explorer" className={`${buttonBase} ${buttonIdle} shrink-0`}>
+          <X className="h-4 w-4" /><span className="hidden sm:inline">Close</span>
+        </button>
       </header>
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(240px,.85fr)_minmax(320px,1.15fr)_minmax(280px,1fr)] gap-3 items-stretch">
-        <section className="min-h-[280px] overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-b from-[#172235] to-[#080d16]">
-          <div className="px-3 py-2 border-b border-slate-700/70 text-[10px] font-mono font-bold tracking-wider text-amber-200">LANDMARK MODEL · CONCEPTUAL 3D VIEW</div>
-          <div className="h-[290px] md:h-[360px] flex items-center justify-center p-2">
-            <svg viewBox="0 0 360 280" role="img" aria-label={'Stylized landmark model for ' + site.name + ', illustration not measured'} className="w-full h-full drop-shadow-[0_0_20px_rgba(245,158,11,.15)]">
-              <defs><linearGradient id="siteStone" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#f4d7a1"/><stop offset="55%" stopColor="#ad8757"/><stop offset="100%" stopColor="#5d4938"/></linearGradient></defs>
-              <ellipse cx="180" cy="232" rx="140" ry="25" fill="#020617" opacity=".8"/><path d="M35 219 L180 168 L325 219 L180 263 Z" fill="#1e293b" stroke="#64748b" strokeOpacity=".5"/>
-              {modelKind === 'pyramid' ? <g stroke="#f6d9a4" strokeOpacity=".8" strokeWidth="1"><path d="M75 216 L151 78 L227 216 Z" fill="url(#siteStone)"/><path d="M151 78 L227 216 L151 216 Z" fill="#8f704e"/><path d="M113 147 L189 147 M96 177 L205 177 M84 198 L217 198" fill="none" stroke="#6d533b" strokeOpacity=".7"/></g> :
-               modelKind === 'stones' ? <g fill="url(#siteStone)" stroke="#f3d7a2" strokeWidth="1.2"><path d="M84 205 L87 137 L104 128 L119 137 L121 205 Z"/><path d="M128 203 L132 118 L150 110 L166 120 L168 203 Z"/><path d="M184 204 L187 136 L204 128 L219 137 L220 204 Z"/><path d="M236 208 L239 150 L254 143 L268 151 L269 208 Z"/><path d="M80 132 L80 119 L163 114 L164 127 Z"/><path d="M181 132 L181 119 L271 145 L268 157 Z"/></g> :
-               modelKind === 'temple' ? <g stroke="#f6d9a4" strokeWidth="1"><path d="M93 217 L180 122 L267 217 Z" fill="#947653"/><path d="M111 202 L249 202 L238 190 L122 190 Z" fill="#d6b782"/><path d="M123 190 L237 190 L226 178 L134 178 Z" fill="#ad8b5c"/><path d="M135 178 L225 178 L214 166 L146 166 Z" fill="#d6b782"/><path d="M146 166 L214 166 L203 154 L157 154 Z" fill="#ad8b5c"/><path d="M157 154 L203 154 L180 122 Z" fill="#d6b782"/><path d="M169 217 L169 190 L191 190 L191 217 Z" fill="#302b25"/></g> :
-               <g stroke="#e6c99a" strokeWidth="1"><path d="M78 217 L88 163 L113 154 L126 165 L126 217 Z" fill="url(#siteStone)"/><path d="M132 217 L142 125 L166 114 L184 128 L184 217 Z" fill="#c6a778"/><path d="M191 217 L202 156 L225 147 L240 159 L240 217 Z" fill="url(#siteStone)"/><path d="M72 165 L108 151 L129 163 L92 177 Z" fill="#d9bd8d"/><path d="M127 128 L160 111 L187 127 L153 143 Z" fill="#e7d0a5"/><path d="M145 217 L145 183 L168 183 L168 217 Z" fill="#29251f"/></g>}
-              <g fill="#fde68a" opacity=".75"><circle cx="49" cy="62" r="1.7"/><circle cx="289" cy="49" r="1.4"/><circle cx="312" cy="96" r="1.8"/><circle cx="69" cy="104" r="1.2"/></g>
-              <text x="180" y="24" textAnchor="middle" fill="#fcdba0" fontSize="9" letterSpacing="2">SITE FORM STUDY</text><text x="180" y="276" textAnchor="middle" fill="#94a3b8" fontSize="8">Stylized illustration · not to scale</text>
-            </svg>
+
+      <div className="grid h-[calc(100%-76px)] min-h-0 grid-cols-1 overflow-y-auto lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,.8fr)]">
+        <section className="flex min-h-[360px] flex-col border-b border-white/[0.08] lg:border-b-0 lg:border-r">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-5">
+            <div>
+              <div className="text-sm font-medium text-white">Location</div>
+              <div className="mt-0.5 text-xs text-slate-500">{coordinates}</div>
+            </div>
+            <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-black/20 p-1">
+              {(['map', 'terrain', 'satellite'] as MapView[]).map((view) => (
+                <button key={view} type="button" onClick={() => setMapView(view)} aria-pressed={mapView === view} className={`h-8 rounded-lg px-3 text-[11px] font-medium capitalize transition-colors ${mapView === view ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-200'}`}>
+                  {view}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="px-3 pb-3 text-[10px] leading-relaxed text-slate-400">Illustrative landmark form, not a photogrammetric model or measured archaeological reconstruction.</div>
-        </section>
-        <section className="min-h-[280px] overflow-hidden rounded-xl border border-sky-500/30 bg-slate-950">
-          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-700/70"><span className="text-[10px] font-mono font-bold tracking-wider text-sky-200">MAP VIEW · {mapView.toUpperCase()}</span><div className="flex gap-1">{([['map','ROAD'],['terrain','TERRAIN'],['satellite','SATELLITE']] as const).map(([view,label])=><button key={view} onClick={()=>setMapView(view)} className={'rounded border px-2 py-1 text-[9px] font-mono ' + (mapView===view?'border-sky-400 bg-sky-950 text-white':'border-slate-700 text-slate-400 hover:text-white')}>{label}</button>)}</div></div>
-          <iframe title={'Map of ' + site.name} className="w-full h-[310px] md:h-[390px] border-0" loading="lazy" src={mapUrl}/>
-          <div className="flex flex-wrap gap-3 px-3 py-2"><a className="text-[10px] text-sky-300 hover:text-white" href={'https://www.google.com/maps/search/?api=1&query=' + site.lat + ',' + site.lon} target="_blank" rel="noreferrer"><MapPin className="inline w-3 h-3 mr-1"/>OPEN FULL MAP ↗</a><a className="text-[10px] text-sky-300 hover:text-white" href={'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + site.lat + ',' + site.lon} target="_blank" rel="noreferrer">STREET VIEW ↗</a></div>
-        </section>
-        <section className="min-h-[280px] rounded-xl border border-emerald-500/30 bg-[#08111b] p-3 md:p-4 flex flex-col gap-3">
-          <div><div className="text-[10px] font-mono font-bold tracking-wider text-emerald-200">SITE FILE · WHAT IS DOCUMENTED</div><p className="mt-2 text-sm leading-relaxed text-slate-200">{description}</p></div>
-          <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-3"><div className="text-[10px] font-mono font-bold text-amber-200">FREQUENCY CHECK · NO ASSUMED MATCH</div><div className="mt-2 grid grid-cols-2 gap-2"><div className="rounded border border-slate-800 p-2"><div className="text-lg font-mono text-white">432 Hz</div><div className="text-[10px] text-slate-400">Alternative A4 tuning reference; not a measured Earth/site resonance.</div></div><div className="rounded border border-slate-800 p-2"><div className="text-lg font-mono text-white">110 Hz</div><div className="text-[10px] text-slate-400">A2 note under A4 = 440 Hz tuning; not a measured resonance for this site.</div></div></div><p className="mt-2 text-[10px] leading-relaxed text-slate-500">No frequency is assigned unless traceable measurements, units, method, uncertainty, and source are available.</p></div>
-          <div className="rounded-lg border border-sky-500/30 bg-slate-950/80 p-3">
-            <div className="text-[10px] font-mono font-bold text-sky-200">SITE TRIANGLE · NEAREST NEIGHBORS</div>
-            {nearestSites.length === 2 ? <><div className="mt-2 text-xs text-white">{site.name} · {nearestSites[0].name} · {nearestSites[1].name}</div><div className="mt-1 text-[10px] leading-relaxed text-slate-300">Approximate local-plane interior angles: {triangleAngles.join('° · ')}°. Nearby site distances: {nearestSites.map((near) => near.name + ' ' + Math.round(near.distanceKm).toLocaleString() + ' km').join(' · ')}.</div><div className="mt-1 text-[9px] text-slate-500">Geographic triangle for exploration only; the local-plane approximation is not a surveyed ancient alignment.</div></> : <div className="mt-2 text-[10px] text-slate-400">Not enough reference sites to calculate a triangle.</div>}
+          <div className="relative min-h-[300px] flex-1 bg-[#03070d]">
+            <iframe title={`${mapView} map for ${site.name}`} className="absolute inset-0 h-full w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" src={mapUrl} />
           </div>
-          <div className="rounded-lg border border-violet-500/30 bg-slate-950/80 p-3">
-            <div className="text-[10px] font-mono font-bold text-violet-200">STAR & MOON COMPARISON</div>
-            <div className="mt-2 text-[10px] leading-relaxed text-slate-300">Use the A/B/C star triangle in Star Alignment controls, then use a star's “Locate on Earth” action to compare its calculated substellar point with this location. The Moon orbit in the 3D scene is currently compressed and illustrative, not a precision lunar ephemeris.</div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.08] px-4 py-3 md:px-5">
+            <span className="text-[10px] text-slate-500">Map imagery and coverage vary by location.</span>
+            <div className="flex flex-wrap gap-2">
+              <a className={`${buttonBase} ${buttonIdle}`} href={`https://www.google.com/maps/search/?api=1&query=${site.lat},${site.lon}`} target="_blank" rel="noreferrer">
+                Open map <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
+              <a className={`${buttonBase} ${buttonIdle}`} href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${site.lat},${site.lon}`} target="_blank" rel="noreferrer">
+                Street View <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
+            </div>
           </div>
-          <div className="mt-auto rounded-lg border border-slate-800 p-3"><div className="text-[10px] font-mono font-bold text-slate-300">RESEARCH CHECKLIST</div><ul className="mt-2 list-disc pl-4 space-y-1 text-[10px] leading-relaxed text-slate-400"><li>Verify surveyed coordinates and architectural axes.</li><li>Compare candidate sky targets using a dated sky model.</li><li>Record published acoustic measurements and conditions.</li><li>Test numerical patterns against chance and uncertainty.</li></ul></div>
         </section>
+
+        <aside className="flex min-h-0 flex-col gap-5 p-4 md:p-5">
+          <section>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Site overview</div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-3">
+                <div className="text-[10px] text-slate-500">Approximate era</div>
+                <div className="mt-1 text-base font-semibold text-white">{yearLabel}</div>
+              </div>
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-3">
+                <div className="text-[10px] text-slate-500">Coordinates</div>
+                <div className="mt-1 text-sm font-semibold tabular-nums text-white">{site.lat.toFixed(2)}°, {site.lon.toFixed(2)}°</div>
+              </div>
+            </div>
+            <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-300">{description || 'No site description is available yet.'}</p>
+          </section>
+
+          <section className="border-t border-white/[0.08] pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-medium text-white">Nearby mapped sites</h3>
+              <span className="text-[10px] text-slate-500">By distance</span>
+            </div>
+            {nearestSites.length ? (
+              <div className="mt-3 space-y-2">
+                {nearestSites.map((near) => (
+                  <div key={near.name} className="flex items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5">
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-sky-300" />
+                    <div className="min-w-0 flex-1 truncate text-xs font-medium text-slate-200">{near.name}</div>
+                    <div className="shrink-0 text-[11px] tabular-nums text-slate-500">{Math.round(near.distanceKm).toLocaleString()} km</div>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="mt-2 text-xs text-slate-500">No nearby reference sites available.</p>}
+          </section>
+
+          <div className="mt-auto rounded-xl border border-white/[0.07] bg-black/20 p-3 text-[11px] leading-5 text-slate-500">
+            Dates and coordinates are approximate map references, not a survey or proof of a historical alignment.
+          </div>
+        </aside>
       </div>
     </div>
   );
