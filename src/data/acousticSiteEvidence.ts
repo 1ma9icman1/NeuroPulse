@@ -96,7 +96,7 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     region: 'County Meath, Ireland', period: 'Neolithic passage tomb, c. 3200 BCE',
     measuredFrequenciesHz: [110], researchBandHz: 110, status: 'published-measurement',
     summary: 'A 1996 archaeoacoustic study reported a primary chamber resonance at approximately 110 Hz at Newgrange.',
-    measurementContext: 'Reported chamber resonance: approximately 110 Hz. This is a site-specific acoustic report, not evidence of a universal or astronomical 110 Hz signal.',
+    measurementContext: 'Reported chamber resonance: approximately 110 Hz. This is a site-specific acoustic report, not evidence of a universal or astronomical 110 Hz signal. The mound's overall height is often estimated at roughly 12 m (about 40 ft), depending on how the mound profile is measured; that height is separate from the acoustic result.',
     measurements: [{ parameter: 'Primary chamber resonance', frequencyHz: 110, reportedValue: 110, unit: 'Hz', method: 'Acoustic resonance measurements of chambered prehistoric monuments; value reported approximately in the published literature' }],
     caveat: 'Approximate reported value. Re-measurement under documented conditions would be needed to assess uncertainty and reproducibility.',
     sources: [{ label: 'Jahn, Devereux & Ibison (1996), Resonance in ancient structures', url: 'https://doi.org/10.1121/1.414642', year: 1996, publication: 'Journal of the Acoustical Society of America 99, 649–658' },
@@ -109,7 +109,7 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     summary: 'An exploratory acoustic modelling source reports an approximately 114 Hz relationship for Stonehenge; this is not a direct field measurement of an enclosed chamber.',
     measurementContext: 'The cited project compares predicted cavity dimensions with archaeological measurements and lists Stonehenge at approximately 114 Hz. This is model-based/exploratory evidence, not the same evidence class as a measured enclosed chamber resonance.',
     measurements: [{ parameter: 'Modelled acoustic frequency', frequencyHz: 114, reportedValue: 114, unit: 'Hz', method: 'Exploratory acoustic model compared against monument dimensions; not a controlled in-situ resonance measurement' }],
-    caveat: 'Not a direct, controlled resonance measurement; avoid treating the approximate frequency as proof of intended tuning.',
+    caveat: 'Not a direct, controlled resonance measurement; avoid treating the approximate frequency as proof of intended tuning. The surviving sarsen stones are commonly described as roughly 4 m (about 13 ft) high on average, with some substantially taller; the supplied 24 ft figure should not be treated as a universal stone height.',
     sources: [{ label: 'The Song of the Stone — ALBA Project', url: 'https://alba-project.org/song-of-the-stone/', year: 2026, publication: 'Exploratory acoustic model and site-dimension comparison' }]
   },
   {
@@ -180,7 +180,7 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     measuredFrequenciesHz: [110, 117], researchBandHz: 110, status: 'candidate-only',
     summary: 'Research marker for claims of low-frequency chamber modes around 110–117 Hz and separate claims linking the chamber to A=432 Hz tuning. Neither claim is treated as proof that the chamber was intentionally tuned to either pitch.',
     measurementContext: 'Chamber modes depend on room geometry, boundary conditions, source and receiver positions. The 110–117 Hz figures and the A=432 Hz association remain research claims here, not verified site-specific measurements of an acoustic tuning system.'
-    caveat: 'Candidate only. A=432 Hz is a musical tuning reference, not evidence of a room resonance; no evidence here proves the chamber was built for 432 Hz or that 110 Hz and 432 Hz form a designed system.'
+    caveat: 'Candidate only. A=432 Hz is a musical tuning reference, not evidence of a room resonance; quartz in granite is piezoelectric under suitable stress, but no evidence here proves the chamber was built to exploit that effect or tuned for 432 Hz / 110 Hz as a designed system.'
     sources: [{ label: 'User-supplied reference: Interesting Engineering — temples and 111 Hz', url: 'https://interestingengineering.com/science/temples-resonates-frequency-111-hz', year: 2026, publication: 'Popular science article; claim requires primary-source verification' }]
   },
   {
@@ -255,5 +255,66 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     measurementContext: 'The supplied list links the cathedral’s proportions to 432 Hz, but architectural dimensions alone do not demonstrate a particular musical tuning standard. No calibrated measurement establishing a 432 Hz building resonance is recorded here.',
     caveat: '432 Hz is a pitch reference used in some modern tuning discussions; it is not evidence of an ancient universal tuning standard or a natural room resonance. The historical claim requires primary documentary evidence.',
     sources: [{ label: 'UNESCO World Heritage Centre — Chartres Cathedral', url: 'https://whc.unesco.org/en/list/81/', year: 2026, publication: 'Heritage site overview; not a frequency measurement study' }]
+  },
+
+  {
+    id: 'unfinished-obelisk-aswan-crystalline-stone-candidate',
+    name: 'Unfinished Obelisk — Aswan granite quarry',
+    lat: 24.0777, lon: 32.8988,
+    region: 'Aswan, Egypt',
+    period: 'Ancient Egyptian quarry; New Kingdom-era dating is commonly proposed but debated',
+    measuredFrequenciesHz: [], status: 'candidate-only',
+    summary: 'Added as a stone-material and ancient quarry research location. Aswan granite contains quartz among other minerals, but claims that its extraction marks were made with harmonic vibration or sonic tools are not established by the evidence recorded here.',
+    measurementContext: 'Material composition and tool-mark interpretation require separate evidence. No controlled acoustic resonance or piezoelectric output measurement for this quarry is recorded in this catalog.',
+    caveat: 'Quartz is piezoelectric under appropriate mechanical stress, but that does not show that ancient quarry workers used sound to cut granite or that the quarry was engineered as an electrical resonator.',
+    sources: [{ label: 'UNESCO World Heritage Centre — Nubian Monuments / Aswan region context', url: 'https://whc.unesco.org/en/list/88/', year: 2026, publication: 'Heritage context; not a quarry acoustic measurement study' }]
+  },
+  {
+    id: 'barabar-caves-granite-acoustics-candidate',
+    name: 'Barabar Caves — granite rock-cut chambers',
+    lat: 25.0058, lon: 85.0637,
+    region: 'Bihar, India',
+    period: 'Mauryan period; 3rd century BCE',
+    measuredFrequenciesHz: [], status: 'candidate-only',
+    summary: 'Added for study of polished granite interiors, room geometry, echoes and low-frequency response. The mirror-like finish and strong echoes do not by themselves demonstrate a particular resonant frequency.',
+    measurementContext: 'No verified site-specific 110 Hz or other calibrated resonance peak is recorded here. Chamber response would need in-situ impulse-response or frequency-sweep measurements.',
+    caveat: 'Granite mineral composition varies, and quartz content alone cannot predict a room’s resonance. Do not infer a shared acoustic mechanism with the Great Pyramid without comparative measurements.',
+    sources: [{ label: 'Archaeological Survey of India — Barabar Caves', url: 'https://asi.nic.in/', year: 2026, publication: 'Institutional heritage context; specific acoustic measurement source not established' }]
+  },
+  {
+    id: 'sacsayhuaman-crystalline-stone-candidate',
+    name: 'Sacsayhuamán — megalithic stone walls',
+    lat: -13.5086, lon: -71.9819,
+    region: 'Cusco, Peru',
+    period: 'Inca period, principally 15th century CE',
+    measuredFrequenciesHz: [], status: 'candidate-only',
+    summary: 'Added as a research location for stone composition and sound transmission in monumental Inca masonry. The supplied claims about localized piezoelectric fields and magnetic anomalies are not treated as verified findings.',
+    measurementContext: 'Diorite and andesite are among rock types found in the region, but composition varies by block and quarry. No reproducible site-specific electrical, magnetic or acoustic dataset is attached to this record.',
+    caveat: 'Piezoelectricity in quartz-bearing material is a real physical effect under suitable stress; it does not establish measurable fields at an archaeological site or intentional ancient use.',
+    sources: [{ label: 'UNESCO World Heritage Centre — City of Cuzco', url: 'https://whc.unesco.org/en/list/273/', year: 2026, publication: 'Heritage context; not a piezoelectric or acoustic field study' }]
+  },
+  {
+    id: 'qorikancha-crystalline-stone-candidate',
+    name: 'Qorikancha — Inca masonry',
+    lat: -13.5186, lon: -71.9785,
+    region: 'Cusco, Peru',
+    period: 'Inca ceremonial complex; later incorporated into colonial structures',
+    measuredFrequenciesHz: [], status: 'candidate-only',
+    summary: 'Added for comparative research on finely fitted Inca stonework and material properties. No verified 110 Hz resonance or localized piezoelectric-field measurement is recorded here.',
+    measurementContext: 'The surviving structure combines Inca masonry with later construction. Claims about stone composition and electrical effects need block-specific sampling and controlled measurement.',
+    caveat: 'Tight masonry joints do not by themselves prove acoustic tuning, unusual electrical fields, or a common design principle with Egyptian granite chambers.',
+    sources: [{ label: 'UNESCO World Heritage Centre — City of Cuzco', url: 'https://whc.unesco.org/en/list/273/', year: 2026, publication: 'Heritage context; not a site acoustic measurement study' }]
+  },
+  {
+    id: 'ollantaytambo-sun-temple-stone-candidate',
+    name: 'Ollantaytambo — Temple of the Sun stonework',
+    lat: -13.2589, lon: -72.2630,
+    region: 'Cusco Region, Peru',
+    period: 'Inca period, principally 15th–16th century CE',
+    measuredFrequenciesHz: [], status: 'candidate-only',
+    summary: 'Added for comparative study of monumental stone blocks and quarry transport. The claim that the blocks share the quartz-rich composition of Aswan granite has not been verified here by geological analysis.',
+    measurementContext: 'No site-specific acoustic resonance or piezoelectric measurement is recorded. Rock type should be identified from geological or archaeological sourcing evidence rather than visual color alone.',
+    caveat: 'Pink appearance does not establish granite composition or quartz percentage; do not assume acoustic equivalence to Aswan granite without mineralogical analysis.',
+    sources: [{ label: 'UNESCO World Heritage Centre — City of Cuzco', url: 'https://whc.unesco.org/en/list/273/', year: 2026, publication: 'Regional heritage context; not a site acoustic measurement study' }]
   },
 ];
