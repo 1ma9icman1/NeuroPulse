@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 
-export type HistoricalLayerKey = 'ancientPlaces' | 'structures' | 'soundSites' | 'cities' | 'imported';
+export type HistoricalLayerKey = 'ancientPlaces' | 'structures' | 'soundSites' | 'cities' | 'imported' | 'openHistoricalMap';
 export type HistoricalLayerState = Record<HistoricalLayerKey, boolean>;
 
 interface Props {
@@ -21,6 +21,7 @@ export const HistoricalLayerPanel: React.FC<Props> = ({ layers, onToggle, onGeoJ
   const fileRef = useRef<HTMLInputElement | null>(null);
   const options: Array<{ key: HistoricalLayerKey; label: string; detail: string }> = [
     { key: 'ancientPlaces', label: 'Ancient & historical places', detail: 'Existing site catalogue + Pleiades imports' },
+    { key: 'openHistoricalMap', label: 'OpenHistoricalMap live data', detail: 'Zoom in to load dated features for the selected year' },
     { key: 'structures', label: 'Ancient structures', detail: 'Architecture and archaeological sites' },
     { key: 'soundSites', label: 'Acoustic / measured sites', detail: 'Evidence records with date filtering' },
     { key: 'cities', label: 'Modern cities', detail: 'Off by default; not part of ancient layers' },
