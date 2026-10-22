@@ -133,7 +133,7 @@ export const MasterTransport: React.FC<MasterTransportProps> = ({
         </div>
 
         {/* Master Output Knob */}
-        <div className="flex items-center gap-2 bg-[#060a12] px-3 py-1 rounded-lg border border-slate-800">
+        <div style={{ display: "none" }} className="flex items-center gap-2 bg-[#060a12] px-3 py-1 rounded-lg border border-slate-800">
           <Knob
             label="MASTER"
             value={masterVolume * 100}
