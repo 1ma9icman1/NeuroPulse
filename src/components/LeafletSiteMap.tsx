@@ -3,12 +3,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 export interface LeafletSitePoint { name: string; lat: number; lon: number; color?: string }
+export interface LeafletAudioPoint { name: string; lat: number; lon: number; measuredFrequenciesHz: number[]; status?: string }
 interface Props {
   site: LeafletSitePoint;
   sites?: LeafletSitePoint[];
   layer: 'map' | 'terrain' | 'satellite';
+  audioSites?: LeafletAudioPoint[];
 }
-export function LeafletSiteMap({ site, sites = [], layer }: Props) {
+export function LeafletSiteMap({ site, sites = [], layer, audioSites = [] }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<Record<string, L.TileLayer>>({});
@@ -50,9 +52,17 @@ export function LeafletSiteMap({ site, sites = [], layer }: Props) {
         fillOpacity: 0.95,
       }).bindTooltip(point.name, { direction: 'top', opacity: 0.95 }).addTo(group);
     });
+    audioSites.forEach((audio) => {
+      if (map.distance([site.lat, site.lon], [audio.lat, audio.lon]) > 2500000) return;
+      const frequencies = audio.measuredFrequenciesHz || [];
+      const color = frequencies.some((hz) => Math.abs(hz - 110) <= 10) ? '#fb923c' : frequencies.some((hz) => Math.abs(hz - 432) <= 8) ? '#c084fc' : '#38bdf8';
+      const label = frequencies.length ? frequencies.map((hz) => `${hz} Hz`).join(' · ') : 'SOUND CANDIDATE';
+      L.circle([audio.lat, audio.lon], { radius: 220, color, weight: 1.5, opacity: 0.8, fillColor: color, fillOpacity: 0.09, className: 'np-audio-wave' }).bindTooltip(`${audio.name}: ${label}`, { direction: 'top' }).addTo(group);
+      L.marker([audio.lat, audio.lon], { icon: L.divIcon({ className: 'np-audio-frequency-icon', html: `<span class="np-audio-frequency-dot" style="background:${color}"></span><span class="np-audio-frequency-label">${label}</span>`, iconSize: [110, 26], iconAnchor: [7, 7] }) }).bindTooltip(`${audio.name}: ${label}`, { direction: 'top' }).addTo(group);
+    });
     map.setView([site.lat, site.lon], 12, { animate: false });
     window.setTimeout(() => map.invalidateSize(), 0);
-  }, [site, sites]);
+  }, [site, sites, audioSites]);
 
   return <div ref={hostRef} className="np-leaflet-site-map" aria-label={'Map of ' + site.name} />;
 }
