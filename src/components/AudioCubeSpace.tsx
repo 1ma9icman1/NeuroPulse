@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Globe3D from 'react-globe.gl';
 import { EarthSiteExplorer } from './EarthSiteExplorer';
+import { OrbitSkyMap } from './OrbitSkyMap';
 import type { EarthSiteSelection } from './EarthSiteExplorer';
 import {
   CameraView,
@@ -106,6 +107,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   onUpdateCameraZoom,
   onResetCamera,
 }) => {
+  const [isSkyMapOpen, setIsSkyMapOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1787,6 +1789,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </button>
 
           <button
+            onClick={() => setIsSkyMapOpen(true)}
+            className="ml-1 flex items-center gap-1 rounded border border-cyan-500/50 px-2 py-1 text-[10px] font-mono font-bold text-cyan-200 hover:bg-cyan-950/60"
+            title="Open integrated Sky Map"
+            aria-label="Open Sky Map"
+          >
+            <Star className="h-3.5 w-3.5" /> SKY MAP
+          </button>
+          <button
             onClick={onResetCamera}
             className="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors ml-1"
             title="Reset 3D Orbit Camera"
@@ -2633,6 +2643,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </button>
         </div>
       </div>
+      {isSkyMapOpen && <OrbitSkyMap onClose={() => setIsSkyMapOpen(false)} />}
+
     </div>
   );
 };
