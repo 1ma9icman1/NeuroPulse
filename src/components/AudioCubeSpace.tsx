@@ -2232,7 +2232,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             {showLocationMenu && <div className="mt-2 rounded-xl border border-sky-500/30 bg-slate-950/90 p-3"><div className="mb-2 text-[10px] font-mono font-bold tracking-widest text-sky-200">LOCATION LAYERS · ON / OFF</div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label className="flex items-center gap-2 rounded-lg border border-sky-400/30 px-2 py-2 text-xs text-slate-100 cursor-pointer"><input type="checkbox" checked={showCities} onChange={(e) => setShowCities(e.target.checked)} className="accent-sky-400" /><span><strong className="text-sky-200">CITIES</strong><span className="block text-[9px] text-slate-400">Blue dots · city locations</span></span></label>
             <label className="flex items-center gap-2 rounded-lg border border-yellow-400/30 px-2 py-2 text-xs text-slate-100 cursor-pointer"><input type="checkbox" checked={showAncientStructures} onChange={(e) => setShowAncientStructures(e.target.checked)} className="accent-yellow-400" /><span><strong className="text-yellow-200">ANCIENT SITES / MONUMENTS</strong><span className="block text-[9px] text-slate-400">Yellow dots · monuments and structures</span></span></label>
-            </div>}
+            </div></div>}
           </div>
 
           {/* Channel to Star Manual Pickers with Lock / Unlock buttons */}
