@@ -2367,7 +2367,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
 
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {[{label:'Today',age:0},{label:'20 Ma',age:20},{label:'100 Ma',age:105},{label:'200 Ma',age:200},{label:'300 Ma',age:300},{label:'600 Ma',age:600}].map((preset) => (
+            {[{label:'Today',age:0},{label:'20 Ma',age:20},{label:'105 Ma',age:105},{label:'200 Ma',age:200},{label:'300 Ma',age:300},{label:'600 Ma',age:600}].map((preset) => (
               <button key={preset.age} type="button" onClick={() => setEarthPreset(preset.age)} className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition ${geologicalTimeMa === preset.age ? 'border-sky-300/70 bg-sky-300/15 text-sky-100 shadow-[inset_0_0_12px_rgba(56,189,248,0.08)]' : 'border-white/10 bg-white/[0.035] text-slate-300 hover:border-white/25 hover:bg-white/[0.08] hover:text-white'}`}>
                 {preset.label}
               </button>
