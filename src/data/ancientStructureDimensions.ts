@@ -112,8 +112,7 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     heightBasis: 'Approximate height quoted for the tallest sarsen uprights, not a mean height for all stones.',
     evidenceNote: 'Stonehenge contains stones of different types and dimensions; 24 ft should not be treated as the average height of all sarsens or bluestones.',
     sourceUrl: 'https://whc.unesco.org/en/list/373/'
-  }
-
+  },
   {
     id: 'parthenon-athens',
     name: 'Parthenon',
@@ -221,7 +220,7 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     evidenceNote: 'Etemenanki was Babylon’s major ziggurat and is often associated with the Tower of Babel tradition. Babylonian mathematics used sexagesimal notation, but this does not prove the building used a strict powers-of-60 design grid.',
     geometryClaim: 'Claims that tiers followed exact 1/6 or 1/10 reductions, that foundations were based on 3,600 cubits, or that a 60-degree triangle was the standard layout tool require direct evidence from the relevant tablet or archaeological plan; they are not established by the general use of base-60 mathematics.',
     numberSystem: 'sexagesimal',
-    numberSystemNote: 'Sexagesimal methods were used in Mesopotamian mathematics and astronomy. 60 is highly divisible, but the modern 60-minute hour and 360-degree circle reflect long histories and should not be credited to this building alone. Architectural unit conversions varied by period and context.'
+    numberSystemNote: 'Sexagesimal methods were used in Mesopotamian mathematics and astronomy. 60 is highly divisible, but the modern 60-minute hour and 360-degree circle reflect long histories and should not be credited to this building alone. Architectural unit conversions varied by period and context.',
     sourceUrl: 'https://whc.unesco.org/en/list/278/'
   },
 ];
