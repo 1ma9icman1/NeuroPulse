@@ -297,7 +297,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Kyoto', lat: 35.0116, lon: 135.7681, year: 2026, isCity: true },
   ];
   // Start Top Plane with Earth filling most of the viewport; larger cameraZoom values move closer.
-  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(0.8, 1.95 - cameraZoom * 0.95) }, 350); }, [isEarthModeActive, cameraZoom]);
+  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(0.25, 0.75 - cameraZoom * 0.27) }, 350); }, [isEarthModeActive, cameraZoom]);
 
   useEffect(() => {
     setEarthTextureLoaded(false);
@@ -408,6 +408,50 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
   const [isCelestialDeckCollapsed, setIsCelestialDeckCollapsed] = useState<boolean>(false);
   const [showDetailedStarInfo, setShowDetailedStarInfo] = useState<boolean>(true);
+  const [is24HourRotationActive, setIs24HourRotationActive] = useState(false);
+  const [dailyRotationDegrees, setDailyRotationDegrees] = useState(0);
+  const dailyRotationDegreesRef = useRef(0);
+  const dailyRotationSessionStartRef = useRef<number | null>(null);
+  const dailyRotationBaseRef = useRef(0);
+
+  const toggle24HourRotation = () => {
+    if (is24HourRotationActive) {
+      dailyRotationBaseRef.current = dailyRotationDegreesRef.current;
+      dailyRotationSessionStartRef.current = null;
+      setIs24HourRotationActive(false);
+      return;
+    }
+    dailyRotationBaseRef.current = dailyRotationDegreesRef.current;
+    dailyRotationSessionStartRef.current = performance.now();
+    setIs24HourRotationActive(true);
+  };
+
+  // Continuous 24-hour rotation: accumulate the angle across every day and across
+  // pauses; never wrap the simulation clock back to zero after 24 or 25 hours.
+  useEffect(() => {
+    if (!is24HourRotationActive) return;
+    const tick = () => {
+      const startedAt = dailyRotationSessionStartRef.current;
+      if (startedAt === null) return;
+      const angle = dailyRotationBaseRef.current + ((performance.now() - startedAt) / 86400000) * 360;
+      dailyRotationDegreesRef.current = angle;
+      setDailyRotationDegrees(angle);
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [is24HourRotationActive]);
+
+  // Globe.gl exposes its OrbitControls object; its negative, very slow autorotation
+  // makes Earth visibly turn eastward once per 24 hours while the globe is in view.
+  useEffect(() => {
+    const controls = globeRef.current?.controls?.();
+    if (!controls) return;
+    controls.autoRotate = is24HourRotationActive && isEarthModeActive;
+    controls.autoRotateSpeed = -0.0006944444444444445;
+    controls.update?.();
+    return () => { controls.autoRotate = false; };
+  }, [is24HourRotationActive, isEarthModeActive]);
   const [earthLocateTarget, setEarthLocateTarget] = useState<EarthTarget | null>(null);
   const [earthLocateImage, setEarthLocateImage] = useState<PlaceImage | null>(null);
   const [earthLocateLoading, setEarthLocateLoading] = useState(false);
@@ -501,7 +545,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // Recompute the inertial 3D position of each locked Earth-fixed site as the
   // historical simulation year changes; the map/globe marker stays at its lat/lng.
   useEffect(() => {
-    const gmstDeg = calculateTimelineGmstDeg(timelineYear);
+    const gmstDeg = calculateTimelineGmstDeg(timelineYear) + dailyRotationDegrees;
     (['a', 'b', 'c'] as const).forEach((channel) => {
       const target = earthChannelTargets[channel];
       if (!target || !lockedChannels[channel]) return;
@@ -513,7 +557,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     // Position callbacks are supplied inline by the parent; target/lock/time state
     // is sufficient to avoid an update loop when callbacks are re-created.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timelineYear, earthChannelTargets, lockedChannels]);
+  }, [timelineYear, earthChannelTargets, lockedChannels, dailyRotationDegrees]);
 
   const earthChannelMarkers = (['a', 'b', 'c'] as const).flatMap((channel) => {
     const target = earthChannelTargets[channel];
@@ -602,7 +646,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const eqZ = Math.sin(dec);
     const eclY = eqY * Math.cos(eps) + eqZ * Math.sin(eps);
     const eclZ = -eqY * Math.sin(eps) + eqZ * Math.cos(eps);
-    const eclLon = Math.atan2(eclY, eqX) + (timelineYearsAgo * 50.29 / 3600) * Math.PI / 180;
+    const eclLon = Math.atan2(eclY, eqX) + (timelineYearsAgo * 50.29 / 3600) * Math.PI / 180 + dailyRotationDegreesRef.current * Math.PI / 180;
     const eclLat = Math.asin(Math.max(-1, Math.min(1, eclZ)));
     const x = Math.cos(eclLat) * Math.cos(eclLon);
     const yEcl = Math.cos(eclLat) * Math.sin(eclLon);
@@ -708,7 +752,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const handlePinChannelToEarth = (channel: 'a' | 'b' | 'c', latitude: number, longitude: number) => {
     const lat = Math.max(-89.999, Math.min(89.999, latitude));
     const lng = ((longitude + 180) % 360 + 360) % 360 - 180;
-    const gmstDeg = calculateTimelineGmstDeg(timelineYear);
+    const gmstDeg = calculateTimelineGmstDeg(timelineYear) + dailyRotationDegreesRef.current;
     const position = latLonToCartesian(lat, lng, 3.42, gmstDeg, 23.439281);
 
     setEarthChannelTargets((prev) => ({ ...prev, [channel]: { lat, lng } }));
@@ -747,7 +791,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const starId = channel === 'a' ? starAId : channel === 'b' ? starBId : starCId;
     const star = REAL_CELESTIAL_STARS.find((item) => item.id === starId);
     const position = earthTarget
-      ? latLonToCartesian(earthTarget.lat, earthTarget.lng, 3.42, calculateTimelineGmstDeg(timelineYear), 23.439281)
+      ? latLonToCartesian(earthTarget.lat, earthTarget.lng, 3.42, calculateTimelineGmstDeg(timelineYear) + dailyRotationDegreesRef.current, 23.439281)
       : star ? celestialPosition(star) : null;
 
     if (position) {
@@ -955,7 +999,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const cx = width / 2;
       const cy = height / 2;
       const baseScale = Math.min(width, height) * 0.048 * cameraZoom;
-      const moonOrbitPhase = (performance.now() / 15000) % (Math.PI * 2);
+      const moonOrbitPhase = is24HourRotationActive
+        ? (dailyRotationDegreesRef.current / 27.321661) * Math.PI / 180
+        : (performance.now() / 15000) % (Math.PI * 2);
 
       ctx.save();
       ctx.scale(dpr, dpr);
@@ -1112,7 +1158,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       if (!isEarthModeActive) {
       // Sidereal phase for Jan 1 noon in selected year. A year-only slider cannot recover an ancient time-of-day.
-      const gmstDeg = calculateTimelineGmstDeg(timelineYear);
+      const gmstDeg = calculateTimelineGmstDeg(timelineYear) + dailyRotationDegreesRef.current;
       const earthRadius = 3.35;
       const earthPoint = (lat: number, lon: number, radius = earthRadius) =>
         latLonToCartesian(lat, lon, radius, gmstDeg, 23.439281);
@@ -1151,7 +1197,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         const texH = tex.naturalHeight || tex.height;
         const outputSize = 384;
         const cacheKey = [
-          earthTextureUrl, timelineYear, earthRenderYaw.toFixed(2), earthRenderPitch.toFixed(2),
+          earthTextureUrl, timelineYear, dailyRotationDegreesRef.current.toFixed(2), earthRenderYaw.toFixed(2), earthRenderPitch.toFixed(2),
           cameraView, texW, texH
         ].join('|');
         let sphereCanvas = earthSphereCanvasRef.current;
@@ -1745,10 +1791,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           ctx.stroke();
           ctx.setLineDash([]);
 
-          // Degree readout badge positioned inside the triangle
-          const labelDist = Math.max(34, arcRadius + 14);
-          const lx = v.sx + Math.cos(interiorBisector) * labelDist;
-          const ly = v.sy + Math.sin(interiorBisector) * labelDist;
+          // Put the degree badge outside the triangle, opposite the interior bisector,
+          // so the text stays clear of the triangle fill and its three connecting edges.
+          const labelDist = Math.max(52, arcRadius + 32);
+          const labelDirection = interiorBisector + Math.PI;
+          const lx = v.sx + Math.cos(labelDirection) * labelDist;
+          const ly = v.sy + Math.sin(labelDirection) * labelDist;
 
           ctx.font = 'bold 9px "JetBrains Mono", monospace';
           const badgeText = `${label}: ${angleDeg.toFixed(1)}°`;
@@ -2181,6 +2229,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             Front Elevation
           </button>
 
+          <button
+            type="button"
+            onClick={toggle24HourRotation}
+            aria-pressed={is24HourRotationActive}
+            className={`ml-1 rounded border px-2 py-1 text-[10px] font-mono font-bold transition-colors ${is24HourRotationActive ? 'border-emerald-300 bg-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(52,211,153,.35)]' : 'border-emerald-700 text-emerald-300 hover:bg-emerald-950/50'}`}
+            title={is24HourRotationActive ? '24-hour rotation is running continuously; click to pause it' : 'Start continuous 24-hour Earth and sky rotation; it keeps running beyond 24 hours until clicked again'}
+          >
+            {is24HourRotationActive ? '24H DAY · ON' : '24H DAY'}
+          </button>
           <button
             onClick={onResetCamera}
             className="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors ml-1"
