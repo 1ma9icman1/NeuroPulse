@@ -392,25 +392,31 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
         const moonAngle = (elapsedDays / MOON_SIDEREAL_PERIOD_DAYS) * TAU + 0.8;
         const moonX = earth.x + moonOrbitX * Math.cos(moonAngle);
         const moonY = earth.y + moonOrbitY * Math.sin(moonAngle);
-        const moonRadius = 2.8;
-        ctx.fillStyle = '#cbd5e1';
-        ctx.beginPath();
-        ctx.arc(moonX, moonY, moonRadius, 0, TAU);
-        ctx.fill();
-
-        // The darker near-side mark always faces Earth: visual 1:1 synchronous rotation.
-        const earthFacingAngle = Math.atan2(earth.y - moonY, earth.x - moonX);
+        const moonRadius = 3.6;
         ctx.save();
-        ctx.translate(moonX, moonY);
-        ctx.rotate(earthFacingAngle);
-        ctx.fillStyle = '#64748b';
-        ctx.beginPath();
-        ctx.arc(-1.15, 0, 0.95, 0, TAU);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(-0.2, -1.15, 0.55, 0, TAU);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(moonX, moonY, moonRadius, 0, TAU); ctx.clip();
+        const moonTexture = planetTexturesRef.current.moon;
+        if (moonTexture) {
+          ctx.save();
+          ctx.translate(moonX, moonY);
+          // In synchronous rotation, the same lunar longitude faces the Earth at every point.
+          ctx.rotate(Math.atan2(earth.y - moonY, earth.x - moonX));
+          ctx.drawImage(moonTexture, -moonRadius, -moonRadius, moonRadius * 2, moonRadius * 2);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = '#cbd5e1'; ctx.fillRect(moonX-moonRadius,moonY-moonRadius,moonRadius*2,moonRadius*2);
+          drawCrater(ctx, moonX-.8, moonY-.5, .9);
+          drawCrater(ctx, moonX+.9, moonY+.7, .55);
+        }
+        const moonNight = ctx.createLinearGradient(moonX-moonRadius,moonY,moonX+moonRadius,moonY);
+        moonNight.addColorStop(0,'rgba(255,255,255,.12)');
+        moonNight.addColorStop(.58,'rgba(0,0,0,.05)');
+        moonNight.addColorStop(1,'rgba(0,0,0,.7)');
+        ctx.fillStyle=moonNight;
+        ctx.fillRect(moonX-moonRadius,moonY-moonRadius,moonRadius*2,moonRadius*2);
         ctx.restore();
+        ctx.beginPath(); ctx.arc(moonX, moonY, moonRadius, 0, TAU);
+        ctx.strokeStyle='rgba(226,232,240,.45)'; ctx.lineWidth=.6; ctx.stroke();
 
         ctx.font = 'bold 9px ui-monospace, monospace';
         ctx.fillStyle = '#e2e8f0';
