@@ -96,7 +96,7 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     region: 'County Meath, Ireland', period: 'Neolithic passage tomb, c. 3200 BCE',
     measuredFrequenciesHz: [110], researchBandHz: 110, status: 'published-measurement',
     summary: 'A 1996 archaeoacoustic study reported a primary chamber resonance at approximately 110 Hz at Newgrange.',
-    measurementContext: 'Reported chamber resonance: approximately 110 Hz. This is a site-specific acoustic report, not evidence of a universal or astronomical 110 Hz signal. The mound's overall height is often estimated at roughly 12 m (about 40 ft), depending on how the mound profile is measured; that height is separate from the acoustic result.',
+    measurementContext: 'Reported chamber resonance: approximately 110 Hz. This is a site-specific acoustic report, not evidence of a universal or astronomical 110 Hz signal. The mound’s overall height is often estimated at roughly 12 m (about 40 ft), depending on how the mound profile is measured; that height is separate from the acoustic result.',
     measurements: [{ parameter: 'Primary chamber resonance', frequencyHz: 110, reportedValue: 110, unit: 'Hz', method: 'Acoustic resonance measurements of chambered prehistoric monuments; value reported approximately in the published literature' }],
     caveat: 'Approximate reported value. Re-measurement under documented conditions would be needed to assess uncertainty and reproducibility.',
     sources: [{ label: 'Jahn, Devereux & Ibison (1996), Resonance in ancient structures', url: 'https://doi.org/10.1121/1.414642', year: 1996, publication: 'Journal of the Acoustical Society of America 99, 649–658' },
