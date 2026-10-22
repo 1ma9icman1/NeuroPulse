@@ -170,6 +170,46 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Tikal', lat: 17.222, lon: -89.623, year: 300 },
     { name: 'Chavín de Huántar', lat: -9.593, lon: -77.178, year: -900 },
     { name: 'Hovenweep', lat: 37.383, lon: -109.071, year: 500 },
+    { name: 'Ain Ghazal', lat: 31.987, lon: 35.938, year: -7250 },
+    { name: 'Mehrgarh', lat: 29.384, lon: 67.623, year: -7000 },
+    { name: 'Skara Brae', lat: 59.048, lon: -3.342, year: -3180 },
+    { name: 'Maeshowe', lat: 58.996, lon: -3.188, year: -2800 },
+    { name: 'Avebury Stone Circle', lat: 51.428, lon: -1.854, year: -2600 },
+    { name: 'Callanish Standing Stones', lat: 58.198, lon: -6.745, year: -2900 },
+    { name: 'Bryn Celli Ddu', lat: 53.211, lon: -4.236, year: -3000 },
+    { name: 'Knowth Passage Tomb', lat: 53.709, lon: -6.493, year: -3200 },
+    { name: 'Ggantija Temples', lat: 36.048, lon: 14.267, year: -3600 },
+    { name: 'Tarxien Temples', lat: 35.869, lon: 14.511, year: -3150 },
+    { name: 'Mnajdra Temples', lat: 35.827, lon: 14.436, year: -3600 },
+    { name: 'Hagar Qim', lat: 35.827, lon: 14.440, year: -3600 },
+    { name: 'Tell Brak', lat: 36.667, lon: 41.055, year: -6000 },
+    { name: 'Uruk', lat: 31.324, lon: 45.637, year: -4000 },
+    { name: 'Ur Ziggurat', lat: 30.962, lon: 46.103, year: -2100 },
+    { name: 'Eridu', lat: 30.815, lon: 45.996, year: -5400 },
+    { name: 'Amarna', lat: 27.646, lon: 30.896, year: -1346 },
+    { name: 'Luxor Temple', lat: 25.699, lon: 32.639, year: -1400 },
+    { name: 'Medinet Habu', lat: 25.720, lon: 32.601, year: -1180 },
+    { name: 'Chaco Canyon Pueblo Bonito', lat: 36.060, lon: -107.961, year: 850 },
+    { name: 'Hopewell Mound Group', lat: 39.368, lon: -83.087, year: -200 },
+    { name: 'Etowah Mounds', lat: 34.125, lon: -84.801, year: 1000 },
+    { name: 'Pachacamac', lat: -12.255, lon: -76.902, year: 200 },
+    { name: 'Chan Chan', lat: -8.108, lon: -79.075, year: 850 },
+    { name: 'Chankillo Archaeoastronomical Complex', lat: -9.557, lon: -78.228, year: -250 },
+    { name: 'Kuelap', lat: -6.418, lon: -77.925, year: 500 },
+    { name: 'El Tajin', lat: 20.448, lon: -97.377, year: 600 },
+    { name: 'Tomb of the First Emperor', lat: 34.384, lon: 109.273, year: -210 },
+    { name: 'Longmen Grottoes', lat: 34.558, lon: 112.471, year: 493 },
+    { name: 'Yungang Grottoes', lat: 40.110, lon: 113.122, year: 460 },
+    { name: 'My Son Sanctuary', lat: 15.764, lon: 108.123, year: 400 },
+    { name: 'Sigiriya', lat: 7.957, lon: 80.760, year: 477 },
+    { name: 'Anuradhapura', lat: 8.311, lon: 80.403, year: -377 },
+    { name: 'Taxila', lat: 33.746, lon: 72.839, year: -600 },
+    { name: 'Troy', lat: 39.957, lon: 26.239, year: -3000 },
+    { name: 'Olympia Sanctuary', lat: 37.638, lon: 21.630, year: -776 },
+    { name: 'Epidaurus Theatre', lat: 37.596, lon: 23.079, year: -340 },
+    { name: 'Nuraghe Su Nuraxi', lat: 39.704, lon: 8.990, year: -1500 },
+    { name: 'Hadrian Wall', lat: 55.024, lon: -2.290, year: 122 },
+
     { name: 'New York', lat: 40.7128, lon: -74.006, year: 2026, isCity: true },
     { name: 'Los Angeles', lat: 34.0522, lon: -118.2437, year: 2026, isCity: true },
     { name: 'Mexico City', lat: 19.4326, lon: -99.1332, year: 2026, isCity: true },
@@ -211,8 +251,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showCities, setShowCities] = useState<boolean>(false);
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
-  const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(true);
-  const [showCosmicBeam, setShowCosmicBeam] = useState<boolean>(true);
+  const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
+  const [showCosmicBeam, setShowCosmicBeam] = useState<boolean>(false);
   const [showLocationMenu, setShowLocationMenu] = useState<boolean>(false);
   const [showMeasuredSoundSites, setShowMeasuredSoundSites] = useState<boolean>(true);
   const [showSolfeggioReference, setShowSolfeggioReference] = useState<boolean>(false);
@@ -225,8 +265,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
-  const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#dbeafe' : '#facc15', size: site.isCity ? 0.22 : 0.35, altitude: 0.02, layerCategory: site.isCity ? 'CITY' : 'ANCIENT SITE' })), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.03, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : [])];
-  const triangleCandidates = showAncientStructures ? visibleEarthSites.filter((site: any) => !site.isCity && !site.evidenceStatus) : [];
+  const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#60a5fa' : '#facc15', size: site.isCity ? 0.10 : 0.12, altitude: 0.012, layerCategory: site.isCity ? 'CITY' : 'ANCIENT SITE' })), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.14, altitude: 0.016, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : [])];
+  const triangleCandidates = showAlignmentTriangles && showAncientStructures ? visibleEarthSites.filter((site: any) => !site.isCity && !site.evidenceStatus) : [];
   const triangleEdgeMap = new Map<string, { startLat: number; startLng: number; endLat: number; endLng: number }>();
   const triangleKey = (a: string, b: string) => [a, b].sort().join('::');
   const triangleDistance = (a: any, b: any) => {
@@ -2284,18 +2324,18 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
               showGraticules={false} showAtmosphere={earthAtmosphere}
-              arcsData={showAlignmentTriangles && showAncientStructures ? triangleEdges : []}
+              arcsData={showAlignmentTriangles && showAncientStructures && cameraView !== 'front' ? triangleEdges : []}
               arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
               arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
               arcColor={() => showAcousticColorSystem ? '#38bdf8' : '#e2e8f0'} arcStroke={0.65} arcAltitude={0.008}
-              polygonsData={showAlignmentTriangles && showAncientStructures ? trianglePolygons : []}
+              polygonsData={showAlignmentTriangles && showAncientStructures && cameraView !== 'front' ? trianglePolygons : []}
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={() => showAcousticColorSystem ? 'rgba(56,189,248,0.08)' : 'rgba(226,232,240,0.04)'}
               polygonSideColor={() => 'rgba(56,189,248,0.03)'} polygonStrokeColor={() => showAcousticColorSystem ? 'rgba(125,211,252,0.72)' : 'rgba(226,232,240,0.55)'} polygonAltitude={0.012}
-              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => d.evidenceStatus ? `${d.layerCategory || 'SOUND'} · ${d.name} — ${d.measurementSummary || 'published acoustic record'} · reported values/bands: ${(d.measuredFrequenciesHz || []).join(', ')} Hz (check measurement context; range endpoints may not be site-specific peaks) · click to inspect` : d.isCity ? `CITY · ${d.name} · click to open map and alignment explorer` : `ANCIENT SITE · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
-              htmlElementsData={showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : []}
+              htmlElementsData={showAncientStructures && showMeasuredSoundSites && cameraView !== 'front' && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : []}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
               htmlElement={(d: any) => {
                 const marker = document.createElement('div');
@@ -2319,7 +2359,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               }}
               onPointClick={(d: any) => openEarthSite(d)} />
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
-            {showAlignmentTriangles && showAncientStructures && <div className="absolute left-3 bottom-3 z-[6] max-w-[min(92%,440px)] rounded-lg border border-sky-400/40 bg-slate-950/90 p-2 text-[10px] font-mono text-slate-200 pointer-events-none"><div className="font-bold text-sky-200">EARTH TRIANGULATION · nearest 3 neighbors/site</div><div className="mt-1">{trianglePolygons.length} connected triangles · repeated 5° angle bins: {repeatedTriangleAngles.length ? repeatedTriangleAngles.slice(0,5).map(([angle,count]) => angle+'° × '+count).join(' · ') : 'none detected in current set'}</div><div className="mt-1 text-slate-400">Approximate local-plane angles; projection, site coordinates and chance patterns matter.</div></div>}
+            {showAlignmentTriangles && showAncientStructures && cameraView !== 'front' && <div className="absolute left-3 bottom-3 z-[6] max-w-[min(92%,440px)] rounded-lg border border-sky-400/40 bg-slate-950/90 p-2 text-[10px] font-mono text-slate-200 pointer-events-none"><div className="font-bold text-sky-200">EARTH TRIANGULATION · nearest 3 neighbors/site</div><div className="mt-1">{trianglePolygons.length} connected triangles · repeated 5° angle bins: {repeatedTriangleAngles.length ? repeatedTriangleAngles.slice(0,5).map(([angle,count]) => angle+'° × '+count).join(' · ') : 'none detected in current set'}</div><div className="mt-1 text-slate-400">Approximate local-plane angles; projection, site coordinates and chance patterns matter.</div></div>}
             <div className="absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden">
               <div className="relative w-[min(74vmin,76%)] aspect-square rounded-full border border-slate-300/20 animate-[spin_27s_linear_infinite]">
                 <div className="absolute inset-0 rounded-full border border-dashed border-slate-400/15" />
