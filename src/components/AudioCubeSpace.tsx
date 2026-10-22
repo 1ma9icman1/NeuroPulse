@@ -656,6 +656,24 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     return { x: radius * x, y: radius * y, z: radius * z };
   };
 
+  // When day rotation is active, A/B/C channels locked to stars follow the same apparent
+  // daily sky motion as their assigned stars; Earth-locked channels use the Earth-fixed effect above.
+  useEffect(() => {
+    if (!is24HourRotationActive) return;
+    (['a', 'b', 'c'] as const).forEach((channel) => {
+      if (!lockedChannels[channel] || earthChannelTargets[channel]) return;
+      const starId = channel === 'a' ? starAId : channel === 'b' ? starBId : starCId;
+      const star = REAL_CELESTIAL_STARS.find((item) => item.id === starId);
+      if (!star) return;
+      const position = celestialPosition(star);
+      if (channel === 'a') onUpdateAPos(position);
+      else if (channel === 'b') onUpdateBPos(position);
+      else onUpdateCPos(position);
+    });
+    // Inline position callbacks are omitted to avoid running again on each parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [is24HourRotationActive, dailyRotationDegrees, lockedChannels, earthChannelTargets, starAId, starBId, starCId]);
+
   // Initialize the selected real-star alignment on load; later user selections remain interactive.
   useEffect(() => {
     const preset = STAR_ALIGNMENT_PRESETS.find((item) => item.id === selectedStarPreset);
