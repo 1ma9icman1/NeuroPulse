@@ -2544,15 +2544,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       ) : (
         <div className="absolute right-3 top-16 bottom-16 z-20 flex flex-col justify-center gap-3 rounded-2xl border border-white/10 bg-[#070d18]/90 p-2.5 shadow-2xl backdrop-blur-xl pointer-events-auto">
           {([
-            { channel: 'a' as const, pos: aPos, update: onUpdateAPos, color: 'cyan' },
-            { channel: 'b' as const, pos: bPos, update: onUpdateBPos, color: 'pink' },
-            { channel: 'c' as const, pos: cPos, update: onUpdateCPos, color: 'amber' },
-          ]).map(({ channel, pos, update, color }) => <div key={channel} className="flex flex-col items-center gap-1.5">
-            <span className={`text-[10px] font-semibold tracking-wide text-${color}-300`}>{channel.toUpperCase()}</span>
+            { channel: 'a' as const, pos: aPos, update: onUpdateAPos, labelClass: 'text-cyan-300', accentClass: 'accent-cyan-400' },
+            { channel: 'b' as const, pos: bPos, update: onUpdateBPos, labelClass: 'text-pink-300', accentClass: 'accent-pink-400' },
+            { channel: 'c' as const, pos: cPos, update: onUpdateCPos, labelClass: 'text-amber-300', accentClass: 'accent-amber-400' },
+          ]).map(({ channel, pos, update, labelClass, accentClass }) => <div key={channel} className="flex flex-col items-center gap-1.5">
+            <span className={`text-[10px] font-semibold tracking-wide ${labelClass}`}>{channel.toUpperCase()}</span>
             <div className="flex h-20 items-center justify-center">
-              <input aria-label={`Channel ${channel.toUpperCase()} elevation`} type="range" min="-8" max="8" step="0.1" value={pos.y} onChange={(event) => { update({ ...pos, y: parseFloat(event.target.value) }); setLockedChannels((previous) => ({ ...previous, [channel]: false })); }} className={`h-1.5 w-16 -rotate-90 cursor-pointer rounded bg-slate-800 accent-${color}-400`} />
+              <input aria-label={`Channel ${channel.toUpperCase()} elevation`} type="range" min="-8" max="8" step="0.1" value={pos.y} onChange={(event) => { update({ ...pos, y: parseFloat(event.target.value) }); setLockedChannels((previous) => ({ ...previous, [channel]: false })); }} className={`h-1.5 w-16 -rotate-90 cursor-pointer rounded bg-slate-800 ${accentClass}`} />
             </div>
-            <span className={`text-[11px] font-semibold tabular-nums text-${color}-300`}>{pos.y > 0 ? '+' : ''}{pos.y.toFixed(1)}m</span>
+            <span className={`text-[11px] font-semibold tabular-nums ${labelClass}`}>{pos.y > 0 ? '+' : ''}{pos.y.toFixed(1)}m</span>
           </div>)}
         </div>
       )}
