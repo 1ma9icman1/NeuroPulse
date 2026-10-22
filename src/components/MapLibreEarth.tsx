@@ -58,7 +58,7 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
     selectAt: (x, y) => {
       const map = mapRef.current;
       if (!map || !map.isStyleLoaded()) return;
-      const point = { x, y };
+      const point: [number, number] = [x, y];
       const features = map.queryRenderedFeatures(point, { layers: ['audio-site-core', 'audio-frequency-labels', 'historical-site-dots'] });
       const name = features[0]?.properties?.name;
       const matched = pointsRef.current.find((item) => item.name === name);
