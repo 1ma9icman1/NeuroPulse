@@ -9,8 +9,9 @@ interface Props {
   sites?: LeafletSitePoint[];
   layer: 'map' | 'terrain' | 'satellite';
   audioSites?: LeafletAudioPoint[];
+  onMapPointClick?: (point: LeafletSitePoint) => void;
 }
-export function LeafletSiteMap({ site, sites = [], layer, audioSites = [] }: Props) {
+export function LeafletSiteMap({ site, sites = [], layer, audioSites = [], onMapPointClick }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<Record<string, L.TileLayer>>({});
@@ -26,6 +27,7 @@ export function LeafletSiteMap({ site, sites = [], layer, audioSites = [] }: Pro
     };
     layersRef.current[layer].addTo(map);
     markersRef.current = L.layerGroup().addTo(map);
+    map.on('click', (event: L.LeafletMouseEvent) => onMapPointClick?.({ name: 'Pinned Earth Location', lat: event.latlng.lat, lon: event.latlng.lng, color: '#38bdf8' }));
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
   }, []);
