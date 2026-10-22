@@ -109,6 +109,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const earthTextureRef = useRef<HTMLImageElement | null>(null);
+  const earthSphereCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const earthSphereCacheKeyRef = useRef('');
   const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
   const isEarthModeActive = cameraView === 'top';
   const globeRef = useRef<any>(null);
@@ -282,13 +284,51 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(1.2, 5.2 - cameraZoom) }, 250); }, [isEarthModeActive, cameraZoom]);
 
   useEffect(() => {
+    setEarthTextureLoaded(false);
+    earthTextureRef.current = null;
+    earthSphereCacheKeyRef.current = '';
+
     const texture = new Image();
     texture.crossOrigin = 'anonymous';
-    texture.onload = () => { earthTextureRef.current = texture; setEarthTextureLoaded(true); };
-    texture.onerror = () => setEarthTextureLoaded(false);
-    texture.src = 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png';
-    return () => { texture.onload = null; texture.onerror = null; };
-  }, []);
+    texture.onload = () => {
+      // Verify canvas sampling is permitted before enabling the textured orbit-core renderer.
+      try {
+        const probe = document.createElement('canvas');
+        probe.width = 1;
+        probe.height = 1;
+        const probeContext = probe.getContext('2d');
+        if (!probeContext) throw new Error('Canvas 2D context unavailable');
+        probeContext.drawImage(texture, 0, 0, 1, 1);
+        probeContext.getImageData(0, 0, 1, 1);
+        earthTextureRef.current = texture;
+        earthSphereCacheKeyRef.current = '';
+        setEarthTextureLoaded(true);
+      } catch {
+        // The WebGL globe can display cross-origin images that a 2D canvas cannot sample.
+        // Fall back to the CORS-enabled Blue Marble texture for the shared globe and orbit core.
+        if (earthTextureUrl !== 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg') {
+          setEarthImagerySource('blue-marble');
+          setEarthTextureUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+        } else {
+          setEarthTextureLoaded(false);
+        }
+      }
+    };
+    texture.onerror = () => {
+      // Do not leave the core as a featureless blue ball when an alternate image host fails.
+      if (earthTextureUrl !== 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg') {
+        setEarthImagerySource('blue-marble');
+        setEarthTextureUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+      } else {
+        setEarthTextureLoaded(false);
+      }
+    };
+    texture.src = earthTextureUrl;
+    return () => {
+      texture.onload = null;
+      texture.onerror = null;
+    };
+  }, [earthTextureUrl]);
 
   // Star Celestial Alignment Mode
   const [isStarModeActive, setIsStarModeActive] = useState<boolean>(false);
@@ -799,6 +839,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
+      // The cube stays in orbit views only; it must not obscure the globe in Top Plane mode.
+      if (!isEarthModeActive) {
       // 3. Draw 3D AudioCube Room Wireframe
       ctx.lineWidth = 1;
       const gridSteps = 4;
@@ -866,6 +908,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         });
       }
 
+      }
+
       if (!isEarthModeActive) {
       // Sidereal phase for Jan 1 noon in selected year. A year-only slider cannot recover an ancient time-of-day.
       const jd = Date.UTC(timelineYear, 0, 1, 12, 0, 0) / 86400000 + 2440587.5;
@@ -897,18 +941,98 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       ctx.arc(earthCenter.sx, earthCenter.sy, earthScreenRadius, 0, Math.PI * 2);
       ctx.fillStyle = earthGradient;
       ctx.fill();
-      // NASA Blue Marble global land/ocean texture. Clip to the globe; coastline and site overlays remain above it.
+      // Render the equirectangular Blue Marble as a true spherical projection.
+      // This keeps the Earth/universe core visibly textured in the 3D orbit view instead of a blue gradient.
       if (earthTextureLoaded && earthTextureRef.current) {
+        const tex = earthTextureRef.current;
+        const texW = tex.naturalWidth || tex.width;
+        const texH = tex.naturalHeight || tex.height;
+        const outputSize = 384;
+        const cacheKey = [
+          earthTextureUrl, timelineYear, cameraYaw.toFixed(2), cameraPitch.toFixed(2),
+          texW, texH
+        ].join('|');
+        let sphereCanvas = earthSphereCanvasRef.current;
+        if (!sphereCanvas) {
+          sphereCanvas = document.createElement('canvas');
+          earthSphereCanvasRef.current = sphereCanvas;
+        }
+        if (sphereCanvas.width !== outputSize || sphereCanvas.height !== outputSize) {
+          sphereCanvas.width = outputSize;
+          sphereCanvas.height = outputSize;
+          earthSphereCacheKeyRef.current = '';
+        }
+
+        if (earthSphereCacheKeyRef.current !== cacheKey) {
+          const sourceCanvas = document.createElement('canvas');
+          sourceCanvas.width = texW;
+          sourceCanvas.height = texH;
+          const sourceContext = sourceCanvas.getContext('2d', { willReadFrequently: true });
+          const outputContext = sphereCanvas.getContext('2d', { willReadFrequently: true });
+          if (sourceContext && outputContext) {
+            sourceContext.drawImage(tex, 0, 0, texW, texH);
+            const sourcePixels = sourceContext.getImageData(0, 0, texW, texH).data;
+            const output = outputContext.createImageData(outputSize, outputSize);
+            const yaw = cameraYaw * Math.PI / 180;
+            const pitch = cameraPitch * Math.PI / 180;
+            const cosYaw = Math.cos(yaw), sinYaw = Math.sin(yaw);
+            const cosPitch = Math.cos(pitch), sinPitch = Math.sin(pitch);
+            const tilt = 23.439281 * Math.PI / 180;
+            const cosTilt = Math.cos(tilt), sinTilt = Math.sin(tilt);
+            const radiusPx = outputSize / 2;
+            const lightX = -0.42, lightY = 0.46, lightZ = 0.78;
+
+            for (let py = 0; py < outputSize; py++) {
+              const ny = (radiusPx - py - 0.5) / radiusPx;
+              for (let px = 0; px < outputSize; px++) {
+                const nx = (px + 0.5 - radiusPx) / radiusPx;
+                const rr = nx * nx + ny * ny;
+                const offset = (py * outputSize + px) * 4;
+                if (rr >= 1) {
+                  output.data[offset + 3] = 0;
+                  continue;
+                }
+
+                const frontZ = Math.sqrt(1 - rr);
+                // Undo the current orbit-camera rotations to recover Earth's surface normal.
+                const yAfterPitch = ny * cosPitch + frontZ * sinPitch;
+                const zAfterYaw = -ny * sinPitch + frontZ * cosPitch;
+                const worldX = nx * cosYaw + zAfterYaw * sinYaw;
+                const worldZ = -nx * sinYaw + zAfterYaw * cosYaw;
+                // Undo Earth's axial tilt and the historical sidereal rotation used by site dots.
+                const unTitledY = yAfterPitch * cosTilt + worldZ * sinTilt;
+                const unTitledZ = -yAfterPitch * sinTilt + worldZ * cosTilt;
+                const latitude = Math.asin(Math.max(-1, Math.min(1, unTitledY)));
+                let longitude = Math.atan2(worldX, unTitledZ) * 180 / Math.PI - gmstDeg;
+                longitude = ((longitude + 180) % 360 + 360) % 360 - 180;
+                const u = Math.min(texW - 1, Math.max(0, Math.floor(((longitude + 180) / 360) * texW)));
+                const v = Math.min(texH - 1, Math.max(0, Math.floor(((90 - latitude * 180 / Math.PI) / 180) * texH)));
+                const sourceOffset = (v * texW + u) * 4;
+                const diffuse = Math.max(0, nx * lightX + ny * lightY + frontZ * lightZ);
+                const shade = 0.42 + 0.58 * diffuse;
+                output.data[offset] = sourcePixels[sourceOffset] * shade;
+                output.data[offset + 1] = sourcePixels[sourceOffset + 1] * shade;
+                output.data[offset + 2] = sourcePixels[sourceOffset + 2] * shade;
+                output.data[offset + 3] = 255;
+              }
+            }
+            outputContext.putImageData(output, 0, 0);
+            earthSphereCacheKeyRef.current = cacheKey;
+          }
+        }
+
         ctx.save();
         ctx.beginPath();
         ctx.arc(earthCenter.sx, earthCenter.sy, earthScreenRadius * 0.995, 0, Math.PI * 2);
         ctx.clip();
-        const tex = earthTextureRef.current;
-        const texW = tex.naturalWidth || tex.width;
-        const texH = tex.naturalHeight || tex.height;
-        const diameter = earthScreenRadius * 2;
-        ctx.globalAlpha = 0.96;
-        ctx.drawImage(tex, earthCenter.sx - earthScreenRadius, earthCenter.sy - earthScreenRadius, diameter, diameter);
+        ctx.globalAlpha = 1;
+        ctx.drawImage(
+          sphereCanvas,
+          earthCenter.sx - earthScreenRadius,
+          earthCenter.sy - earthScreenRadius,
+          earthScreenRadius * 2,
+          earthScreenRadius * 2
+        );
         ctx.restore();
       }
       ctx.strokeStyle = 'rgba(103, 232, 249, 0.85)';
@@ -1033,6 +1157,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       }
 
+      // In Earth mode the core globe itself supplies the center visual; keep its overlay clean.
+      if (!isEarthModeActive) {
       // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
       const listenerFloor = project3D(0, -bound, 0, width, height);
 
@@ -1085,6 +1211,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.fillText('LISTENER', centerPt.sx - 22, centerPt.sy + 20);
       }
 
+      }
+
       // 5. Render Real-World Stars and Constellation Edges (Star Mode)
       if (isStarModeActive) {
         // Draw Constellation Lines
@@ -1133,7 +1261,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
 
         // Draw Real Stars
-        REAL_CELESTIAL_STARS.filter((star) => isConstellationEnabled(star.constellation)).forEach((star) => {
+        // Star points are independent of constellation-line visibility.
+        // The constellation toggles above only control the connecting paths.
+        REAL_CELESTIAL_STARS.forEach((star) => {
           const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const isAssignedA = star.id === starAId;
@@ -2492,7 +2622,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
         </div>
       )}
-      <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'hidden' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
+      <canvas
+        ref={canvasRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
+        className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`}
+      />
 
       <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} />
 
