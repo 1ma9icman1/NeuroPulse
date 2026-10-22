@@ -14,6 +14,8 @@ export interface AncientStructureDimension {
   heightBasis: string;
   evidenceNote: string;
   geometryClaim?: string;
+  numberSystem?: 'decimal' | 'vigesimal' | 'sexagesimal' | 'mixed-or-context-dependent';
+  numberSystemNote?: string;
   sourceUrl: string;
 }
 
@@ -117,7 +119,9 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     approximateHeightFt: 45,
     heightBasis: 'Approximate height to roofline; published dimensions depend on measurement convention.',
     evidenceNote: 'Known for careful proportions and optical refinements. Claims that its facade or column spacing exactly encodes the golden ratio depend on which dimensions are selected and are debated.',
-    geometryClaim: 'A visual resemblance to phi ≈ 1.618 is not proof that builders used the golden ratio as an explicit design rule.',
+    geometryClaim: 'A visual resemblance to phi ≈ 1.618 is not proof that builders used the golden ratio as an explicit design rule. The often-cited 4:9 proportion depends on which architectural dimensions are selected.',
+    numberSystem: 'mixed-or-context-dependent',
+    numberSystemNote: 'Greek architectural practice is often described through whole-number ratios and geometric construction. Modern decimal measurements do not prove that builders used decimal fractions.'
     sourceUrl: 'https://whc.unesco.org/en/list/404/'
   },
   {
