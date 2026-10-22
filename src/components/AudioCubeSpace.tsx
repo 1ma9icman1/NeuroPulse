@@ -2482,7 +2482,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
         </div>
       )}
-      <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
+      <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'hidden' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
 
       <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} />
 
