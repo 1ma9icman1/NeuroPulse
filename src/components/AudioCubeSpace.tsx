@@ -1101,8 +1101,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.fillText('LISTENER', centerPt.sx - 22, centerPt.sy + 20);
       }
 
-      // 5. Render Real-World Stars and Constellation Edges (Star Mode)
-      if (isStarModeActive) {
+      // 5. Render the original star field over Earth as well as in Star Mode.
+      if (isStarModeActive || isEarthModeActive) {
         // Draw Constellation Lines
         ctx.save();
         const pulsePhase = (performance.now() / 70) % 18;
@@ -1152,9 +1152,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         REAL_CELESTIAL_STARS.filter((star) => isConstellationEnabled(star.constellation)).forEach((star) => {
           const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
-          const isAssignedA = channelTargets.a.type === 'star' && star.id === starAId;
-          const isAssignedB = channelTargets.b.type === 'star' && star.id === starBId;
-          const isAssignedC = channelTargets.c.type === 'star' && star.id === starCId;
+          const isAssignedA = isStarModeActive && channelTargets.a.type === 'star' && star.id === starAId;
+          const isAssignedB = isStarModeActive && channelTargets.b.type === 'star' && star.id === starBId;
+          const isAssignedC = isStarModeActive && channelTargets.c.type === 'star' && star.id === starCId;
           const isHovered = hoveredStar?.id === star.id;
           const isClicked = clickedStar?.id === star.id;
 
@@ -1172,7 +1172,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           // Star label
           ctx.font = isHovered || isClicked ? 'bold 10px "JetBrains Mono", monospace' : '9px "JetBrains Mono", monospace';
           ctx.fillStyle = isHovered || isClicked ? '#ffffff' : 'rgba(255, 255, 255, 0.7)';
-          ctx.fillText(star.name, sp.sx + 7, sp.sy - 3);
+          if (!isEarthModeActive || isStarModeActive) ctx.fillText(star.name, sp.sx + 7, sp.sy - 3);
 
           // Indicator for assigned channels
           if (isAssignedA || isAssignedB || isAssignedC) {
@@ -1219,9 +1219,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           ctx.setLineDash([]);
         };
 
-        if (channelTargets.a.type === 'star') drawTether(starAId, aPos, '#00f0ff');
-        if (channelTargets.b.type === 'star') drawTether(starBId, bPos, '#ff007f');
-        if (channelTargets.c.type === 'star') drawTether(starCId, cPos, '#fbbf24');
+        if (isStarModeActive && channelTargets.a.type === 'star') drawTether(starAId, aPos, '#00f0ff');
+        if (isStarModeActive && channelTargets.b.type === 'star') drawTether(starBId, bPos, '#ff007f');
+        if (isStarModeActive && channelTargets.c.type === 'star') drawTether(starCId, cPos, '#fbbf24');
       }
 
       // 6. Draw 3D Sound Puck Helper
@@ -1470,10 +1470,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
-      // Draw Channel A, B, C pucks.
-      drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
-      drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
-      drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
+      // Channel pucks are hidden over the top-plane Earth until Star Mode is enabled.
+      if (!isEarthModeActive || isStarModeActive) {
+        drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
+        drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
+        drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
+      }
 
       // 8. Hovered Star Info Card (if hovered)
       if (isStarModeActive && hoveredStar && !clickedStar) {
