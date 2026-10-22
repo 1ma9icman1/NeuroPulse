@@ -119,7 +119,6 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
 
       const bodies = bodiesRef.current;
       const maximumAU = Math.max(...bodies.map((body) => body.semimajorAxisAu * (1 + body.eccentricity)));
-      const minDimension = Math.max(240, Math.min(width, height));
       const maximumOrbitPixels = Math.max(100, Math.min(width * 0.455, height * 0.405));
       const sunX = width / 2;
       const sunY = height / 2 + 8;
