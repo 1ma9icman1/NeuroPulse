@@ -363,17 +363,19 @@ export default function App() {
 
       {/* Main Production Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col gap-4">
-        {/* Master Transport & Controls */}
-        <MasterTransport
-          isRunning={isRunning}
-          masterVolume={config.masterVolume}
-          presets={DAW_PRESETS}
-          selectedPresetId={selectedPresetId}
-          audioEngine={audioEngineRef.current}
-          onTogglePlay={handleTogglePlay}
-          onUpdateVolume={(vol) => handleUpdateConfig({ masterVolume: vol })}
-          onSelectPreset={handleSelectPreset}
-        />
+        {/* Audio controls are intentionally hidden; audio state and handlers remain active. */}
+        <div style={{ display: "none" }} aria-hidden="true">
+          <MasterTransport
+            isRunning={isRunning}
+            masterVolume={config.masterVolume}
+            presets={DAW_PRESETS}
+            selectedPresetId={selectedPresetId}
+            audioEngine={audioEngineRef.current}
+            onTogglePlay={handleTogglePlay}
+            onUpdateVolume={(vol) => handleUpdateConfig({ masterVolume: vol })}
+            onSelectPreset={handleSelectPreset}
+          />
+        </div>
 
         {/* 3D AudioCube Spatializer Stage (Interactive Orbit & Direct Elevation Sliders) */}
         <section className="h-[430px] sm:h-[480px]">
