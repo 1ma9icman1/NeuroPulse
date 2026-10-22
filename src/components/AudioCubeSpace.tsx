@@ -970,7 +970,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.fill();
         ctx.shadowBlur = 0;
         // Keep the globe clean at orbital scale; reveal names once zoomed closer.
-        if (cameraZoom >= (isCity ? 1.35 : 1.08)) {
+        if (false && cameraZoom >= (isCity ? 1.35 : 1.08)) {
           const isMeasuredAcousticSite = name.includes('MEASURED') || ACOUSTIC_SITE_EVIDENCE.some((site) => name.includes(site.name));
           const isAncientStructure = name.includes('ANCIENT') || isMeasuredAcousticSite;
           const fontSize = isCity ? Math.max(8, Math.min(12, 8 + cameraZoom)) : isMeasuredAcousticSite ? Math.max(13, Math.min(21, 13 + cameraZoom * 1.6)) : isAncientStructure ? Math.max(11, Math.min(17, 11 + cameraZoom * 1.25)) : Math.max(9, Math.min(13, 9 + cameraZoom));
@@ -1151,7 +1151,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
 
         // Draw Real Stars
-        REAL_CELESTIAL_STARS.filter((star) => isConstellationEnabled(star.constellation)).forEach((star) => {
+        REAL_CELESTIAL_STARS.filter((star) => isStarModeActive && isConstellationEnabled(star.constellation)).forEach((star) => {
           const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const isAssignedA = isStarModeActive && channelTargets.a.type === 'star' && star.id === starAId;
