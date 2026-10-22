@@ -72,3 +72,12 @@ body::-webkit-scrollbar,
 @media (min-width: 768px) {
   .np-leaflet-site-map { height: 390px; }
 }
+
+
+/* Animated site-frequency emitters used on both Earth maps. */
+.np-audio-wave { animation: np-audio-wave 2.4s ease-out infinite; transform-origin: center; }
+.np-audio-frequency-icon { background: transparent; border: 0; overflow: visible; }
+.np-audio-frequency-dot { position: absolute; left: 0; top: 0; width: 12px; height: 12px; border-radius: 50%; background: #fb923c; border: 2px solid #fff7ed; box-shadow: 0 0 8px currentColor; animation: np-audio-dot 1.4s ease-in-out infinite; }
+.np-audio-frequency-label { position: absolute; left: 16px; top: -4px; white-space: nowrap; color: #e0f2fe; font: 10px ui-monospace, monospace; text-shadow: 0 1px 4px #020617, 1px 0 4px #020617; }
+@keyframes np-audio-wave { 0% { stroke-opacity: .9; fill-opacity: .18; } 70% { stroke-opacity: .2; fill-opacity: .02; } 100% { stroke-opacity: .9; fill-opacity: .18; } }
+@keyframes np-audio-dot { 0%,100% { transform: scale(.8); opacity: .85; } 50% { transform: scale(1.35); opacity: 1; } }
