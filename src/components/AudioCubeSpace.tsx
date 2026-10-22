@@ -467,6 +467,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [hoverNode, setHoverNode] = useState<'a' | 'b' | 'c' | null>(null);
 
   const dragStartPos = useRef({ x: 0, y: 0 });
+  const mapPointerOriginRef = useRef({ x: 0, y: 0 });
+  const mapDragMovedRef = useRef(false);
   const cameraStartAngle = useRef({ yaw: cameraYaw, pitch: cameraPitch });
 
   // Star click tracking: tracks number of stars clicked (activates interior triangle angles after 3 stars)
@@ -1559,6 +1561,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
     const width = rect.width;
     const height = rect.height;
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+    mapPointerOriginRef.current = { x: e.clientX, y: e.clientY };
+    mapDragMovedRef.current = false;
 
     // 1. Check if user clicked directly on any real star
     if (isStarModeActive) {
@@ -1573,7 +1578,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         }
       }
       if (isEarthModeActive) {
-        globeRef.current?.selectAt(x, y);
+        setActiveDrag('camera');
+        cameraStartAngle.current = { yaw: cameraYaw, pitch: cameraPitch };
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
         return;
       }
     }
@@ -1643,9 +1650,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     if (activeDrag === 'camera') {
       const dx = e.clientX - dragStartPos.current.x;
       const dy = e.clientY - dragStartPos.current.y;
-      const newYaw = cameraStartAngle.current.yaw + dx * 0.5;
-      const newPitch = Math.max(-85, Math.min(85, cameraStartAngle.current.pitch + dy * 0.5));
-      onUpdateCameraAngles(Number(newYaw.toFixed(1)), Number(newPitch.toFixed(1)));
+      if (isEarthModeActive && isStarModeActive) {
+        if (Math.hypot(e.clientX - mapPointerOriginRef.current.x, e.clientY - mapPointerOriginRef.current.y) > 4) mapDragMovedRef.current = true;
+        if (dx || dy) globeRef.current?.panBy(dx, dy);
+        dragStartPos.current = { x: e.clientX, y: e.clientY };
+      } else {
+        const newYaw = cameraStartAngle.current.yaw + dx * 0.5;
+        const newPitch = Math.max(-85, Math.min(85, cameraStartAngle.current.pitch + dy * 0.5));
+        onUpdateCameraAngles(Number(newYaw.toFixed(1)), Number(newPitch.toFixed(1)));
+      }
     } else if (activeDrag === 'a') {
       if (e.shiftKey) {
         const dy = (dragStartPos.current.y - e.clientY) * 0.08;
@@ -1710,6 +1723,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isEarthModeActive && isStarModeActive && activeDrag === 'camera' && !mapDragMovedRef.current) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) globeRef.current?.selectAt(e.clientX - rect.left, e.clientY - rect.top);
+    }
     setActiveDrag(null);
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
