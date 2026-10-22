@@ -16,6 +16,8 @@ export interface AncientStructureDimension {
   geometryClaim?: string;
   numberSystem?: 'decimal' | 'vigesimal' | 'sexagesimal' | 'mixed-or-context-dependent';
   numberSystemNote?: string;
+  orientationNote?: string;
+  ritualContext?: string;
   sourceUrl: string;
 }
 
@@ -204,7 +206,9 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     evidenceNote: 'Mesopotamian mathematical texts used sexagesimal (base-60) methods, although the system developed over time. This establishes the wider scribal mathematics context, not proof that ziggurat dimensions were generated from powers of 60.',
     geometryClaim: 'Base-60 mathematics is important historical context, but does not by itself prove this monument encodes modern mathematical constants.',
     numberSystem: 'sexagesimal',
-    numberSystemNote: 'Mesopotamian scribal mathematics used sexagesimal notation. Base-60 is highly divisible, but evidence here does not show that builders used a 60-degree triangle as a standard square-survey template. Modern time and angle conventions have a long history and should not be attributed to one monument. Verify period-specific cubit, reed, nindan and ush conversions against dated metrological sources.'
+    numberSystemNote: 'Mesopotamian scribal mathematics used sexagesimal notation. Base-60 is highly divisible, but evidence here does not show that builders used a 60-degree triangle as a standard square-survey template. Modern time and angle conventions have a long history and should not be attributed to one monument. Verify period-specific cubit, reed, nindan and ush conversions against dated metrological sources.',
+    orientationNote: 'The surviving ziggurat has a monumental triple-staircase on its northeastern face, and its overall orientation is often described in relation to the cardinal directions. The stronger claim that the central staircase was precisely aligned to summer-solstice sunrise needs a measured azimuth and horizon reconstruction; it is not treated here as established fact.',
+    ritualContext: 'The ziggurat was associated with Nanna/Sîn, the Moon god, in the religious landscape of Ur. A specific ceremony in which solstice sunlight crowned priests on the staircase is not established by the cited archaeological record.',
     sourceUrl: 'https://whc.unesco.org/en/list/113'
   },
 
