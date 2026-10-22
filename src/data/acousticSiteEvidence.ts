@@ -178,9 +178,9 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     id: 'great-pyramid-kings-chamber-candidate', name: "Great Pyramid — King's Chamber acoustic candidate", lat: 29.9792, lon: 31.1342,
     region: 'Giza, Egypt', period: 'Old Kingdom, 4th Dynasty, c. 26th century BCE',
     measuredFrequenciesHz: [110, 117], researchBandHz: 110, status: 'candidate-only',
-    summary: 'Research marker for claims that the granite King’s Chamber has low-frequency acoustic modes in the broad 110–117 Hz region; the supplied exact values are not treated as confirmed field measurements.',
-    measurementContext: 'Chamber modes depend on room geometry, boundary conditions, furnishings, source and receiver positions. No validated primary source was established here for a site-specific 110–117 Hz measured peak.',
-    caveat: 'Candidate only. These frequencies must not be described as proven tuning, an acoustic transformer, or intentional 110 Hz design without a traceable measurement study.',
+    summary: 'Research marker for claims of low-frequency chamber modes around 110–117 Hz and separate claims linking the chamber to A=432 Hz tuning. Neither claim is treated as proof that the chamber was intentionally tuned to either pitch.',
+    measurementContext: 'Chamber modes depend on room geometry, boundary conditions, source and receiver positions. The 110–117 Hz figures and the A=432 Hz association remain research claims here, not verified site-specific measurements of an acoustic tuning system.'
+    caveat: 'Candidate only. A=432 Hz is a musical tuning reference, not evidence of a room resonance; no evidence here proves the chamber was built for 432 Hz or that 110 Hz and 432 Hz form a designed system.'
     sources: [{ label: 'User-supplied reference: Interesting Engineering — temples and 111 Hz', url: 'https://interestingengineering.com/science/temples-resonates-frequency-111-hz', year: 2026, publication: 'Popular science article; claim requires primary-source verification' }]
   },
   {
@@ -218,5 +218,42 @@ export const ACOUSTIC_SITE_EVIDENCE: AcousticSiteEvidence[] = [
     measurementContext: 'Cave reverberation or amplification does not by itself establish a fixed resonance at 110 Hz; this candidate needs a traceable field study.',
     caveat: 'Do not treat the secondary-list frequency as measured fact until primary measurements and the tested cave/position are documented.',
     sources: [{ label: 'User-supplied reference: The History Blog — ancient acoustic sites', url: 'https://www.thehistoryblog.com/archives/4114', year: 2009, publication: 'Secondary article; primary measurement source needs verification' }]
+  },
+
+  {
+    id: 'vitthala-temple-musical-pillars-candidate',
+    name: 'Vitthala Temple — Musical Pillars',
+    lat: 15.3389, lon: 76.4672,
+    region: 'Hampi, Karnataka, India',
+    period: 'Vijayanagara period, primarily 15th–16th century CE',
+    measuredFrequenciesHz: [], status: 'candidate-only',
+    summary: 'Added as a musical-architecture site because the temple’s stone pillars are widely reported to produce different tones when struck. This is a variable-tone research category, not a verified Solfeggio-frequency installation.',
+    measurementContext: 'The supplied description mentions 56 pillars and variable musical notes. No calibrated frequency table or reproducible measurements for individual pillars are included in this record.',
+    caveat: 'Do not label the pillars as intentionally tuned to Solfeggio frequencies without measured pitch data and a primary study. Striking or touching protected heritage structures may be prohibited.',
+    sources: [{ label: 'UNESCO World Heritage Centre — Group of Monuments at Hampi', url: 'https://whc.unesco.org/en/list/241/', year: 2026, publication: 'Heritage site overview; not a frequency measurement study' }]
+  },
+  {
+    id: 'chavin-de-huantar-pututu-acoustics-candidate',
+    name: 'Chavín de Huántar — galleries and pututu acoustics',
+    lat: -9.5931, lon: -77.1778,
+    region: 'Ancash, Peru',
+    period: 'Formative-period ceremonial center, principally c. 1200–500 BCE',
+    measuredFrequenciesHz: [110, 120], researchBandHz: 110, status: 'candidate-only',
+    summary: 'Added as an archaeoacoustic site for the relationship between underground galleries and sound from Strombus-shell trumpets (pututus). The 110–120 Hz band is a research target from the supplied list, not a verified fixed site resonance.',
+    measurementContext: 'The site is known for galleries and archaeological evidence of shell trumpets. The exact 110–120 Hz range in the supplied list has not been verified here as a controlled in-situ resonance measurement.',
+    caveat: 'Evidence that instruments were used in a ceremonial space does not establish that the architecture was tuned to a specific frequency. Keep the frequency range marked as candidate-only.',
+    sources: [{ label: 'UNESCO World Heritage Centre — Chavín (Archaeological Site)', url: 'https://whc.unesco.org/en/list/330/', year: 2026, publication: 'Heritage site overview; not a frequency measurement study' }]
+  },
+  {
+    id: 'chartres-cathedral-432hz-claim-candidate',
+    name: 'Chartres Cathedral — 432 Hz tuning claim',
+    lat: 48.4480, lon: 1.4875,
+    region: 'Chartres, France',
+    period: 'Gothic cathedral, construction began in the 12th century CE',
+    measuredFrequenciesHz: [432], status: 'candidate-only',
+    summary: 'Added as a location associated with modern claims about sacred geometry and A=432 Hz tuning. This is a cultural/research claim marker, not a measured acoustic resonance of the cathedral.',
+    measurementContext: 'The supplied list links the cathedral’s proportions to 432 Hz, but architectural dimensions alone do not demonstrate a particular musical tuning standard. No calibrated measurement establishing a 432 Hz building resonance is recorded here.',
+    caveat: '432 Hz is a pitch reference used in some modern tuning discussions; it is not evidence of an ancient universal tuning standard or a natural room resonance. The historical claim requires primary documentary evidence.',
+    sources: [{ label: 'UNESCO World Heritage Centre — Chartres Cathedral', url: 'https://whc.unesco.org/en/list/81/', year: 2026, publication: 'Heritage site overview; not a frequency measurement study' }]
   },
 ];
