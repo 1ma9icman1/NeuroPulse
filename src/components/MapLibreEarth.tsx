@@ -11,6 +11,8 @@ export interface EarthMapPoint {
   color?: string;
   isCity?: boolean;
   evidenceStatus?: string;
+  measuredFrequenciesHz?: number[];
+  measurementSummary?: string;
 }
 export interface MapLibreEarthHandle {
   pointOfView: (view: { lat?: number; lng?: number; altitude?: number }, duration?: number) => void;
@@ -95,6 +97,7 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] },
           },
+          audioSites: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
         },
         layers: [
           { id: 'earth-imagery', type: 'raster', source: 'imagery', paint: { 'raster-opacity': 1, 'raster-saturation': 0.08, 'raster-contrast': 0.08 } },
@@ -106,6 +109,9 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
           { id: 'imported-history-polygons', type: 'fill', source: 'historicalImports', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': ['coalesce', ['get', 'color'], '#eab308'], 'fill-opacity': 0.18, 'fill-outline-color': '#fbbf24' } },
           { id: 'imported-history-lines', type: 'line', source: 'historicalImports', filter: ['in', ['geometry-type'], ['literal', ['LineString', 'MultiLineString']]], paint: { 'line-color': ['coalesce', ['get', 'color'], '#fbbf24'], 'line-width': 1.5, 'line-opacity': 0.85 } },
           { id: 'imported-history-points', type: 'circle', source: 'historicalImports', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 3.5, 'circle-color': ['coalesce', ['get', 'color'], '#fb923c'], 'circle-stroke-color': '#fff7ed', 'circle-stroke-width': 0.8 } },
+          { id: 'audio-wave-rings', type: 'circle', source: 'audioSites', paint: { 'circle-radius': 8, 'circle-color': ['coalesce', ['get', 'waveColor'], '#38bdf8'], 'circle-opacity': 0.32, 'circle-stroke-color': ['coalesce', ['get', 'waveColor'], '#38bdf8'], 'circle-stroke-width': 1.6, 'circle-stroke-opacity': 0.9 } },
+          { id: 'audio-site-core', type: 'circle', source: 'audioSites', paint: { 'circle-radius': 3.5, 'circle-color': ['coalesce', ['get', 'waveColor'], '#38bdf8'], 'circle-opacity': 1, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 0.8 } },
+          { id: 'audio-frequency-labels', type: 'symbol', source: 'audioSites', layout: { 'text-field': ['get', 'frequencyLabel'], 'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'], 'text-size': 10, 'text-offset': [0, 1.25], 'text-anchor': 'top', 'text-allow-overlap': false }, paint: { 'text-color': ['coalesce', ['get', 'waveColor'], '#7dd3fc'], 'text-halo-color': '#020617', 'text-halo-width': 1.2 } },
           { id: 'historical-site-dots', type: 'circle', source: 'sites', paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 0, 2.4, 3, 3.4, 7, 5],
             'circle-color': ['coalesce', ['get', 'color'], '#facc15'],
@@ -124,9 +130,18 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
     map.on('load', () => {
       const source = map.getSource('sites') as GeoJSONSource | undefined;
       if (source) source.setData(toFeatureCollection(pointsRef.current));
+      const audioSource = map.getSource('audioSites') as GeoJSONSource | undefined;
+      if (audioSource) audioSource.setData(toAudioFeatureCollection(pointsRef.current));
       updateImportedSource(map, importedRef.current, importedVisibleRef.current, yearRef.current);
       map.resize();
     });
+    map.on('click', 'audio-site-core', (event) => {
+      const name = event.features?.[0]?.properties?.name;
+      const point = pointsRef.current.find((item) => item.name === name);
+      if (point) callbackRef.current(point);
+    });
+    map.on('mouseenter', 'audio-site-core', () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'audio-site-core', () => { map.getCanvas().style.cursor = ''; });
     map.on('click', 'historical-site-dots', (event) => {
       const feature = event.features?.[0];
       const name = feature?.properties?.name;
@@ -151,6 +166,8 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
     const apply = () => {
       const source = map.getSource('sites') as GeoJSONSource | undefined;
       source?.setData(toFeatureCollection(points));
+      const audioSource = map.getSource('audioSites') as GeoJSONSource | undefined;
+      audioSource?.setData(toAudioFeatureCollection(points));
     };
     if (map.isStyleLoaded()) apply();
     else map.once('load', apply);
@@ -215,6 +232,24 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
     if (map) map.easeTo({ zoom: Math.max(0.85, Math.min(7, 1.25 + zoom * 0.55)), duration: 220 });
   }, [zoom]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    let frame = 0;
+    let lastUpdate = 0;
+    const animateWaves = (now: number) => {
+      if (now - lastUpdate > 65 && map.isStyleLoaded() && map.getLayer('audio-wave-rings')) {
+        const phase = (now % 2200) / 2200;
+        map.setPaintProperty('audio-wave-rings', 'circle-radius', 6 + phase * 13);
+        map.setPaintProperty('audio-wave-rings', 'circle-opacity', 0.42 * (1 - phase));
+        lastUpdate = now;
+      }
+      frame = requestAnimationFrame(animateWaves);
+    };
+    frame = requestAnimationFrame(animateWaves);
+    return () => cancelAnimationFrame(frame);
+  }, [compact]);
+
   return <div ref={hostRef} className="np-maplibre-earth" aria-label="Interactive 3D Earth map" />;
 });
 
@@ -246,6 +281,16 @@ function overpassToGeoJson(payload: any, year: number): GeoJSON.FeatureCollectio
     features.push({ type: 'Feature', id: `${element.type}/${element.id}`, geometry, properties: { ...tags, osm_id: element.id, osm_type: element.type, name: tags.name || tags['name:en'] || `${element.type} ${element.id}` } });
   }
   return { type: 'FeatureCollection', features };
+}
+
+function toAudioFeatureCollection(points: EarthMapPoint[]): GeoJSON.FeatureCollection {
+  const audioPoints = points.filter((point) => (point.measuredFrequenciesHz?.length || 0) > 0 || point.evidenceStatus);
+  return { type: 'FeatureCollection', features: audioPoints.map((point) => {
+    const frequencies = (point.measuredFrequenciesHz || []).filter((hz) => Number.isFinite(hz));
+    const waveColor = frequencies.some((hz) => Math.abs(hz - 110) <= 10) ? '#fb923c' : frequencies.some((hz) => Math.abs(hz - 432) <= 8) ? '#c084fc' : '#38bdf8';
+    const frequencyLabel = frequencies.length ? frequencies.map((hz) => `${hz} Hz`).join(' · ') : 'SOUND · CANDIDATE';
+    return { type: 'Feature', geometry: { type: 'Point', coordinates: [point.lon, point.lat] }, properties: { name: point.name, frequencyLabel, waveColor, evidenceStatus: point.evidenceStatus || 'reference' } };
+  }) };
 }
 
 function updateImportedSource(map: MapLibreMap, data: GeoJSON.FeatureCollection | null, enabled: boolean, year: number) {
