@@ -298,7 +298,7 @@ export default function App() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleRunTrinauralTest}
-            className={`hidden flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border shadow-sm ${
+            className={`hidden items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border shadow-sm ${
               trinauralTestStatus
                 ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.3)] animate-pulse'
                 : 'bg-[#060a12] border-slate-700 text-slate-300 hover:text-white hover:border-slate-500'
