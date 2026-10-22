@@ -297,7 +297,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Kyoto', lat: 35.0116, lon: 135.7681, year: 2026, isCity: true },
   ];
   // Start Top Plane with Earth filling most of the viewport; larger cameraZoom values move closer.
-  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(0.25, 0.75 - cameraZoom * 0.27) }, 350); }, [isEarthModeActive, cameraZoom]);
+  // Keep the initial Earth nearly full-height without clipping the globe at the screen edges.
+  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(0.8, 1.55 - cameraZoom * 0.3) }, 350); }, [isEarthModeActive, cameraZoom]);
 
   useEffect(() => {
     setEarthTextureLoaded(false);
