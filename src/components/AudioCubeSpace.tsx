@@ -1159,7 +1159,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         // Sun and planets use the Stardroid/JPL-style low-precision ephemeris and
         // the same celestial-sphere projection as the existing star catalogue.
         // They appear with Star Mode and update whenever the historical year changes.
-        timelinePlanetPositions.forEach((planet) => {
+        timelinePlanetPositions.forEach((planet: ReturnType<typeof getPlanetSkyPositions>[number]) => {
           const planetPosition = celestialPosition({ raDeg: planet.raDeg, decDeg: planet.decDeg });
           const pp = project3D(planetPosition.x, planetPosition.y, planetPosition.z, width, height);
           const radius = Math.max(2.5, planet.size * pp.depthScale);
