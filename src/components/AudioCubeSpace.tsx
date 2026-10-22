@@ -287,12 +287,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
   const [show110HzResearchComets, setShow110HzResearchComets] = useState<boolean>(false);
   const [showCities, setShowCities] = useState<boolean>(false);
-  const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
+  // Keep the initial Earth view clean; research/site overlays are opt-in layers.
+  const [showAncientStructures, setShowAncientStructures] = useState<boolean>(false);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
   const [showCosmicBeam, setShowCosmicBeam] = useState<boolean>(false);
   const [showLocationMenu, setShowLocationMenu] = useState<boolean>(false);
-  const [showMeasuredSoundSites, setShowMeasuredSoundSites] = useState<boolean>(true);
+  const [showMeasuredSoundSites, setShowMeasuredSoundSites] = useState<boolean>(false);
   const [showSolfeggioReference, setShowSolfeggioReference] = useState<boolean>(false);
   const [showNear110BandOnly, setShowNear110BandOnly] = useState<boolean>(false);
   const setAllConstellations = (enabled: boolean) => setConstellationsEnabled(Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, enabled])));
@@ -765,13 +766,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       ctx.save();
       ctx.scale(dpr, dpr);
 
-      // Keep the overlay transparent while the detailed globe is active so the space layer remains visible.
+      // The interactive 3D Earth owns this view. Stop the legacy 2D scene here:
+      // otherwise its stars, captions, angle labels, and geometry can draw over the globe.
       if (isEarthModeActive) {
         ctx.clearRect(0, 0, width, height);
-      } else {
-        ctx.fillStyle = isStarModeActive ? '#04060d' : '#060a12';
-        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+        animId = requestAnimationFrame(render);
+        return;
       }
+
+      ctx.fillStyle = isStarModeActive ? '#04060d' : '#060a12';
+      ctx.fillRect(0, 0, width, height);
 
       const bound = 8.0;
       // Shared projection origin: star tethers and angle geometry also render over the Earth globe.
@@ -2454,7 +2459,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto flex items-center justify-center">
             <Globe3D ref={globeRef} width={Math.max(320, (containerRef.current?.clientWidth || 800) * 0.96)}
               height={Math.max(320, (containerRef.current?.clientHeight || 600) * 0.96)}
-              globeImageUrl={geologicalTextureUrl}
+              // Use NASA's Blue Marble / land-ocean Earth texture for the live globe.
+              // Paleogeography textures remain active when a deep-time age is selected.
+              globeImageUrl={geologicalTimeMa === 0 ? 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png' : geologicalTextureUrl}
               bumpImageUrl={geologicalTimeMa === 0 ? "//unpkg.com/three-globe/example/img/earth-topology.png" : undefined}
               backgroundImageUrl="https://raw.githubusercontent.com/typpo/ancient-earth/master/images/galaxy_starfield.png"
               backgroundColor="rgba(0,0,0,0)"
