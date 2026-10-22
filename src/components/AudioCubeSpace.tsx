@@ -47,6 +47,7 @@ import {
   computeTriangleInteriorAngles,
   Relation711Result,
 } from '../data/celestialStars';
+import { getPlanetSkyPositions, isPlanetEphemerisYearInPreferredRange } from '../data/planetaryEphemeris';
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 import { ACOUSTIC_SITE_EVIDENCE } from '../data/acousticSiteEvidence';
 import { ANCIENT_STRUCTURE_DIMENSIONS } from '../data/ancientStructureDimensions';
@@ -311,6 +312,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const hasConstellationGeometry = (name: string) => CONSTELLATION_LINE_SHAPES.some((shape) => normalizeConstellationName(shape.name) === normalizeConstellationName(name));
   // Historical sky timeline spanning the last 12,000 years.
   const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
+  const timelinePlanetPositions = getPlanetSkyPositions(timelineYear);
+  const planetEphemerisYearIsPreferred = isPlanetEphemerisYearInPreferredRange(timelineYear);
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
   const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#60a5fa' : '#facc15', size: site.isCity ? 0.10 : 0.12, altitude: 0.012, layerCategory: site.isCity ? 'CITY' : 'ANCIENT SITE' })), ...(showAncientStructures ? ANCIENT_STRUCTURE_DIMENSIONS.filter((structure) => !earthSites.some((site: any) => !site.isCity && Math.abs(site.lat - structure.lat) < 0.08 && Math.abs(site.lon - structure.lon) < 0.08)).map((structure) => ({ name: structure.name, lat: structure.lat, lon: structure.lon, year: -3500, color: '#facc15', size: 0.12, altitude: 0.012, layerCategory: 'ANCIENT STRUCTURE HEIGHT', structuralHeightFt: structure.approximateHeightFt, heightBasis: structure.heightBasis, heightNote: structure.evidenceNote, numberSystem: structure.numberSystem, numberSystemNote: structure.numberSystemNote, orientationNote: structure.orientationNote, ritualContext: structure.ritualContext, isDimensionRecord: true })) : []), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.14, altitude: 0.016, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : []), ...(showAncientStructures ? LEGACY_HISTORICAL_SITES.filter((legacy) => !earthSites.some((site: any) => !site.isCity && site.name.toLowerCase() === legacy.name.toLowerCase()) && !ANCIENT_STRUCTURE_DIMENSIONS.some((structure) => structure.name.toLowerCase() === legacy.name.toLowerCase()) && !DEFAULT_EARTH_POINTS.some((point) => point.name.toLowerCase() === legacy.name.toLowerCase()) && timelineYear >= legacy.year).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: site.year, color: '#34d399', size: 0.115, altitude: 0.014, layerCategory: 'HISTORICAL & ARCHAEOLOGICAL', historicalRecord: true, researchReason: 'Historical or archaeological reference location included for research context. Its presence on the globe is not evidence of a specific resonance or frequency; that requires site-specific measurements.' })) : [])];
@@ -1172,6 +1175,32 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             const badge = isAssignedA ? 'A★' : isAssignedB ? 'B★' : 'C★';
             ctx.fillText(badge, sp.sx - 6, sp.sy - baseRadius - 5);
           }
+          ctx.restore();
+        });
+
+        // Sun and planets use the Stardroid/JPL-style low-precision ephemeris and
+        // the same celestial-sphere projection as the existing star catalogue.
+        // They appear with Star Mode and update whenever the historical year changes.
+        timelinePlanetPositions.forEach((planet) => {
+          const planetPosition = celestialPosition({ raDeg: planet.raDeg, decDeg: planet.decDeg });
+          const pp = project3D(planetPosition.x, planetPosition.y, planetPosition.z, width, height);
+          const radius = Math.max(2.5, planet.size * pp.depthScale);
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(pp.sx, pp.sy, radius, 0, Math.PI * 2);
+          ctx.fillStyle = planet.color;
+          ctx.shadowColor = planet.color;
+          ctx.shadowBlur = 10;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.arc(pp.sx, pp.sy, radius + 2.2, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillText(planet.name.toUpperCase(), pp.sx + radius + 5, pp.sy - 3);
           ctx.restore();
         });
 
@@ -2406,7 +2435,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
           <input aria-label="Historical year from 10,000 BCE to present" type="range" min="-10000" max={new Date().getUTCFullYear()} step="10" value={timelineYear} onChange={(e) => setTimelineYear(Number(e.target.value))} className="w-full accent-amber-400 cursor-pointer" />
           <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400"><span>10,000 BCE</span><span>{timelineYearsAgo.toLocaleString()} years before present</span><span>Present</span></div>
-          <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. Sky precession is first-order (~50.29″/yr); year-only rotation phase is illustrative, not an exact historical time-of-day. Berger 1978 describes long-term orbital/climate cycles, not a precision star-position catalogue.</div>
+          <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. With STAR MODE on, Sun and planets move with this year using a local Stardroid-derived ephemeris; its orbital elements are best for 1800–2050 CE, so ancient dates are illustrative. Sky precession is first-order (~50.29″/yr); year-only rotation phase is not an exact historical time-of-day.</div>
         </div>
       ) : (
         <button onClick={() => setIsTimelineActive(true)} className="absolute top-[4.6rem] left-3 z-20 pointer-events-auto rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-3 py-1.5 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline">TIMELINE OFF · SHOW</button>
