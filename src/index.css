@@ -26,3 +26,49 @@ body::-webkit-scrollbar,
   height: 0;
   display: none;
 }
+
+
+/* Shared interactive Earth and local site-map renderers. */
+.np-maplibre-earth {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: transparent;
+  border-radius: 50%;
+  isolation: isolate;
+}
+.np-maplibre-earth .maplibregl-map,
+.np-maplibre-earth .maplibregl-canvas-container,
+.np-maplibre-earth .maplibregl-canvas {
+  background: transparent !important;
+}
+.np-maplibre-earth .maplibregl-ctrl-group {
+  border: 1px solid rgba(148, 163, 184, .35);
+  background: rgba(2, 6, 23, .86);
+}
+.np-maplibre-earth .maplibregl-ctrl-group button { filter: invert(.88); }
+.np-maplibre-earth .maplibregl-ctrl-attrib {
+  background: rgba(2, 6, 23, .72);
+  color: #cbd5e1;
+  font-size: 9px;
+}
+.np-leaflet-site-map {
+  width: 100%;
+  height: 310px;
+  min-height: 260px;
+  background: #0b1220;
+}
+.np-leaflet-site-map .leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #0b1220;
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.np-leaflet-site-map .leaflet-control-attribution {
+  font-size: 9px;
+}
+@media (min-width: 768px) {
+  .np-leaflet-site-map { height: 390px; }
+}
