@@ -1472,8 +1472,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
-      // Channel pucks are hidden over the top-plane Earth until Star Mode is enabled.
-      if (!isEarthModeActive || isStarModeActive) {
+      // Channel pucks stay hidden until Star Mode is enabled, as requested.
+      if (isStarModeActive) {
         drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
         drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
         drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
