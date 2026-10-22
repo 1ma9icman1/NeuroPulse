@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import Globe3D from 'react-globe.gl';
 import { EarthSiteExplorer } from './EarthSiteExplorer';
 import { SolarSystemView } from './SolarSystemView';
@@ -50,6 +50,7 @@ import {
   Relation711Result,
 } from '../data/celestialStars';
 import { getPlanetSkyPositions, isPlanetEphemerisYearInPreferredRange } from '../data/planetaryEphemeris';
+import { HYGStar, HYG_STAR_CATALOG_SOURCE, loadHYGStarCatalog } from '../data/allStarCatalog';
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 import { ACOUSTIC_SITE_EVIDENCE } from '../data/acousticSiteEvidence';
 import { ANCIENT_STRUCTURE_DIMENSIONS } from '../data/ancientStructureDimensions';
@@ -411,6 +412,11 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
   const [isCelestialDeckCollapsed, setIsCelestialDeckCollapsed] = useState<boolean>(false);
   const [showDetailedStarInfo, setShowDetailedStarInfo] = useState<boolean>(true);
+  const [showAllStars, setShowAllStars] = useState(false);
+  const [allStarCatalog, setAllStarCatalog] = useState<HYGStar[]>([]);
+  const [allStarLoading, setAllStarLoading] = useState(false);
+  const [allStarLoadError, setAllStarLoadError] = useState<string | null>(null);
+  const [allStarsDistanceSlider, setAllStarsDistanceSlider] = useState(25);
   const [is24HourRotationActive, setIs24HourRotationActive] = useState(false);
   const [isSolarSystemMode, setIsSolarSystemMode] = useState(false);
   const [showSunCenterPrompt, setShowSunCenterPrompt] = useState(false);
@@ -679,6 +685,51 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     // Inline position callbacks are omitted to avoid running again on each parent render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [is24HourRotationActive, dailyRotationDegrees, lockedChannels, earthChannelTargets, starAId, starBId, starCId]);
+
+  const allStarsDistanceLimitLy = Math.round(10 * Math.pow(10, allStarsDistanceSlider / 25));
+  const visibleAllStarPositions = useMemo(() => {
+    if (!showAllStars || allStarCatalog.length === 0) return [];
+    const maximumDistance = 100000;
+    return allStarCatalog
+      .filter((star) => star.distanceLy <= allStarsDistanceLimitLy)
+      .map((star) => ({
+        star,
+        // Logarithmic spatial compression preserves near/far order without flattening
+        // every star onto the same sphere. The measured catalog distance drives radius.
+        position: celestialPosition(
+          { raDeg: star.raDeg, decDeg: star.decDeg },
+          2.0 + (Math.log1p(star.distanceLy) / Math.log1p(maximumDistance)) * 5.8
+        ),
+      }));
+  }, [showAllStars, allStarCatalog, allStarsDistanceLimitLy, timelineYear, dailyRotationDegrees]);
+
+  const loadAllStars = async () => {
+    if (allStarLoading) return;
+    setAllStarLoading(true);
+    setAllStarLoadError(null);
+    try {
+      const stars = await loadHYGStarCatalog();
+      setAllStarCatalog(stars);
+      setShowAllStars(true);
+    } catch (error) {
+      setAllStarLoadError(error instanceof Error ? error.message : 'Unable to load the HYG star catalog.');
+    } finally {
+      setAllStarLoading(false);
+    }
+  };
+
+  const handleToggleAllStars = () => {
+    if (showAllStars) {
+      setShowAllStars(false);
+      return;
+    }
+    setShowAllStars(true);
+    if (allStarCatalog.length === 0) void loadAllStars();
+  };
+
+  const formatLightYears = (distance: number) => distance >= 1000
+    ? Math.round(distance).toLocaleString() + ' ly'
+    : Math.round(distance).toLocaleString() + ' ly';
 
   // Initialize the selected real-star alignment on load; later user selections remain interactive.
   useEffect(() => {
@@ -1630,6 +1681,32 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           ctx.restore();
         });
 
+        // Draw the optional HYG catalog. The slider reveals catalog stars in distance
+        // order; only valid measured/derived distances are admitted by the parser above.
+        // Points are batched by stellar color to avoid one canvas fill operation per star.
+        if (showAllStars && visibleAllStarPositions.length > 0) {
+          const starBuckets = new Map<string, Array<{ x: number; y: number; radius: number }>>();
+          visibleAllStarPositions.forEach(({ star, position }) => {
+            const point = projectCelestial3D(position.x, position.y, position.z, width, height);
+            if (point.sx < -3 || point.sx > width + 3 || point.sy < -3 || point.sy > height + 3) return;
+            const radius = Math.max(0.4, Math.min(2.5, (1.8 - star.magnitude * 0.12) * point.depthScale));
+            const bucket = starBuckets.get(star.color) || [];
+            bucket.push({ x: point.sx, y: point.sy, radius });
+            if (!starBuckets.has(star.color)) starBuckets.set(star.color, bucket);
+          });
+          ctx.save();
+          starBuckets.forEach((points, color) => {
+            ctx.beginPath();
+            points.forEach((point) => {
+              ctx.moveTo(point.x + point.radius, point.y);
+              ctx.arc(point.x, point.y, point.radius, 0, Math.PI * 2);
+            });
+            ctx.fillStyle = color;
+            ctx.fill();
+          });
+          ctx.restore();
+        }
+
         // Sun and planets use the Stardroid/JPL-style low-precision ephemeris and
         // the same celestial-sphere projection as the existing star catalogue.
         // They appear with Star Mode and update whenever the historical year changes.
@@ -2001,6 +2078,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     constellationsEnabled,
     show110HzResearchComets,
     showDetailedStarInfo,
+    showAllStars,
+    visibleAllStarPositions,
     isEarthModeActive,
     is24HourRotationActive,
     timelineYear,
@@ -2353,6 +2432,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                     {isStarModeActive ? 'STARS ON' : 'STARS OFF'}
                   </button>
                   <button
+                    type="button"
+                    onClick={handleToggleAllStars}
+                    aria-pressed={showAllStars}
+                    className={`flex items-center gap-1 rounded border px-2 py-1 text-[10px] font-mono font-bold transition-colors ${showAllStars ? 'border-violet-300 bg-violet-400 text-slate-950' : 'border-violet-500/40 bg-slate-900 text-violet-200 hover:bg-violet-950/60'}`}
+                    title="Load the HYG real-star catalog only when enabled; the distance slider reveals stars nearest to farthest"
+                  >
+                    ✦ {showAllStars ? 'ALL STARS ON' : 'ALL STARS'}
+                  </button>
+                  <button
                     onClick={(event) => { event.stopPropagation(); setShowConstellationLines((value) => !value); }}
                     aria-pressed={showConstellationLines}
                     className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${showConstellationLines ? 'bg-sky-400 text-slate-950 border-sky-300' : 'bg-slate-900 text-slate-300 border-slate-700'}`}
@@ -2395,6 +2483,37 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                     </>
                   )}
                 </div>
+                {showAllStars && (
+                  <div className="rounded-lg border border-violet-500/40 bg-slate-950/95 p-2.5">
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+                      <span className="font-bold text-violet-200">REAL STARS · NEAR → FAR</span>
+                      <span className="text-white">{formatLightYears(allStarsDistanceLimitLy)}</span>
+                    </div>
+                    {allStarLoading && <div className="mt-2 text-[10px] text-violet-200 animate-pulse">Downloading and sorting HYG star distances…</div>}
+                    {allStarLoadError && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-rose-300">
+                        <span className="min-w-0 flex-1">{allStarLoadError}</span>
+                        <button type="button" onClick={() => void loadAllStars()} className="rounded border border-rose-500/60 px-2 py-1 text-rose-200 hover:bg-rose-950/70">RETRY</button>
+                      </div>
+                    )}
+                    {!allStarLoading && !allStarLoadError && allStarCatalog.length > 0 && (
+                      <>
+                        <input
+                          type="range" min={0} max={100} step={1}
+                          aria-label="Maximum star distance in light-years"
+                          value={allStarsDistanceSlider}
+                          onChange={(event) => setAllStarsDistanceSlider(Number(event.target.value))}
+                          className="mt-2 w-full accent-violet-400 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[8px] font-mono text-slate-500"><span>10 ly · nearest</span><span>1,000 ly</span><span>100,000 ly · farthest</span></div>
+                        <div className="mt-1 text-[9px] text-slate-300">
+                          {visibleAllStarPositions.length.toLocaleString()} / {allStarCatalog.length.toLocaleString()} catalog stars visible
+                        </div>
+                        <div className="mt-1 text-[8px] leading-relaxed text-slate-500">{HYG_STAR_CATALOG_SOURCE}. Positions use J2000 RA/Dec; 3D distances are logarithmically compressed for display. Missing-distance placeholders are excluded.</div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
