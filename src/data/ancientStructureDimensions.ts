@@ -201,23 +201,23 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     lat: 30.9628, lon: 46.1031, location: 'Dhi Qar, Iraq',
     approximateHeightFt: 100,
     heightBasis: 'Approximate reconstructed original height; surviving structure is lower.',
-    evidenceNote: 'Mesopotamian mathematical texts used sexagesimal (base-60) methods, although the system developed over time.',
+    evidenceNote: 'Mesopotamian mathematical texts used sexagesimal (base-60) methods, although the system developed over time. This establishes the wider scribal mathematics context, not proof that ziggurat dimensions were generated from powers of 60.',
     geometryClaim: 'Base-60 mathematics is important historical context, but does not by itself prove this monument encodes modern mathematical constants.',
     numberSystem: 'sexagesimal',
-    numberSystemNote: 'Mesopotamian scribal mathematics used sexagesimal notation. Modern time and angle conventions have a long history and should not be attributed to one monument.',
+    numberSystemNote: 'Mesopotamian scribal mathematics used sexagesimal notation. Base-60 is highly divisible, but evidence here does not show that builders used a 60-degree triangle as a standard square-survey template. Modern time and angle conventions have a long history and should not be attributed to one monument. Verify period-specific cubit, reed, nindan and ush conversions against dated metrological sources.'
     sourceUrl: 'https://whc.unesco.org/en/list/113'
   },
 
   {
     id: 'ancient-babylon-precinct',
-    name: 'Ancient Babylon — monumental precinct',
+    name: 'Etemenanki Ziggurat — Babylon',
     lat: 32.5364, lon: 44.4200, location: 'Babil Governorate, Iraq',
-    approximateHeightFt: 0,
-    heightBasis: 'City and monumental precinct; no single structure height assigned.',
-    evidenceNote: 'Babylonian scribal culture used and developed sexagesimal mathematical methods. The site includes multiple structures and historical phases.',
-    geometryClaim: 'Base-60 methods are well documented in Mesopotamian mathematics; linking them to a specific monument’s proportions requires separate evidence.',
+    approximateHeightFt: 300,
+    heightBasis: 'Highly approximate reconstruction associated with ancient textual dimensions; original height and reconstruction remain debated.',
+    evidenceNote: 'Etemenanki was Babylon’s major ziggurat and is often associated with the Tower of Babel tradition. Babylonian mathematics used sexagesimal notation, but this does not prove the building used a strict powers-of-60 design grid.',
+    geometryClaim: 'Claims that tiers followed exact 1/6 or 1/10 reductions, that foundations were based on 3,600 cubits, or that a 60-degree triangle was the standard layout tool require direct evidence from the relevant tablet or archaeological plan; they are not established by the general use of base-60 mathematics.',
     numberSystem: 'sexagesimal',
-    numberSystemNote: 'Sexagesimal methods were used in Mesopotamian mathematics and astronomy. Modern time and angle conventions reflect long historical transmission.',
+    numberSystemNote: 'Sexagesimal methods were used in Mesopotamian mathematics and astronomy. 60 is highly divisible, but the modern 60-minute hour and 360-degree circle reflect long histories and should not be credited to this building alone. Architectural unit conversions varied by period and context.'
     sourceUrl: 'https://whc.unesco.org/en/list/278/'
   },
 ];
