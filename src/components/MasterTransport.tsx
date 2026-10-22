@@ -61,7 +61,7 @@ export const MasterTransport: React.FC<MasterTransportProps> = ({
   return (
     <div className="bg-[#0b101c] rounded-xl border border-slate-800 p-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-4 select-none">
       {/* Brand & Transport Play Button */}
-      <div className="hidden">
+      <div style={{display:"none"}} className="hidden">
         <div className="flex flex-col">
           <span className="text-sm font-mono font-bold tracking-tight text-white flex items-center gap-1.5">
             <span className="text-cyan-400">AUDIOCUBE</span>
@@ -85,7 +85,7 @@ export const MasterTransport: React.FC<MasterTransportProps> = ({
       </div>
 
       {/* Preset Bank hidden by request; preset logic retained. */}
-      <div className="hidden" px-3 py-1.5 rounded-lg border border-slate-800">
+      <div style={{display:"none"}} className="hidden px-3 py-1.5 rounded-lg border border-slate-800">
         <Sparkles className="w-4 h-4 text-cyan-400" />
         <span className="text-xs font-mono text-slate-400">Trinaural Preset:</span>
         <select
