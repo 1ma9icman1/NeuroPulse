@@ -230,6 +230,43 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Reykjavik', lat: 64.1466, lon: -21.9426, year: 2026, isCity: true },
     { name: 'Honolulu', lat: 21.3099, lon: -157.8581, year: 2026, isCity: true },
     { name: 'Anchorage', lat: 61.2181, lon: -149.9003, year: 2026, isCity: true },
+    { name: 'São Paulo', lat: -23.5505, lon: -46.6333, year: 2026, isCity: true },
+    { name: 'Buenos Aires', lat: -34.6037, lon: -58.3816, year: 2026, isCity: true },
+    { name: 'Lima', lat: -12.0464, lon: -77.0428, year: 2026, isCity: true },
+    { name: 'Bogotá', lat: 4.711, lon: -74.0721, year: 2026, isCity: true },
+    { name: 'Toronto', lat: 43.6532, lon: -79.3832, year: 2026, isCity: true },
+    { name: 'Vancouver', lat: 49.2827, lon: -123.1207, year: 2026, isCity: true },
+    { name: 'Washington DC', lat: 38.9072, lon: -77.0369, year: 2026, isCity: true },
+    { name: 'Madrid', lat: 40.4168, lon: -3.7038, year: 2026, isCity: true },
+    { name: 'Athens', lat: 37.9838, lon: 23.7275, year: 2026, isCity: true },
+    { name: 'Jerusalem', lat: 31.7683, lon: 35.2137, year: 2026, isCity: true },
+    { name: 'Riyadh', lat: 24.7136, lon: 46.6753, year: 2026, isCity: true },
+    { name: 'Tehran', lat: 35.6892, lon: 51.389, year: 2026, isCity: true },
+    { name: 'Bangkok', lat: 13.7563, lon: 100.5018, year: 2026, isCity: true },
+    { name: 'Singapore', lat: 1.3521, lon: 103.8198, year: 2026, isCity: true },
+    { name: 'Hong Kong', lat: 22.3193, lon: 114.1694, year: 2026, isCity: true },
+    { name: 'Shanghai', lat: 31.2304, lon: 121.4737, year: 2026, isCity: true },
+    { name: 'Jakarta', lat: -6.2088, lon: 106.8456, year: 2026, isCity: true },
+    { name: 'Cape Town', lat: -33.9249, lon: 18.4241, year: 2026, isCity: true },
+    { name: 'Lagos', lat: 6.5244, lon: 3.3792, year: 2026, isCity: true },
+    { name: 'Addis Ababa', lat: 8.9806, lon: 38.7578, year: 2026, isCity: true },
+    { name: 'Melbourne', lat: -37.8136, lon: 144.9631, year: 2026, isCity: true },
+    { name: 'Oslo', lat: 59.9139, lon: 10.7522, year: 2026, isCity: true },
+    { name: 'Berlin', lat: 52.52, lon: 13.405, year: 2026, isCity: true },
+    { name: 'Amsterdam', lat: 52.3676, lon: 4.9041, year: 2026, isCity: true },
+    { name: 'Vienna', lat: 48.2082, lon: 16.3738, year: 2026, isCity: true },
+    { name: 'Prague', lat: 50.0755, lon: 14.4378, year: 2026, isCity: true },
+    { name: 'Warsaw', lat: 52.2297, lon: 21.0122, year: 2026, isCity: true },
+    { name: 'Dubai', lat: 25.2048, lon: 55.2708, year: 2026, isCity: true },
+    { name: 'Kolkata', lat: 22.5726, lon: 88.3639, year: 2026, isCity: true },
+    { name: 'Dhaka', lat: 23.8103, lon: 90.4125, year: 2026, isCity: true },
+    { name: 'Karachi', lat: 24.8607, lon: 67.0011, year: 2026, isCity: true },
+    { name: 'Hanoi', lat: 21.0278, lon: 105.8342, year: 2026, isCity: true },
+    { name: 'Manila', lat: 14.5995, lon: 120.9842, year: 2026, isCity: true },
+    { name: 'Perth', lat: -31.9505, lon: 115.8605, year: 2026, isCity: true },
+    { name: 'Edinburgh', lat: 55.9533, lon: -3.1883, year: 2026, isCity: true },
+    { name: 'Lisbon', lat: 38.7223, lon: -9.1393, year: 2026, isCity: true },
+    { name: 'Kyoto', lat: 35.0116, lon: 135.7681, year: 2026, isCity: true },
   ];
   useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(1.2, 5.2 - cameraZoom) }, 250); }, [isEarthModeActive, cameraZoom]);
 
@@ -2360,7 +2397,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               onPointClick={(d: any) => openEarthSite(d)} />
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
             {showAlignmentTriangles && showAncientStructures && cameraView !== 'front' && <div className="absolute left-3 bottom-3 z-[6] max-w-[min(92%,440px)] rounded-lg border border-sky-400/40 bg-slate-950/90 p-2 text-[10px] font-mono text-slate-200 pointer-events-none"><div className="font-bold text-sky-200">EARTH TRIANGULATION · nearest 3 neighbors/site</div><div className="mt-1">{trianglePolygons.length} connected triangles · repeated 5° angle bins: {repeatedTriangleAngles.length ? repeatedTriangleAngles.slice(0,5).map(([angle,count]) => angle+'° × '+count).join(' · ') : 'none detected in current set'}</div><div className="mt-1 text-slate-400">Approximate local-plane angles; projection, site coordinates and chance patterns matter.</div></div>}
-            <div className="absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden">
+            <div className={`absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden ${isEarthModeActive ? 'hidden' : ''}`}>
               <div className="relative w-[min(74vmin,76%)] aspect-square rounded-full border border-slate-300/20 animate-[spin_27s_linear_infinite]">
                 <div className="absolute inset-0 rounded-full border border-dashed border-slate-400/15" />
                 <div className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-gradient-to-br from-slate-100 via-slate-400 to-slate-700 shadow-[0_0_18px_rgba(226,232,240,.65)] animate-pulse"><span className="absolute top-7 right-[-28px] whitespace-nowrap text-[9px] font-mono text-slate-200 drop-shadow">MOON · orbit compressed</span></div>
