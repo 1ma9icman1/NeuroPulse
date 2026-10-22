@@ -17,6 +17,7 @@ export interface EarthMapPoint {
 export interface MapLibreEarthHandle {
   pointOfView: (view: { lat?: number; lng?: number; altitude?: number }, duration?: number) => void;
   selectAt: (x: number, y: number) => void;
+  panBy: (dx: number, dy: number) => void;
 }
 interface Props {
   points: EarthMapPoint[];
@@ -53,6 +54,7 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
       const targetZoom = view.altitude == null ? undefined : Math.max(1.2, Math.min(7, 5.4 - view.altitude * 2.1));
       map.flyTo({ center: [view.lng ?? map.getCenter().lng, view.lat ?? map.getCenter().lat], ...(targetZoom == null ? {} : { zoom: targetZoom }), duration: Math.max(0, duration), essential: true });
     },
+    panBy: (dx, dy) => { const map = mapRef.current; if (map) map.panBy([dx, dy], { duration: 0 }); },
     selectAt: (x, y) => {
       const map = mapRef.current;
       if (!map || !map.isStyleLoaded()) return;
