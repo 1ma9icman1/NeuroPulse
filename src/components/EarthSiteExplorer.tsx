@@ -16,10 +16,28 @@ interface Props {
   alignmentSites?: Array<{ name: string; lat: number; lon: number }>;
   audioSites?: LeafletAudioPoint[];
   onAssignChannel?: (channel: 'a' | 'b' | 'c', site: EarthSiteSelection) => void;
+  lockedChannels?: { a: boolean; b: boolean; c: boolean };
+  earthChannelTargets?: {
+    a: { lat: number; lng: number } | null;
+    b: { lat: number; lng: number } | null;
+    c: { lat: number; lng: number } | null;
+  };
+  onToggleChannelLock?: (channel: 'a' | 'b' | 'c') => void;
   onSelectMapLocation?: (site: EarthSiteSelection) => void;
 }
 
-export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description, alignmentSites = [], audioSites = [], onAssignChannel, onSelectMapLocation }) => {
+export const EarthSiteExplorer: React.FC<Props> = ({
+  site,
+  onClose,
+  description,
+  alignmentSites = [],
+  audioSites = [],
+  onAssignChannel,
+  lockedChannels,
+  earthChannelTargets,
+  onToggleChannelLock,
+  onSelectMapLocation,
+}) => {
   const [mapView, setMapView] = useState<'map' | 'terrain' | 'satellite'>('satellite');
   const [activeFrequency, setActiveFrequency] = useState<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -46,6 +64,14 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description,
   };
   if (!site) return null;
   const yearLabel = site.year < 0 ? Math.abs(site.year).toLocaleString() + ' BCE' : site.year + ' CE';
+  const channelAlreadyTargetsSite = (channel: 'a' | 'b' | 'c') => {
+    const target = earthChannelTargets?.[channel];
+    if (!target) return false;
+    const longitudeDifference = ((target.lng - site.lon + 540) % 360) - 180;
+    return Math.abs(target.lat - site.lat) < 0.01 && Math.abs(longitudeDifference) < 0.01;
+  };
+  const channelIsLockedHere = (channel: 'a' | 'b' | 'c') =>
+    channelAlreadyTargetsSite(channel) && Boolean(lockedChannels?.[channel]);
   const nearestSites = site ? alignmentSites.filter((other) => other.name !== site.name).map((other) => {
     const dLat = (other.lat - site.lat) * Math.PI / 180;
     const dLon = (other.lon - site.lon) * Math.PI / 180;
@@ -109,9 +135,43 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description,
             {nearestSites.length === 2 ? <><div className="mt-2 text-xs text-white">{site.name} · {nearestSites[0].name} · {nearestSites[1].name}</div><div className="mt-1 text-[10px] leading-relaxed text-slate-300">Approximate local-plane interior angles: {triangleAngles.join('° · ')}°. Nearby site distances: {nearestSites.map((near) => near.name + ' ' + Math.round(near.distanceKm).toLocaleString() + ' km').join(' · ')}.</div><div className="mt-1 text-[9px] text-slate-500">Geographic triangle for exploration only; the local-plane approximation is not a surveyed ancient alignment.</div></> : <div className="mt-2 text-[10px] text-slate-400">Not enough reference sites to calculate a triangle.</div>}
           </div>
           <div className="rounded-lg border border-cyan-500/30 bg-slate-950/80 p-3">
-            <div className="text-[10px] font-mono font-bold text-cyan-200">LOCK A / B / C TO THIS EARTH LOCATION</div>
-            <div className="mt-2 grid grid-cols-3 gap-2">{(['a', 'b', 'c'] as const).map((channel) => <button key={channel} type="button" onClick={() => onAssignChannel?.(channel, site)} className={'rounded border px-2 py-2 text-[10px] font-mono font-bold transition-all ' + (channel === 'a' ? 'border-cyan-500/60 bg-cyan-950/50 text-cyan-200 hover:bg-cyan-900' : channel === 'b' ? 'border-pink-500/60 bg-pink-950/50 text-pink-200 hover:bg-pink-900' : 'border-amber-500/60 bg-amber-950/50 text-amber-200 hover:bg-amber-900')}>LOCK CH-{channel.toUpperCase()}</button>)}</div>
-            <p className="mt-2 text-[9px] text-slate-500">Moves the selected channel to this location and locks it there in the spatial scene.</p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[10px] font-mono font-bold text-cyan-200">LOCK A / B / C TO THIS EARTH LOCATION</div>
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2">{(['a', 'b', 'c'] as const).map((channel) => {
+              const lockedHere = channelIsLockedHere(channel);
+              const assignedHere = channelAlreadyTargetsSite(channel);
+              const colorClass = channel === 'a'
+                ? 'border-cyan-500/60 bg-cyan-950/50 text-cyan-200 hover:bg-cyan-900'
+                : channel === 'b'
+                  ? 'border-pink-500/60 bg-pink-950/50 text-pink-200 hover:bg-pink-900'
+                  : 'border-amber-500/60 bg-amber-950/50 text-amber-200 hover:bg-amber-900';
+              return <button
+                key={channel}
+                type="button"
+                aria-pressed={lockedHere}
+                disabled={!onAssignChannel || (lockedHere && !onToggleChannelLock)}
+                onClick={() => {
+                  if (lockedHere) onToggleChannelLock?.(channel);
+                  else onAssignChannel?.(channel, site);
+                }}
+                title={lockedHere
+                  ? `Unlock Channel ${channel.toUpperCase()} from this Earth location`
+                  : assignedHere
+                    ? `Lock Channel ${channel.toUpperCase()} back to this Earth location`
+                    : `Move Channel ${channel.toUpperCase()} to ${site.name} and lock it there`}
+                className={'rounded border px-2 py-2 text-[10px] font-mono font-bold transition-all disabled:cursor-not-allowed disabled:opacity-60 ' + colorClass + (lockedHere ? ' ring-1 ring-emerald-300' : '')}
+              >
+                {lockedHere ? '🔒 UNLOCK ' : assignedHere ? '🔐 LOCK ' : 'LOCK '}CH-{channel.toUpperCase()}
+              </button>;
+            })}</div>
+            <div className="mt-2 flex flex-wrap gap-2 text-[9px] font-mono">
+              {(['a', 'b', 'c'] as const).map((channel) => <span key={channel} className={channelIsLockedHere(channel) ? 'text-emerald-300' : earthChannelTargets?.[channel] ? 'text-amber-200' : 'text-slate-500'}>
+                CH-{channel.toUpperCase()}: {channelIsLockedHere(channel) ? 'LOCKED HERE' : channelAlreadyTargetsSite(channel) ? 'TARGET SAVED · UNLOCKED' : earthChannelTargets?.[channel] ? 'LOCKED TO ANOTHER SITE' : 'NOT ASSIGNED'}
+              </span>)}
+            </div>
+            <p className="mt-2 text-[9px] leading-relaxed text-slate-500">Locking places the channel at these coordinates and keeps its Earth-fixed target synchronized with the selected simulation year. The matching A/B/C pin on the globe shows its assignment. Unlocking leaves the target available to lock again.</p>
           </div>
           <div className="rounded-lg border border-violet-500/30 bg-slate-950/80 p-3">
             <div className="text-[10px] font-mono font-bold text-violet-200">STAR & MOON COMPARISON</div>
