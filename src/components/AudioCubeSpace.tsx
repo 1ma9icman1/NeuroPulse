@@ -60,6 +60,17 @@ import {
 import { calculateSubstellarPoint, fetchIersDut1Seconds, fetchPlaceImage, resolveStarAstrometry, EarthTarget, PlaceImage } from '../services/celestialEarthData';
 
 
+const calculateTimelineGmstDeg = (year: number): number => {
+  const date = new Date(0);
+  date.setUTCFullYear(year, 0, 1);
+  date.setUTCHours(12, 0, 0, 0);
+  const jd = date.getTime() / 86400000 + 2440587.5;
+  const centuries = (jd - 2451545.0) / 36525.0;
+  const gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) +
+    0.000387933 * centuries * centuries - centuries * centuries * centuries / 38710000;
+  return ((gmst % 360) + 360) % 360;
+};
+
 interface AudioCubeSpaceProps {
   aPos: SpatialPosition;
   bPos: SpatialPosition;
@@ -331,7 +342,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   }, [earthTextureUrl]);
 
   // Star Celestial Alignment Mode
-  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(false);
+  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
+  const [showConstellationLines, setShowConstellationLines] = useState<boolean>(false);
   const IAU_CONSTELLATIONS = ["Andromeda","Antlia","Apus","Aquarius","Aquila","Ara","Aries","Auriga","Bootes","Caelum","Camelopardalis","Cancer","Canes Venatici","Canis Major","Canis Minor","Capricornus","Carina","Cassiopeia","Centaurus","Cepheus","Cetus","Chamaeleon","Circinus","Columba","Coma Berenices","Corona Australis","Corona Borealis","Corvus","Crater","Crux","Cygnus","Delphinus","Dorado","Draco","Equuleus","Eridanus","Fornax","Gemini","Grus","Hercules","Horologium","Hydra","Hydrus","Indus","Lacerta","Leo","Leo Minor","Lepus","Libra","Lupus","Lynx","Lyra","Mensa","Microscopium","Monoceros","Musca","Norma","Octans","Ophiuchus","Orion","Pavo","Pegasus","Perseus","Phoenix","Pictor","Pisces","Piscis Austrinus","Puppis","Pyxis","Reticulum","Sagitta","Sagittarius","Scorpius","Sculptor","Scutum","Serpens","Sextans","Taurus","Telescopium","Triangulum","Triangulum Australe","Tucana","Ursa Major","Ursa Minor","Vela","Virgo","Volans","Vulpecula"];
   const [constellationsEnabled, setConstellationsEnabled] = useState<Record<string, boolean>>(() => Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, true])));
   const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
@@ -741,6 +753,47 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     [cameraView, cameraYaw, cameraPitch, cameraZoom]
   );
 
+  const unprojectOrbitPlane = (
+    screenX: number,
+    screenY: number,
+    fixedY: number,
+    width: number,
+    height: number,
+    startX: number,
+    startZ: number
+  ): { x: number; z: number } => {
+    const baseScale = Math.min(width, height) * 0.042 * cameraZoom;
+    if (cameraView === 'top') {
+      return {
+        x: Math.max(-8, Math.min(8, (screenX - width / 2) / (baseScale * 1.25))),
+        z: Math.max(-8, Math.min(8, (screenY - height / 2) / (baseScale * 1.25))),
+      };
+    }
+
+    let guessX = startX;
+    let guessZ = startZ;
+    const epsilon = 0.02;
+    for (let iteration = 0; iteration < 9; iteration++) {
+      const point = project3D(guessX, fixedY, guessZ, width, height);
+      const errorX = screenX - point.sx;
+      const errorY = screenY - point.sy;
+      if (Math.hypot(errorX, errorY) < 0.35) break;
+      const pointX = project3D(guessX + epsilon, fixedY, guessZ, width, height);
+      const pointZ = project3D(guessX, fixedY, guessZ + epsilon, width, height);
+      const j11 = (pointX.sx - point.sx) / epsilon;
+      const j21 = (pointX.sy - point.sy) / epsilon;
+      const j12 = (pointZ.sx - point.sx) / epsilon;
+      const j22 = (pointZ.sy - point.sy) / epsilon;
+      const determinant = j11 * j22 - j12 * j21;
+      if (Math.abs(determinant) < 1e-6) break;
+      const stepX = Math.max(-2.5, Math.min(2.5, (errorX * j22 - errorY * j12) / determinant));
+      const stepZ = Math.max(-2.5, Math.min(2.5, (j11 * errorY - j21 * errorX) / determinant));
+      guessX = Math.max(-8, Math.min(8, guessX + stepX));
+      guessZ = Math.max(-8, Math.min(8, guessZ + stepZ));
+    }
+    return { x: Number(guessX.toFixed(3)), z: Number(guessZ.toFixed(3)) };
+  };
+
   // Render 3D scene & Star Space & Top Plane Overlay
   useEffect(() => {
     let animId: number;
@@ -817,6 +870,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
+      // The WebGL Earth view owns its geography; do not paint cube-space content on top of it.
+      if (!isEarthModeActive) {
       // 2. Star-field particles from the working starthing 3D orbit scene.
       // These are rendered in this same orbit canvas, not in a separate sky-map window.
       if (isStarModeActive) {
@@ -912,14 +967,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       if (!isEarthModeActive) {
       // Sidereal phase for Jan 1 noon in selected year. A year-only slider cannot recover an ancient time-of-day.
-      const jd = Date.UTC(timelineYear, 0, 1, 12, 0, 0) / 86400000 + 2440587.5;
-      const centuries = (jd - 2451545.0) / 36525.0;
-      const gmstDeg = ((280.46061837 + 360.98564736629 * (jd - 2451545.0) +
-        0.000387933 * centuries * centuries - centuries * centuries * centuries / 38710000) % 360 + 360) % 360;
+      const gmstDeg = calculateTimelineGmstDeg(timelineYear);
       const earthRadius = 3.35;
       const earthPoint = (lat: number, lon: number, radius = earthRadius) =>
         latLonToCartesian(lat, lon, radius, gmstDeg, 23.439281);
       const cameraFront = (p: { x: number; y: number; z: number }) => {
+        if (cameraView !== 'perspective') return p.z < 0.15;
         const yaw = (cameraYaw * Math.PI) / 180;
         const pitch = (cameraPitch * Math.PI) / 180;
         const rz = p.x * Math.sin(yaw) + p.z * Math.cos(yaw);
@@ -927,8 +980,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         return rz2 < 0.15;
       };
       const earthCenter = project3D(0, 0, 0, width, height);
-      const earthEdge = project3D(earthRadius, 0, 0, width, height);
-      const earthScreenRadius = Math.hypot(earthEdge.sx - earthCenter.sx, earthEdge.sy - earthCenter.sy);
+      // Perspective silhouette remains circular and the same apparent size at every orbit yaw/pitch.
+      const earthScreenRadius = cameraView === 'perspective'
+        ? (baseScale * 0.065 * 350 * earthRadius) / Math.sqrt(28 * 28 - earthRadius * earthRadius)
+        : earthRadius * baseScale * 1.25;
+      const earthRenderYaw = cameraView === 'perspective' ? cameraYaw : 0;
+      const earthRenderPitch = cameraView === 'perspective' ? cameraPitch : 0;
       ctx.save();
       const earthGradient = ctx.createRadialGradient(
         earthCenter.sx - earthScreenRadius * 0.32, earthCenter.sy - earthScreenRadius * 0.35,
@@ -949,8 +1006,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         const texH = tex.naturalHeight || tex.height;
         const outputSize = 384;
         const cacheKey = [
-          earthTextureUrl, timelineYear, cameraYaw.toFixed(2), cameraPitch.toFixed(2),
-          texW, texH
+          earthTextureUrl, timelineYear, earthRenderYaw.toFixed(2), earthRenderPitch.toFixed(2),
+          cameraView, texW, texH
         ].join('|');
         let sphereCanvas = earthSphereCanvasRef.current;
         if (!sphereCanvas) {
@@ -973,14 +1030,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             sourceContext.drawImage(tex, 0, 0, texW, texH);
             const sourcePixels = sourceContext.getImageData(0, 0, texW, texH).data;
             const output = outputContext.createImageData(outputSize, outputSize);
-            const yaw = cameraYaw * Math.PI / 180;
-            const pitch = cameraPitch * Math.PI / 180;
+            const yaw = earthRenderYaw * Math.PI / 180;
+            const pitch = earthRenderPitch * Math.PI / 180;
             const cosYaw = Math.cos(yaw), sinYaw = Math.sin(yaw);
             const cosPitch = Math.cos(pitch), sinPitch = Math.sin(pitch);
             const tilt = 23.439281 * Math.PI / 180;
             const cosTilt = Math.cos(tilt), sinTilt = Math.sin(tilt);
             const radiusPx = outputSize / 2;
-            const lightX = -0.42, lightY = 0.46, lightZ = 0.78;
+            const cameraDistance = 28;
+            const tangentScale = earthRadius / Math.sqrt(cameraDistance * cameraDistance - earthRadius * earthRadius);
+            const lightX = -0.42, lightY = 0.46, lightZ = -0.78;
 
             for (let py = 0; py < outputSize; py++) {
               const ny = (radiusPx - py - 0.5) / radiusPx;
@@ -993,24 +1052,49 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   continue;
                 }
 
-                const frontZ = Math.sqrt(1 - rr);
-                // Undo the current orbit-camera rotations to recover Earth's surface normal.
-                const yAfterPitch = ny * cosPitch + frontZ * sinPitch;
-                const zAfterYaw = -ny * sinPitch + frontZ * cosPitch;
-                const worldX = nx * cosYaw + zAfterYaw * sinYaw;
-                const worldZ = -nx * sinYaw + zAfterYaw * cosYaw;
-                // Undo Earth's axial tilt and the historical sidereal rotation used by site dots.
+                let sphereX: number;
+                let sphereY: number;
+                let sphereZ: number;
+                if (cameraView === 'perspective') {
+                  // Invert the exact perspective projection used by project3D.
+                  const rayX = nx * tangentScale;
+                  const rayY = ny * tangentScale;
+                  const rayR2 = rayX * rayX + rayY * rayY;
+                  const discriminant = cameraDistance * cameraDistance -
+                    (rayR2 + 1) * (cameraDistance * cameraDistance - earthRadius * earthRadius);
+                  if (discriminant < 0) {
+                    output.data[offset + 3] = 0;
+                    continue;
+                  }
+                  const depth = (cameraDistance - Math.sqrt(discriminant)) / (rayR2 + 1);
+                  sphereX = rayX * depth;
+                  sphereY = rayY * depth;
+                  sphereZ = depth - cameraDistance;
+                } else {
+                  sphereX = nx * earthRadius;
+                  sphereY = ny * earthRadius;
+                  sphereZ = -Math.sqrt(Math.max(0, earthRadius * earthRadius - sphereX * sphereX - sphereY * sphereY));
+                }
+
+                // Undo view rotation, Earth axial tilt and sidereal rotation for each surface pixel.
+                const yAfterPitch = sphereY * cosPitch + sphereZ * sinPitch;
+                const zAfterYaw = -sphereY * sinPitch + sphereZ * cosPitch;
+                const worldX = sphereX * cosYaw + zAfterYaw * sinYaw;
+                const worldZ = -sphereX * sinYaw + zAfterYaw * cosYaw;
                 const unTitledY = yAfterPitch * cosTilt + worldZ * sinTilt;
                 const unTitledZ = -yAfterPitch * sinTilt + worldZ * cosTilt;
-                const latitude = Math.asin(Math.max(-1, Math.min(1, unTitledY)));
+                const latitude = Math.asin(Math.max(-1, Math.min(1, unTitledY / earthRadius)));
                 let longitude = Math.atan2(worldX, unTitledZ) * 180 / Math.PI - gmstDeg;
                 longitude = ((longitude + 180) % 360 + 360) % 360 - 180;
                 const u = Math.min(texW - 1, Math.max(0, Math.floor(((longitude + 180) / 360) * texW)));
                 const v = Math.min(texH - 1, Math.max(0, Math.floor(((90 - latitude * 180 / Math.PI) / 180) * texH)));
                 const sourceOffset = (v * texW + u) * 4;
-                const diffuse = Math.max(0, nx * lightX + ny * lightY + frontZ * lightZ);
-                const shade = 0.42 + 0.58 * diffuse;
-                output.data[offset] = sourcePixels[sourceOffset] * shade;
+                const diffuse = Math.max(0,
+                  (sphereX / earthRadius) * lightX +
+                  (sphereY / earthRadius) * lightY +
+                  (sphereZ / earthRadius) * lightZ);
+                const shade = 0.38 + 0.62 * diffuse;
+                output.data[offset] = sourcePixels[sourceOffset] * shade;                output.data[offset] = sourcePixels[sourceOffset] * shade;
                 output.data[offset + 1] = sourcePixels[sourceOffset + 1] * shade;
                 output.data[offset + 2] = sourcePixels[sourceOffset + 2] * shade;
                 output.data[offset + 3] = 255;
@@ -1077,7 +1161,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         { name: 'Honolulu', lat: 21.3099, lon: -157.8581 }, { name: 'Anchorage', lat: 61.2181, lon: -149.9003 },
       ];
       const labelEarthPoint = (_name: string, lat: number, lon: number, color: string, isCity = false) => {
-        const v = earthPoint(lat, lon, earthRadius * 1.012);
+        const v = earthPoint(lat, lon, earthRadius * 1.002);
         if (!cameraFront(v)) return;
         const p = project3D(v.x, v.y, v.z, width, height);
         ctx.beginPath();
@@ -1215,6 +1299,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       // 5. Render Real-World Stars and Constellation Edges (Star Mode)
       if (isStarModeActive) {
+        // Constellation lines are opt-in; star points remain visible independently.
+        if (showConstellationLines) {
         // Draw Constellation Lines
         ctx.save();
         const pulsePhase = (performance.now() / 70) % 18;
@@ -1259,6 +1345,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.setLineDash([]);
         ctx.shadowBlur = 0;
         ctx.restore();
+        }
 
         // Draw Real Stars
         // Star points are independent of constellation-line visibility.
@@ -1642,6 +1729,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
+      }
       ctx.restore();
       animId = requestAnimationFrame(render);
     };
@@ -1661,12 +1749,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     cFreq,
     isRunning,
     isStarModeActive,
+    showConstellationLines,
     constellationsEnabled,
     show110HzResearchComets,
     showDetailedStarInfo,
     isEarthModeActive,
     timelineYear,
     earthTextureLoaded,
+    earthTextureUrl,
     starAId,
     starBId,
     starCId,
@@ -1687,74 +1777,63 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
     const width = rect.width;
     const height = rect.height;
+    const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
+    const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
+    const pc = project3D(cPos.x, cPos.y, cPos.z, width, height);
+    const distA = Math.hypot(x - pa.sx, y - pa.sy);
+    const distB = Math.hypot(x - pb.sx, y - pb.sy);
+    const distC = Math.hypot(x - pc.sx, y - pc.sy);
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
 
-    // 1. Check if user clicked directly on any real star
+    // Pucks win hit-testing so a channel on a star can still be dragged.
+    // Shift-click deliberately selects an overlapping star instead.
+    if (!e.shiftKey && Math.min(distA, distB, distC) < 22) {
+      const channel: 'a' | 'b' | 'c' = distA <= distB && distA <= distC ? 'a' : distB <= distC ? 'b' : 'c';
+      setActiveDrag(channel);
+      setHoverNode(channel);
+      setLockedChannels((prev) => ({ ...prev, [channel]: false }));
+      setEarthChannelTargets((prev) => ({ ...prev, [channel]: null }));
+      if (channel === 'a') setStarAId('');
+      else if (channel === 'b') setStarBId('');
+      else setStarCId('');
+      setClickedStar(null);
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
+
     if (isStarModeActive) {
-      for (const star of REAL_CELESTIAL_STARS.filter((item) => isConstellationEnabled(item.constellation))) {
+      for (const star of REAL_CELESTIAL_STARS) {
         const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+        const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
         if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
-          // Snap currently selected target channel to this star and stay there!
           handleSnapChannelToStar(snapTargetChannel, star);
           setClickedStar(star);
           return;
         }
       }
     }
+    if (clickedStar) setClickedStar(null);
 
-    // Dismiss clicked star modal if clicking elsewhere
-    if (clickedStar) {
-      setClickedStar(null);
+    if (Math.min(distA, distB, distC) < 22) {
+      const channel: 'a' | 'b' | 'c' = distA <= distB && distA <= distC ? 'a' : distB <= distC ? 'b' : 'c';
+      setActiveDrag(channel);
+      setHoverNode(channel);
+      setLockedChannels((prev) => ({ ...prev, [channel]: false }));
+      setEarthChannelTargets((prev) => ({ ...prev, [channel]: null }));
+      if (channel === 'a') setStarAId('');
+      else if (channel === 'b') setStarBId('');
+      else setStarCId('');
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      return;
     }
-
-    const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
-    const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
-    const pc = project3D(cPos.x, cPos.y, cPos.z, width, height);
-
-    const distA = Math.hypot(x - pa.sx, y - pa.sy);
-    const distB = Math.hypot(x - pb.sx, y - pb.sy);
-    const distC = Math.hypot(x - pc.sx, y - pc.sy);
-
-    dragStartPos.current = { x: e.clientX, y: e.clientY };
-
-    if (distA < 22) {
-      // If locked to star, prevent accidental displacement unless shift is held
-      if (isStarModeActive && lockedChannels.a && !e.shiftKey) {
-        setSnapFeedback(`★ CH-A IS LOCKED TO STAR. Hold Shift to override.`);
-        window.setTimeout(() => setSnapFeedback(null), 2500);
-        return;
-      }
-      setActiveDrag('a');
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    } else if (distB < 22) {
-      if (isStarModeActive && lockedChannels.b && !e.shiftKey) {
-        setSnapFeedback(`★ CH-B IS LOCKED TO STAR. Hold Shift to override.`);
-        window.setTimeout(() => setSnapFeedback(null), 2500);
-        return;
-      }
-      setActiveDrag('b');
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    } else if (distC < 22) {
-      if (isStarModeActive && lockedChannels.c && !e.shiftKey) {
-        setSnapFeedback(`★ CH-C IS LOCKED TO STAR. Hold Shift to override.`);
-        window.setTimeout(() => setSnapFeedback(null), 2500);
-        return;
-      }
-      setActiveDrag('c');
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    } else {
-      // Orbit Camera
-      setActiveDrag('camera');
-      cameraStartAngle.current = { yaw: cameraYaw, pitch: cameraPitch };
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    }
+    setActiveDrag('camera');
+    cameraStartAngle.current = { yaw: cameraYaw, pitch: cameraPitch };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -1783,10 +1862,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         const newY = Math.max(-8, Math.min(8, aPos.y + dy));
         dragStartPos.current.y = e.clientY;
         onUpdateAPos({ ...aPos, y: Number(newY.toFixed(1)) });
-      } else {
+      } else if (cameraView === 'front') {
         const newX = Math.max(-8, Math.min(8, (x - cx) / (baseScale * 1.25)));
-        const newZ = Math.max(-8, Math.min(8, (y - cy) / (baseScale * 1.25)));
-        onUpdateAPos({ ...aPos, x: Number(newX.toFixed(1)), z: Number(newZ.toFixed(1)) });
+        const newY = Math.max(-8, Math.min(8, (cy - y) / (baseScale * 1.25)));
+        onUpdateAPos({ ...aPos, x: Number(newX.toFixed(1)), y: Number(newY.toFixed(1)) });
+      } else {
+        const mapped = unprojectOrbitPlane(x, y, aPos.y, width, height, aPos.x, aPos.z);
+        onUpdateAPos({ ...aPos, x: mapped.x, z: mapped.z });
       }
     } else if (activeDrag === 'b') {
       if (e.shiftKey) {
@@ -1794,10 +1876,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         const newY = Math.max(-8, Math.min(8, bPos.y + dy));
         dragStartPos.current.y = e.clientY;
         onUpdateBPos({ ...bPos, y: Number(newY.toFixed(1)) });
-      } else {
+      } else if (cameraView === 'front') {
         const newX = Math.max(-8, Math.min(8, (x - cx) / (baseScale * 1.25)));
-        const newZ = Math.max(-8, Math.min(8, (y - cy) / (baseScale * 1.25)));
-        onUpdateBPos({ ...bPos, x: Number(newX.toFixed(1)), z: Number(newZ.toFixed(1)) });
+        const newY = Math.max(-8, Math.min(8, (cy - y) / (baseScale * 1.25)));
+        onUpdateBPos({ ...bPos, x: Number(newX.toFixed(1)), y: Number(newY.toFixed(1)) });
+      } else {
+        const mapped = unprojectOrbitPlane(x, y, bPos.y, width, height, bPos.x, bPos.z);
+        onUpdateBPos({ ...bPos, x: mapped.x, z: mapped.z });
       }
     } else if (activeDrag === 'c') {
       if (e.shiftKey) {
@@ -1805,10 +1890,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         const newY = Math.max(-8, Math.min(8, cPos.y + dy));
         dragStartPos.current.y = e.clientY;
         onUpdateCPos({ ...cPos, y: Number(newY.toFixed(1)) });
-      } else {
+      } else if (cameraView === 'front') {
         const newX = Math.max(-8, Math.min(8, (x - cx) / (baseScale * 1.25)));
-        const newZ = Math.max(-8, Math.min(8, (y - cy) / (baseScale * 1.25)));
-        onUpdateCPos({ ...cPos, x: Number(newX.toFixed(1)), z: Number(newZ.toFixed(1)) });
+        const newY = Math.max(-8, Math.min(8, (cy - y) / (baseScale * 1.25)));
+        onUpdateCPos({ ...cPos, x: Number(newX.toFixed(1)), y: Number(newY.toFixed(1)) });
+      } else {
+        const mapped = unprojectOrbitPlane(x, y, cPos.y, width, height, cPos.x, cPos.z);
+        onUpdateCPos({ ...cPos, x: mapped.x, z: mapped.z });
       }
     } else {
       const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
@@ -1827,7 +1915,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       // Star Hover detection
       if (isStarModeActive) {
         let found: CelestialStar | null = null;
-        for (const star of REAL_CELESTIAL_STARS.filter((item) => isConstellationEnabled(item.constellation))) {
+        for (const star of REAL_CELESTIAL_STARS) {
           const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
@@ -1965,6 +2053,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   </button>
                   {isStarModeActive && (
                     <>
+                      <button
+                        onClick={() => setShowConstellationLines((value) => !value)}
+                        className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${showConstellationLines ? 'bg-sky-400 text-slate-950 border-sky-300' : 'bg-slate-900 text-slate-300 border-slate-700'}`}
+                        title="Toggle constellation connecting lines without hiding individual stars"
+                      >
+                        CONSTELLATIONS {showConstellationLines ? 'ON' : 'OFF'}
+                      </button>
                       {(['a', 'b', 'c'] as const).map((channel) => (
                         <button
                           key={channel}
