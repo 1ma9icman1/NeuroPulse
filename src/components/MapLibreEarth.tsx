@@ -140,6 +140,11 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
       const point = pointsRef.current.find((item) => item.name === name);
       if (point) callbackRef.current(point);
     });
+    map.on('click', (event) => {
+      const interactive = map.queryRenderedFeatures(event.point, { layers: ['audio-site-core', 'historical-site-dots'] });
+      if (interactive.length) return;
+      callbackRef.current({ name: 'Pinned Earth Location', lat: event.lngLat.lat, lon: event.lngLat.lng, year: yearRef.current, color: '#38bdf8' });
+    });
     map.on('mouseenter', 'audio-site-core', () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', 'audio-site-core', () => { map.getCanvas().style.cursor = ''; });
     map.on('click', 'historical-site-dots', (event) => {
