@@ -497,6 +497,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     c: { lat: number; lng: number } | null;
   }>({ a: null, b: null, c: null });
 
+  // Recompute the inertial 3D position of each locked Earth-fixed site as the
+  // historical simulation year changes; the map/globe marker stays at its lat/lng.
+  useEffect(() => {
+    const gmstDeg = calculateTimelineGmstDeg(timelineYear);
+    (['a', 'b', 'c'] as const).forEach((channel) => {
+      const target = earthChannelTargets[channel];
+      if (!target || !lockedChannels[channel]) return;
+      const position = latLonToCartesian(target.lat, target.lng, 3.42, gmstDeg, 23.439281);
+      if (channel === 'a') onUpdateAPos(position);
+      else if (channel === 'b') onUpdateBPos(position);
+      else onUpdateCPos(position);
+    });
+    // Position callbacks are supplied inline by the parent; target/lock/time state
+    // is sufficient to avoid an update loop when callbacks are re-created.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timelineYear, earthChannelTargets, lockedChannels]);
+
   const earthChannelMarkers = (['a', 'b', 'c'] as const).flatMap((channel) => {
     const target = earthChannelTargets[channel];
     if (!target) return [];
@@ -505,6 +522,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       name: `CH-${channel.toUpperCase()}`,
       channel,
       isChannelTarget: true,
+      locked: lockedChannels[channel],
       lat: target.lat,
       lon: target.lng,
       color,
@@ -651,6 +669,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
   // Snap channel to a star and lock it in place so it stays there
   const handleSnapChannelToStar = (channel: 'a' | 'b' | 'c', star: CelestialStar) => {
+    // A new star assignment replaces any previously assigned Earth target.
+    setEarthChannelTargets((prev) => ({ ...prev, [channel]: null }));
     const nextCount = clickedStarCount + 1;
     setClickedStarCount(nextCount);
     setShowTriangleAngles(true);
@@ -691,7 +711,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const position = latLonToCartesian(lat, lng, 3.42, gmstDeg, 23.439281);
 
     setEarthChannelTargets((prev) => ({ ...prev, [channel]: { lat, lng } }));
-    setLockedChannels((prev) => ({ ...prev, [channel]: false }));
+    // Assigning an Earth location means lock there, not just move once.
+    setLockedChannels((prev) => ({ ...prev, [channel]: true }));
     setClickedStar(null);
     setShowTriangleAngles(false);
 
@@ -713,6 +734,38 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     window.setTimeout(() => setSnapFeedback(null), 3000);
   };
 
+  const handleToggleChannelLock = (channel: 'a' | 'b' | 'c') => {
+    if (lockedChannels[channel]) {
+      setLockedChannels((prev) => ({ ...prev, [channel]: false }));
+      setSnapFeedback('CH-' + channel.toUpperCase() + ' unlocked · saved Earth target remains available to relock');
+      window.setTimeout(() => setSnapFeedback(null), 3000);
+      return;
+    }
+
+    const earthTarget = earthChannelTargets[channel];
+    const starId = channel === 'a' ? starAId : channel === 'b' ? starBId : starCId;
+    const star = REAL_CELESTIAL_STARS.find((item) => item.id === starId);
+    const position = earthTarget
+      ? latLonToCartesian(earthTarget.lat, earthTarget.lng, 3.42, calculateTimelineGmstDeg(timelineYear), 23.439281)
+      : star ? celestialPosition(star) : null;
+
+    if (position) {
+      if (channel === 'a') onUpdateAPos(position);
+      else if (channel === 'b') onUpdateBPos(position);
+      else onUpdateCPos(position);
+    }
+    setLockedChannels((prev) => ({ ...prev, [channel]: true }));
+    if (earthTarget) {
+      if (channel === 'a') setStarAId('');
+      else if (channel === 'b') setStarBId('');
+      else setStarCId('');
+      setSnapFeedback('CH-' + channel.toUpperCase() + ' locked to Earth · ' + earthTarget.lat.toFixed(3) + '°, ' + earthTarget.lng.toFixed(3) + '°');
+    } else {
+      setSnapFeedback('CH-' + channel.toUpperCase() + ' locked to ' + (star?.name || 'current position'));
+    }
+    window.setTimeout(() => setSnapFeedback(null), 3000);
+  };
+
   // Apply Star Alignment Preset
   const handleSelectStarPreset = (presetId: string) => {
     setSelectedStarPreset(presetId);
@@ -722,6 +775,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     setStarAId(p.starAId);
     setStarBId(p.starBId);
     setStarCId(p.starCId);
+    setEarthChannelTargets({ a: null, b: null, c: null });
 
     const starA = REAL_CELESTIAL_STARS.find((s) => s.id === p.starAId);
     const starB = REAL_CELESTIAL_STARS.find((s) => s.id === p.starBId);
@@ -2642,9 +2696,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-mono font-bold text-cyan-400">CH-A (L)</span>
                 <button
-                  onClick={() => setLockedChannels((prev) => ({ ...prev, a: !prev.a }))}
+                  onClick={() => handleToggleChannelLock('a')}
                   className="text-cyan-400 hover:text-white"
-                  title={lockedChannels.a ? 'Channel A is locked to star' : 'Channel A is free to drag'}
+                  title={lockedChannels.a ? (earthChannelTargets.a ? 'Unlock Channel A from Earth location' : 'Unlock Channel A from star') : (earthChannelTargets.a ? 'Lock Channel A to assigned Earth location' : 'Lock Channel A to selected star')}
                 >
                   {lockedChannels.a ? <Lock className="w-3 h-3 text-cyan-400" /> : <Unlock className="w-3 h-3 text-slate-500" />}
                 </button>
@@ -2670,9 +2724,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-mono font-bold text-pink-400">CH-B (R)</span>
                 <button
-                  onClick={() => setLockedChannels((prev) => ({ ...prev, b: !prev.b }))}
+                  onClick={() => handleToggleChannelLock('b')}
                   className="text-pink-400 hover:text-white"
-                  title={lockedChannels.b ? 'Channel B is locked to star' : 'Channel B is free to drag'}
+                  title={lockedChannels.b ? (earthChannelTargets.b ? 'Unlock Channel B from Earth location' : 'Unlock Channel B from star') : (earthChannelTargets.b ? 'Lock Channel B to assigned Earth location' : 'Lock Channel B to selected star')}
                 >
                   {lockedChannels.b ? <Lock className="w-3 h-3 text-pink-400" /> : <Unlock className="w-3 h-3 text-slate-500" />}
                 </button>
@@ -2698,9 +2752,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-mono font-bold text-amber-400">CH-C (CTR)</span>
                 <button
-                  onClick={() => setLockedChannels((prev) => ({ ...prev, c: !prev.c }))}
+                  onClick={() => handleToggleChannelLock('c')}
                   className="text-amber-400 hover:text-white"
-                  title={lockedChannels.c ? 'Channel C is locked to star' : 'Channel C is free to drag'}
+                  title={lockedChannels.c ? (earthChannelTargets.c ? 'Unlock Channel C from Earth location' : 'Unlock Channel C from star') : (earthChannelTargets.c ? 'Lock Channel C to assigned Earth location' : 'Lock Channel C to selected star')}
                 >
                   {lockedChannels.c ? <Lock className="w-3 h-3 text-amber-400" /> : <Unlock className="w-3 h-3 text-slate-500" />}
                 </button>
