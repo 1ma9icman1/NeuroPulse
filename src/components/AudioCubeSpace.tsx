@@ -1589,24 +1589,24 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
     if (distA < 22) {
       // If locked to star, prevent accidental displacement unless shift is held
-      if (isStarModeActive && lockedChannels.a && !e.shiftKey) {
-        setSnapFeedback(`★ CH-A IS LOCKED TO STAR. Hold Shift to override.`);
+      if (lockedChannels.a && !e.shiftKey) {
+        setSnapFeedback(`CH-A IS LOCKED TO ${channelTargets.a.type.toUpperCase()}: ${channelTargets.a.name}. Hold Shift to override.`);
         window.setTimeout(() => setSnapFeedback(null), 2500);
         return;
       }
       setActiveDrag('a');
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } else if (distB < 22) {
-      if (isStarModeActive && lockedChannels.b && !e.shiftKey) {
-        setSnapFeedback(`★ CH-B IS LOCKED TO STAR. Hold Shift to override.`);
+      if (lockedChannels.b && !e.shiftKey) {
+        setSnapFeedback(`CH-B IS LOCKED TO ${channelTargets.b.type.toUpperCase()}: ${channelTargets.b.name}. Hold Shift to override.`);
         window.setTimeout(() => setSnapFeedback(null), 2500);
         return;
       }
       setActiveDrag('b');
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } else if (distC < 22) {
-      if (isStarModeActive && lockedChannels.c && !e.shiftKey) {
-        setSnapFeedback(`★ CH-C IS LOCKED TO STAR. Hold Shift to override.`);
+      if (lockedChannels.c && !e.shiftKey) {
+        setSnapFeedback(`CH-C IS LOCKED TO ${channelTargets.c.type.toUpperCase()}: ${channelTargets.c.name}. Hold Shift to override.`);
         window.setTimeout(() => setSnapFeedback(null), 2500);
         return;
       }
@@ -2428,7 +2428,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
       <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
 
-      <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} audioSites={ACOUSTIC_SITE_EVIDENCE} onAssignChannel={lockChannelToEarthSite} />
+      <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} audioSites={ACOUSTIC_SITE_EVIDENCE} onAssignChannel={lockChannelToEarthSite} onSelectMapLocation={openEarthSite} />
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
       <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
