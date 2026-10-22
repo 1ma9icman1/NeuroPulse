@@ -224,10 +224,10 @@ function overpassToGeoJson(payload: any, year: number): GeoJSON.FeatureCollectio
     const parseDate = (value: unknown): number | undefined => {
       if (typeof value !== 'string' && typeof value !== 'number') return undefined;
       const text = String(value);
-      const match = text.match(/-?\\d{1,6}/);
+      const match = text.match(/-?\d{1,6}/);
       if (!match) return undefined;
       const numeric = Number(match[0]);
-      return /\\b(?:BCE|BC)\\b/i.test(text) ? -Math.abs(numeric) : numeric;
+      return /\b(?:BCE|BC)\b/i.test(text) ? -Math.abs(numeric) : numeric;
     };
     const start = parseDate(tags.start_date || tags.start || tags.inception);
     const end = parseDate(tags.end_date || tags.end || tags.disused);
