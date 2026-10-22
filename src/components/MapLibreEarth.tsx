@@ -204,9 +204,10 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
         if (!abort.signal.aborted) console.warn('OpenHistoricalMap historical layer unavailable:', error);
       }
     };
+    map.on('load', refresh);
     map.on('moveend', refresh);
     void refresh();
-    return () => { map.off('moveend', refresh); controller?.abort(); };
+    return () => { map.off('load', refresh); map.off('moveend', refresh); controller?.abort(); };
   }, [showOpenHistoricalMap, timelineYear]);
 
   useEffect(() => {
