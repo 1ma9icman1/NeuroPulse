@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { MapLibreEarth } from './MapLibreEarth';
-import { HistoricalLayerPanel, HistoricalLayerKey } from './HistoricalLayerPanel';
+import Globe3D from 'react-globe.gl';
 import { EarthSiteExplorer } from './EarthSiteExplorer';
 import type { EarthSiteSelection } from './EarthSiteExplorer';
 import {
@@ -48,17 +47,29 @@ import {
   computeTriangleInteriorAngles,
   Relation711Result,
 } from '../data/celestialStars';
+import { getPlanetSkyPositions, isPlanetEphemerisYearInPreferredRange } from '../data/planetaryEphemeris';
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 import { ACOUSTIC_SITE_EVIDENCE } from '../data/acousticSiteEvidence';
 import { ANCIENT_STRUCTURE_DIMENSIONS } from '../data/ancientStructureDimensions';
 import {
   DEFAULT_EARTH_POINTS,
-  CONTINENTAL_COASTLINES,
+  LEGACY_HISTORICAL_SITES,
   latLonToCartesian,
   cartesianToLatLon,
 } from '../data/earthData';
 import { calculateSubstellarPoint, fetchIersDut1Seconds, fetchPlaceImage, resolveStarAstrometry, EarthTarget, PlaceImage } from '../services/celestialEarthData';
 
+
+const calculateTimelineGmstDeg = (year: number): number => {
+  const date = new Date(0);
+  date.setUTCFullYear(year, 0, 1);
+  date.setUTCHours(12, 0, 0, 0);
+  const jd = date.getTime() / 86400000 + 2440587.5;
+  const centuries = (jd - 2451545.0) / 36525.0;
+  const gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) +
+    0.000387933 * centuries * centuries - centuries * centuries * centuries / 38710000;
+  return ((gmst % 360) + 360) % 360;
+};
 
 interface AudioCubeSpaceProps {
   aPos: SpatialPosition;
@@ -73,6 +84,8 @@ interface AudioCubeSpaceProps {
   bFreq: number;
   cFreq: number;
   isRunning: boolean;
+  positionPitchMode: boolean;
+  onTogglePositionPitchMode: () => void;
   onUpdateAPos: (pos: SpatialPosition) => void;
   onUpdateBPos: (pos: SpatialPosition) => void;
   onUpdateCPos: (pos: SpatialPosition) => void;
@@ -96,6 +109,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   bFreq,
   cFreq,
   isRunning,
+  positionPitchMode,
+  onTogglePositionPitchMode,
   onUpdateAPos,
   onUpdateBPos,
   onUpdateCPos,
@@ -109,10 +124,21 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const earthTextureRef = useRef<HTMLImageElement | null>(null);
+  const earthSphereCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const earthSphereCacheKeyRef = useRef('');
   const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
   const isEarthModeActive = cameraView === 'top';
   const globeRef = useRef<any>(null);
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
+  // Public, no-sign-in Earth imagery sources. The original globe and every existing overlay remain intact.
+  const [earthImageryPanelOpen, setEarthImageryPanelOpen] = useState(false);
+  const [earthImagerySource, setEarthImagerySource] = useState<'satellite' | 'blue-marble' | 'land-ocean'>('blue-marble');
+  const earthImagerySources = {
+    satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-180,-85,180,85&bboxSR=4326&imageSR=4326&size=2048,1024&format=jpg&transparent=false&f=image',
+    'blue-marble': 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
+    'land-ocean': 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png',
+  };
+  const [earthTextureUrl, setEarthTextureUrl] = useState<string>(earthImagerySources['blue-marble']);
   const earthSites = [
     { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, year: -9600 },
     { name: 'Jericho', lat: 31.871, lon: 35.444, year: -9000 },
@@ -273,26 +299,60 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(1.2, 5.2 - cameraZoom) }, 250); }, [isEarthModeActive, cameraZoom]);
 
   useEffect(() => {
+    setEarthTextureLoaded(false);
+    earthTextureRef.current = null;
+    earthSphereCacheKeyRef.current = '';
+
     const texture = new Image();
     texture.crossOrigin = 'anonymous';
-    texture.onload = () => { earthTextureRef.current = texture; setEarthTextureLoaded(true); };
-    texture.onerror = () => setEarthTextureLoaded(false);
-    texture.src = 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png';
-    return () => { texture.onload = null; texture.onerror = null; };
-  }, []);
+    texture.onload = () => {
+      // Verify canvas sampling is permitted before enabling the textured orbit-core renderer.
+      try {
+        const probe = document.createElement('canvas');
+        probe.width = 1;
+        probe.height = 1;
+        const probeContext = probe.getContext('2d');
+        if (!probeContext) throw new Error('Canvas 2D context unavailable');
+        probeContext.drawImage(texture, 0, 0, 1, 1);
+        probeContext.getImageData(0, 0, 1, 1);
+        earthTextureRef.current = texture;
+        earthSphereCacheKeyRef.current = '';
+        setEarthTextureLoaded(true);
+      } catch {
+        // The WebGL globe can display cross-origin images that a 2D canvas cannot sample.
+        // Fall back to the CORS-enabled Blue Marble texture for the shared globe and orbit core.
+        if (earthTextureUrl !== 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg') {
+          setEarthImagerySource('blue-marble');
+          setEarthTextureUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+        } else {
+          setEarthTextureLoaded(false);
+        }
+      }
+    };
+    texture.onerror = () => {
+      // Do not leave the core as a featureless blue ball when an alternate image host fails.
+      if (earthTextureUrl !== 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg') {
+        setEarthImagerySource('blue-marble');
+        setEarthTextureUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+      } else {
+        setEarthTextureLoaded(false);
+      }
+    };
+    texture.src = earthTextureUrl;
+    return () => {
+      texture.onload = null;
+      texture.onerror = null;
+    };
+  }, [earthTextureUrl]);
 
   // Star Celestial Alignment Mode
-  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(false);
+  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
+  const [showConstellationLines, setShowConstellationLines] = useState<boolean>(false);
   const IAU_CONSTELLATIONS = ["Andromeda","Antlia","Apus","Aquarius","Aquila","Ara","Aries","Auriga","Bootes","Caelum","Camelopardalis","Cancer","Canes Venatici","Canis Major","Canis Minor","Capricornus","Carina","Cassiopeia","Centaurus","Cepheus","Cetus","Chamaeleon","Circinus","Columba","Coma Berenices","Corona Australis","Corona Borealis","Corvus","Crater","Crux","Cygnus","Delphinus","Dorado","Draco","Equuleus","Eridanus","Fornax","Gemini","Grus","Hercules","Horologium","Hydra","Hydrus","Indus","Lacerta","Leo","Leo Minor","Lepus","Libra","Lupus","Lynx","Lyra","Mensa","Microscopium","Monoceros","Musca","Norma","Octans","Ophiuchus","Orion","Pavo","Pegasus","Perseus","Phoenix","Pictor","Pisces","Piscis Austrinus","Puppis","Pyxis","Reticulum","Sagitta","Sagittarius","Scorpius","Sculptor","Scutum","Serpens","Sextans","Taurus","Telescopium","Triangulum","Triangulum Australe","Tucana","Ursa Major","Ursa Minor","Vela","Virgo","Volans","Vulpecula"];
   const [constellationsEnabled, setConstellationsEnabled] = useState<Record<string, boolean>>(() => Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, true])));
   const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
   const [show110HzResearchComets, setShow110HzResearchComets] = useState<boolean>(false);
   const [showCities, setShowCities] = useState<boolean>(false);
-  const [showAncientPlaces, setShowAncientPlaces] = useState<boolean>(true);
-  const [showImportedHistoricalData, setShowImportedHistoricalData] = useState<boolean>(false);
-  const [showOpenHistoricalMap, setShowOpenHistoricalMap] = useState<boolean>(false);
-  const [importedHistoricalGeoJson, setImportedHistoricalGeoJson] = useState<GeoJSON.FeatureCollection | null>(null);
-  const [importedHistoricalFileName, setImportedHistoricalFileName] = useState<string | null>(null);
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
@@ -306,12 +366,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const isConstellationEnabled = (name: string) => constellationsEnabled[name === 'Boötes' ? 'Bootes' : name] !== false;
   const hasConstellationGeometry = (name: string) => CONSTELLATION_LINE_SHAPES.some((shape) => normalizeConstellationName(shape.name) === normalizeConstellationName(name));
   // Historical sky timeline spanning the last 12,000 years.
-  const currentTimelineYear = new Date().getUTCFullYear();
-  const timelineMinYear = currentTimelineYear - 12000;
-  const [timelineYear, setTimelineYear] = useState<number>(currentTimelineYear);
+  const [timelineYear, setTimelineYear] = useState<number>(new Date().getUTCFullYear());
+  const timelinePlanetPositions = getPlanetSkyPositions(timelineYear);
+  const planetEphemerisYearIsPreferred = isPlanetEphemerisYearInPreferredRange(timelineYear);
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
-  const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#60a5fa' : '#facc15', size: site.isCity ? 0.10 : 0.12, altitude: 0.012, layerCategory: site.isCity ? 'CITY' : 'ANCIENT SITE' })), ...(showAncientStructures && timelineYear >= -3500 ? ANCIENT_STRUCTURE_DIMENSIONS.filter((structure) => !earthSites.some((site: any) => !site.isCity && Math.abs(site.lat - structure.lat) < 0.08 && Math.abs(site.lon - structure.lon) < 0.08)).map((structure) => ({ name: structure.name, lat: structure.lat, lon: structure.lon, year: -3500, color: '#facc15', size: 0.12, altitude: 0.012, layerCategory: 'ANCIENT STRUCTURE HEIGHT', structuralHeightFt: structure.approximateHeightFt, heightBasis: structure.heightBasis, heightNote: structure.evidenceNote, numberSystem: structure.numberSystem, numberSystemNote: structure.numberSystemNote, orientationNote: structure.orientationNote, ritualContext: structure.ritualContext, isDimensionRecord: true })) : []), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.14, altitude: 0.016, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : [])];
+  const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#60a5fa' : '#facc15', size: site.isCity ? 0.10 : 0.12, altitude: 0.012, layerCategory: site.isCity ? 'CITY' : 'ANCIENT SITE' })), ...(showAncientStructures ? ANCIENT_STRUCTURE_DIMENSIONS.filter((structure) => !earthSites.some((site: any) => !site.isCity && Math.abs(site.lat - structure.lat) < 0.08 && Math.abs(site.lon - structure.lon) < 0.08)).map((structure) => ({ name: structure.name, lat: structure.lat, lon: structure.lon, year: -3500, color: '#facc15', size: 0.12, altitude: 0.012, layerCategory: 'ANCIENT STRUCTURE HEIGHT', structuralHeightFt: structure.approximateHeightFt, heightBasis: structure.heightBasis, heightNote: structure.evidenceNote, numberSystem: structure.numberSystem, numberSystemNote: structure.numberSystemNote, orientationNote: structure.orientationNote, ritualContext: structure.ritualContext, isDimensionRecord: true })) : []), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.14, altitude: 0.016, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : []), ...(showAncientStructures ? LEGACY_HISTORICAL_SITES.filter((legacy) => !earthSites.some((site: any) => !site.isCity && site.name.toLowerCase() === legacy.name.toLowerCase()) && !ANCIENT_STRUCTURE_DIMENSIONS.some((structure) => structure.name.toLowerCase() === legacy.name.toLowerCase()) && !DEFAULT_EARTH_POINTS.some((point) => point.name.toLowerCase() === legacy.name.toLowerCase()) && timelineYear >= legacy.year).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: site.year, color: '#34d399', size: 0.115, altitude: 0.014, layerCategory: 'HISTORICAL & ARCHAEOLOGICAL', historicalRecord: true, researchReason: 'Historical or archaeological reference location included for research context. Its presence on the globe is not evidence of a specific resonance or frequency; that requires site-specific measurements.' })) : [])];
   const triangleCandidates = showAlignmentTriangles && showAncientStructures ? visibleEarthSites.filter((site: any) => !site.isCity && !site.evidenceStatus) : [];
   const triangleEdgeMap = new Map<string, { startLat: number; startLng: number; endLat: number; endLng: number }>();
   const triangleKey = (a: string, b: string) => [a, b].sort().join('::');
@@ -430,6 +490,29 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     b: true,
     c: true,
   });
+  const [isEarthAssignMode, setIsEarthAssignMode] = useState<boolean>(false);
+  const [earthChannelTargets, setEarthChannelTargets] = useState<{
+    a: { lat: number; lng: number } | null;
+    b: { lat: number; lng: number } | null;
+    c: { lat: number; lng: number } | null;
+  }>({ a: null, b: null, c: null });
+
+  const earthChannelMarkers = (['a', 'b', 'c'] as const).flatMap((channel) => {
+    const target = earthChannelTargets[channel];
+    if (!target) return [];
+    const color = channel === 'a' ? '#00f0ff' : channel === 'b' ? '#ff007f' : '#fbbf24';
+    return [{
+      name: `CH-${channel.toUpperCase()}`,
+      channel,
+      isChannelTarget: true,
+      lat: target.lat,
+      lon: target.lng,
+      color,
+      size: 0.35,
+      altitude: 0.025,
+      layerCategory: 'CHANNEL TARGET',
+    }];
+  });
 
   const [hoveredStar, setHoveredStar] = useState<CelestialStar | null>(null);
   const [clickedStar, setClickedStar] = useState<CelestialStar | null>(null);
@@ -458,7 +541,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
   // Star click tracking: tracks number of stars clicked (activates interior triangle angles after 3 stars)
   const [clickedStarCount, setClickedStarCount] = useState<number>(3); // Initialized with 3 default celestial stars
-  const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(true);
+  const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(false);
 
   // Compute 7-11 real-world astrometric relation on angles
   const relation711: Relation711Result = compute711Relation(aPos, bPos, cPos);
@@ -601,6 +684,35 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     window.setTimeout(() => setSnapFeedback(null), 3800);
   };
 
+  const handlePinChannelToEarth = (channel: 'a' | 'b' | 'c', latitude: number, longitude: number) => {
+    const lat = Math.max(-89.999, Math.min(89.999, latitude));
+    const lng = ((longitude + 180) % 360 + 360) % 360 - 180;
+    const gmstDeg = calculateTimelineGmstDeg(timelineYear);
+    const position = latLonToCartesian(lat, lng, 3.42, gmstDeg, 23.439281);
+
+    setEarthChannelTargets((prev) => ({ ...prev, [channel]: { lat, lng } }));
+    setLockedChannels((prev) => ({ ...prev, [channel]: false }));
+    setClickedStar(null);
+    setShowTriangleAngles(false);
+
+    if (channel === 'a') {
+      setStarAId('');
+      onUpdateAPos(position);
+      setSnapTargetChannel('b');
+    } else if (channel === 'b') {
+      setStarBId('');
+      onUpdateBPos(position);
+      setSnapTargetChannel('c');
+    } else {
+      setStarCId('');
+      onUpdateCPos(position);
+      setSnapTargetChannel('a');
+    }
+
+    setSnapFeedback(`CH-${channel.toUpperCase()} pinned to Earth · ${lat.toFixed(3)}°, ${lng.toFixed(3)}°`);
+    window.setTimeout(() => setSnapFeedback(null), 3000);
+  };
+
   // Apply Star Alignment Preset
   const handleSelectStarPreset = (presetId: string) => {
     setSelectedStarPreset(presetId);
@@ -697,6 +809,77 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     [cameraView, cameraYaw, cameraPitch, cameraZoom]
   );
 
+  // Celestial projection is deliberately separated from the room projection.
+  // The 3D orbit camera remains untouched; when Top Plane/Earth is active we keep
+  // stars, planets and constellation lines in the same perspective camera frame.
+  const projectCelestial3D = useCallback(
+    (x: number, y: number, z: number, w: number, h: number) => {
+      if (cameraView !== 'top') return project3D(x, y, z, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+      const baseScale = Math.min(w, h) * 0.042 * cameraZoom;
+      const radYaw = (cameraYaw * Math.PI) / 180;
+      const radPitch = (cameraPitch * Math.PI) / 180;
+      const rx = x * Math.cos(radYaw) - z * Math.sin(radYaw);
+      const rz = x * Math.sin(radYaw) + z * Math.cos(radYaw);
+      const ry = y * Math.cos(radPitch) - rz * Math.sin(radPitch);
+      const rz2 = y * Math.sin(radPitch) + rz * Math.cos(radPitch);
+      const cameraDist = 28;
+      const fov = 350;
+      const depth = cameraDist + rz2;
+      const factor = fov / Math.max(6, depth);
+
+      return {
+        sx: cx + rx * factor * baseScale * 0.065,
+        sy: cy - ry * factor * baseScale * 0.065,
+        depthScale: factor / (fov / cameraDist),
+      };
+    },
+    [cameraView, cameraYaw, cameraPitch, cameraZoom, project3D]
+  );
+
+  const unprojectOrbitPlane = (
+    screenX: number,
+    screenY: number,
+    fixedY: number,
+    width: number,
+    height: number,
+    startX: number,
+    startZ: number
+  ): { x: number; z: number } => {
+    const baseScale = Math.min(width, height) * 0.042 * cameraZoom;
+    if (cameraView === 'top') {
+      return {
+        x: Math.max(-8, Math.min(8, (screenX - width / 2) / (baseScale * 1.25))),
+        z: Math.max(-8, Math.min(8, (screenY - height / 2) / (baseScale * 1.25))),
+      };
+    }
+
+    let guessX = startX;
+    let guessZ = startZ;
+    const epsilon = 0.02;
+    for (let iteration = 0; iteration < 9; iteration++) {
+      const point = project3D(guessX, fixedY, guessZ, width, height);
+      const errorX = screenX - point.sx;
+      const errorY = screenY - point.sy;
+      if (Math.hypot(errorX, errorY) < 0.35) break;
+      const pointX = project3D(guessX + epsilon, fixedY, guessZ, width, height);
+      const pointZ = project3D(guessX, fixedY, guessZ + epsilon, width, height);
+      const j11 = (pointX.sx - point.sx) / epsilon;
+      const j21 = (pointX.sy - point.sy) / epsilon;
+      const j12 = (pointZ.sx - point.sx) / epsilon;
+      const j22 = (pointZ.sy - point.sy) / epsilon;
+      const determinant = j11 * j22 - j12 * j21;
+      if (Math.abs(determinant) < 1e-6) break;
+      const stepX = Math.max(-2.5, Math.min(2.5, (errorX * j22 - errorY * j12) / determinant));
+      const stepZ = Math.max(-2.5, Math.min(2.5, (j11 * errorY - j21 * errorX) / determinant));
+      guessX = Math.max(-8, Math.min(8, guessX + stepX));
+      guessZ = Math.max(-8, Math.min(8, guessZ + stepZ));
+    }
+    return { x: Number(guessX.toFixed(3)), z: Number(guessZ.toFixed(3)) };
+  };
+
   // Render 3D scene & Star Space & Top Plane Overlay
   useEffect(() => {
     let animId: number;
@@ -773,8 +956,32 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
-      // No synthetic background particles: render catalogued celestial objects only.
+      // The WebGL Earth view owns its geography; do not paint cube-space content on top of it.
+      if (!isEarthModeActive) {
+      // 2. Star-field particles from the working starthing 3D orbit scene.
+      // These are rendered in this same orbit canvas, not in a separate sky-map window.
+      if (isStarModeActive) {
+        ctx.save();
+        for (let i = 0; i < 60; i++) {
+          const fakeRa = (i * 37) % 360;
+          const fakeDec = ((i * 59) % 180) - 90;
+          const raRad = (fakeRa * Math.PI) / 180;
+          const decRad = (fakeDec * Math.PI) / 180;
+          const radius = 7.8;
+          const fx = radius * Math.cos(decRad) * Math.sin(raRad);
+          const fy = radius * Math.sin(decRad);
+          const fz = radius * Math.cos(decRad) * Math.cos(raRad);
+          const fp = project3D(fx, fy, fz, width, height);
+          ctx.fillStyle = i % 3 === 0 ? 'rgba(165, 201, 255, 0.4)' : 'rgba(255, 255, 255, 0.25)';
+          ctx.beginPath();
+          ctx.arc(fp.sx, fp.sy, Math.max(0.45, (i % 2 === 0 ? 1.0 : 0.6) * fp.depthScale), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
 
+      // The cube stays in orbit views only; it must not obscure the globe in Top Plane mode.
+      if (!isEarthModeActive) {
       // 3. Draw 3D AudioCube Room Wireframe
       ctx.lineWidth = 1;
       const gridSteps = 4;
@@ -842,16 +1049,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         });
       }
 
+      }
+
       if (!isEarthModeActive) {
       // Sidereal phase for Jan 1 noon in selected year. A year-only slider cannot recover an ancient time-of-day.
-      const jd = Date.UTC(timelineYear, 0, 1, 12, 0, 0) / 86400000 + 2440587.5;
-      const centuries = (jd - 2451545.0) / 36525.0;
-      const gmstDeg = ((280.46061837 + 360.98564736629 * (jd - 2451545.0) +
-        0.000387933 * centuries * centuries - centuries * centuries * centuries / 38710000) % 360 + 360) % 360;
+      const gmstDeg = calculateTimelineGmstDeg(timelineYear);
       const earthRadius = 3.35;
       const earthPoint = (lat: number, lon: number, radius = earthRadius) =>
         latLonToCartesian(lat, lon, radius, gmstDeg, 23.439281);
       const cameraFront = (p: { x: number; y: number; z: number }) => {
+        if (cameraView !== 'perspective') return p.z < 0.15;
         const yaw = (cameraYaw * Math.PI) / 180;
         const pitch = (cameraPitch * Math.PI) / 180;
         const rz = p.x * Math.sin(yaw) + p.z * Math.cos(yaw);
@@ -859,8 +1066,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         return rz2 < 0.15;
       };
       const earthCenter = project3D(0, 0, 0, width, height);
-      const earthEdge = project3D(earthRadius, 0, 0, width, height);
-      const earthScreenRadius = Math.hypot(earthEdge.sx - earthCenter.sx, earthEdge.sy - earthCenter.sy);
+      // Perspective silhouette remains circular and the same apparent size at every orbit yaw/pitch.
+      const earthScreenRadius = cameraView === 'perspective'
+        ? (baseScale * 0.065 * 350 * earthRadius) / Math.sqrt(28 * 28 - earthRadius * earthRadius)
+        : earthRadius * baseScale * 1.25;
+      const earthRenderYaw = cameraView === 'perspective' ? cameraYaw : 0;
+      const earthRenderPitch = cameraView === 'perspective' ? cameraPitch : 0;
       ctx.save();
       const earthGradient = ctx.createRadialGradient(
         earthCenter.sx - earthScreenRadius * 0.32, earthCenter.sy - earthScreenRadius * 0.35,
@@ -873,18 +1084,125 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       ctx.arc(earthCenter.sx, earthCenter.sy, earthScreenRadius, 0, Math.PI * 2);
       ctx.fillStyle = earthGradient;
       ctx.fill();
-      // NASA Blue Marble global land/ocean texture. Clip to the globe; coastline and site overlays remain above it.
+      // Render the equirectangular Blue Marble as a true spherical projection.
+      // This keeps the Earth/universe core visibly textured in the 3D orbit view instead of a blue gradient.
       if (earthTextureLoaded && earthTextureRef.current) {
+        const tex = earthTextureRef.current;
+        const texW = tex.naturalWidth || tex.width;
+        const texH = tex.naturalHeight || tex.height;
+        const outputSize = 384;
+        const cacheKey = [
+          earthTextureUrl, timelineYear, earthRenderYaw.toFixed(2), earthRenderPitch.toFixed(2),
+          cameraView, texW, texH
+        ].join('|');
+        let sphereCanvas = earthSphereCanvasRef.current;
+        if (!sphereCanvas) {
+          sphereCanvas = document.createElement('canvas');
+          earthSphereCanvasRef.current = sphereCanvas;
+        }
+        if (sphereCanvas.width !== outputSize || sphereCanvas.height !== outputSize) {
+          sphereCanvas.width = outputSize;
+          sphereCanvas.height = outputSize;
+          earthSphereCacheKeyRef.current = '';
+        }
+
+        if (earthSphereCacheKeyRef.current !== cacheKey) {
+          const sourceCanvas = document.createElement('canvas');
+          sourceCanvas.width = texW;
+          sourceCanvas.height = texH;
+          const sourceContext = sourceCanvas.getContext('2d', { willReadFrequently: true });
+          const outputContext = sphereCanvas.getContext('2d', { willReadFrequently: true });
+          if (sourceContext && outputContext) {
+            sourceContext.drawImage(tex, 0, 0, texW, texH);
+            const sourcePixels = sourceContext.getImageData(0, 0, texW, texH).data;
+            const output = outputContext.createImageData(outputSize, outputSize);
+            const yaw = earthRenderYaw * Math.PI / 180;
+            const pitch = earthRenderPitch * Math.PI / 180;
+            const cosYaw = Math.cos(yaw), sinYaw = Math.sin(yaw);
+            const cosPitch = Math.cos(pitch), sinPitch = Math.sin(pitch);
+            const tilt = 23.439281 * Math.PI / 180;
+            const cosTilt = Math.cos(tilt), sinTilt = Math.sin(tilt);
+            const radiusPx = outputSize / 2;
+            const cameraDistance = 28;
+            const tangentScale = earthRadius / Math.sqrt(cameraDistance * cameraDistance - earthRadius * earthRadius);
+            const lightX = -0.42, lightY = 0.46, lightZ = -0.78;
+
+            for (let py = 0; py < outputSize; py++) {
+              const ny = (radiusPx - py - 0.5) / radiusPx;
+              for (let px = 0; px < outputSize; px++) {
+                const nx = (px + 0.5 - radiusPx) / radiusPx;
+                const rr = nx * nx + ny * ny;
+                const offset = (py * outputSize + px) * 4;
+                if (rr >= 1) {
+                  output.data[offset + 3] = 0;
+                  continue;
+                }
+
+                let sphereX: number;
+                let sphereY: number;
+                let sphereZ: number;
+                if (cameraView === 'perspective') {
+                  // Invert the exact perspective projection used by project3D.
+                  const rayX = nx * tangentScale;
+                  const rayY = ny * tangentScale;
+                  const rayR2 = rayX * rayX + rayY * rayY;
+                  const discriminant = cameraDistance * cameraDistance -
+                    (rayR2 + 1) * (cameraDistance * cameraDistance - earthRadius * earthRadius);
+                  if (discriminant < 0) {
+                    output.data[offset + 3] = 0;
+                    continue;
+                  }
+                  const depth = (cameraDistance - Math.sqrt(discriminant)) / (rayR2 + 1);
+                  sphereX = rayX * depth;
+                  sphereY = rayY * depth;
+                  sphereZ = depth - cameraDistance;
+                } else {
+                  sphereX = nx * earthRadius;
+                  sphereY = ny * earthRadius;
+                  sphereZ = -Math.sqrt(Math.max(0, earthRadius * earthRadius - sphereX * sphereX - sphereY * sphereY));
+                }
+
+                // Undo view rotation, Earth axial tilt and sidereal rotation for each surface pixel.
+                const yAfterPitch = sphereY * cosPitch + sphereZ * sinPitch;
+                const zAfterYaw = -sphereY * sinPitch + sphereZ * cosPitch;
+                const worldX = sphereX * cosYaw + zAfterYaw * sinYaw;
+                const worldZ = -sphereX * sinYaw + zAfterYaw * cosYaw;
+                const unTitledY = yAfterPitch * cosTilt + worldZ * sinTilt;
+                const unTitledZ = -yAfterPitch * sinTilt + worldZ * cosTilt;
+                const latitude = Math.asin(Math.max(-1, Math.min(1, unTitledY / earthRadius)));
+                let longitude = Math.atan2(worldX, unTitledZ) * 180 / Math.PI - gmstDeg;
+                longitude = ((longitude + 180) % 360 + 360) % 360 - 180;
+                const u = Math.min(texW - 1, Math.max(0, Math.floor(((longitude + 180) / 360) * texW)));
+                const v = Math.min(texH - 1, Math.max(0, Math.floor(((90 - latitude * 180 / Math.PI) / 180) * texH)));
+                const sourceOffset = (v * texW + u) * 4;
+                const diffuse = Math.max(0,
+                  (sphereX / earthRadius) * lightX +
+                  (sphereY / earthRadius) * lightY +
+                  (sphereZ / earthRadius) * lightZ);
+                const shade = 0.38 + 0.62 * diffuse;
+                output.data[offset] = sourcePixels[sourceOffset] * shade;                output.data[offset] = sourcePixels[sourceOffset] * shade;
+                output.data[offset + 1] = sourcePixels[sourceOffset + 1] * shade;
+                output.data[offset + 2] = sourcePixels[sourceOffset + 2] * shade;
+                output.data[offset + 3] = 255;
+              }
+            }
+            outputContext.putImageData(output, 0, 0);
+            earthSphereCacheKeyRef.current = cacheKey;
+          }
+        }
+
         ctx.save();
         ctx.beginPath();
         ctx.arc(earthCenter.sx, earthCenter.sy, earthScreenRadius * 0.995, 0, Math.PI * 2);
         ctx.clip();
-        const tex = earthTextureRef.current;
-        const texW = tex.naturalWidth || tex.width;
-        const texH = tex.naturalHeight || tex.height;
-        const diameter = earthScreenRadius * 2;
-        ctx.globalAlpha = 0.96;
-        ctx.drawImage(tex, earthCenter.sx - earthScreenRadius, earthCenter.sy - earthScreenRadius, diameter, diameter);
+        ctx.globalAlpha = 1;
+        ctx.drawImage(
+          sphereCanvas,
+          earthCenter.sx - earthScreenRadius,
+          earthCenter.sy - earthScreenRadius,
+          earthScreenRadius * 2,
+          earthScreenRadius * 2
+        );
         ctx.restore();
       }
       ctx.strokeStyle = 'rgba(103, 232, 249, 0.85)';
@@ -894,34 +1212,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      const traceEarthLine = (coords: [number, number][], stroke: string, lineWidth: number) => {
-        ctx.beginPath();
-        let previousVisible = false;
-        for (const [lat, lon] of coords) {
-          const v = earthPoint(lat, lon);
-          const visible = cameraFront(v);
-          const p = project3D(v.x, v.y, v.z, width, height);
-          if (visible) {
-            if (!previousVisible) ctx.moveTo(p.sx, p.sy);
-            else ctx.lineTo(p.sx, p.sy);
-          }
-          previousVisible = visible;
-        }
-        ctx.strokeStyle = stroke;
-        ctx.lineWidth = lineWidth;
-        ctx.stroke();
-      };
-      for (let lat = -60; lat <= 60; lat += 30) {
-        const line: [number, number][] = [];
-        for (let lon = -180; lon <= 180; lon += 4) line.push([lat, lon]);
-        traceEarthLine(line, 'rgba(125, 211, 252, 0.28)', 0.65);
-      }
-      for (let lon = -180; lon < 180; lon += 30) {
-        const line: [number, number][] = [];
-        for (let lat = -88; lat <= 88; lat += 3) line.push([lat, lon]);
-        traceEarthLine(line, 'rgba(125, 211, 252, 0.28)', 0.65);
-      }
-      CONTINENTAL_COASTLINES.forEach((polygon) => traceEarthLine(polygon, 'rgba(45, 212, 191, 0.9)', 1.15));
+      // Textured Earth with directional limb shading; no wireframe overlays.
+      const limbShade = ctx.createRadialGradient(
+        earthCenter.sx - earthScreenRadius * 0.34,
+        earthCenter.sy - earthScreenRadius * 0.38,
+        earthScreenRadius * 0.12,
+        earthCenter.sx + earthScreenRadius * 0.12,
+        earthCenter.sy + earthScreenRadius * 0.1,
+        earthScreenRadius * 1.08
+      );
+      limbShade.addColorStop(0, 'rgba(255,255,255,0.12)');
+      limbShade.addColorStop(0.52, 'rgba(5,18,36,0.04)');
+      limbShade.addColorStop(0.82, 'rgba(2,8,20,0.30)');
+      limbShade.addColorStop(1, 'rgba(0,4,14,0.82)');
+      ctx.beginPath();
+      ctx.arc(earthCenter.sx, earthCenter.sy, earthScreenRadius * 0.995, 0, Math.PI * 2);
+      ctx.fillStyle = limbShade;
+      ctx.fill();
       // Major cities and named landmarks become readable as the user zooms in.
       // Coordinates are geographic locations, projected onto the same rotating Earth.
       const majorCities: Array<{ name: string; lat: number; lon: number }> = [
@@ -939,8 +1246,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         { name: 'Moscow', lat: 55.7558, lon: 37.6173 }, { name: 'Reykjavik', lat: 64.1466, lon: -21.9426 },
         { name: 'Honolulu', lat: 21.3099, lon: -157.8581 }, { name: 'Anchorage', lat: 61.2181, lon: -149.9003 },
       ];
-      const labelEarthPoint = (name: string, lat: number, lon: number, color: string, isCity = false) => {
-        const v = earthPoint(lat, lon, earthRadius * 1.012);
+      const labelEarthPoint = (_name: string, lat: number, lon: number, color: string, isCity = false) => {
+        const v = earthPoint(lat, lon, earthRadius * 1.002);
         if (!cameraFront(v)) return;
         const p = project3D(v.x, v.y, v.z, width, height);
         ctx.beginPath();
@@ -950,19 +1257,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.shadowBlur = isCity ? 3 : 7;
         ctx.fill();
         ctx.shadowBlur = 0;
-        // Keep the globe clean at orbital scale; reveal names once zoomed closer.
-        if (cameraZoom >= (isCity ? 1.35 : 1.08)) {
-          const isMeasuredAcousticSite = name.includes('MEASURED') || ACOUSTIC_SITE_EVIDENCE.some((site) => name.includes(site.name));
-          const isAncientStructure = name.includes('ANCIENT') || isMeasuredAcousticSite;
-          const fontSize = isCity ? Math.max(8, Math.min(12, 8 + cameraZoom)) : isMeasuredAcousticSite ? Math.max(13, Math.min(21, 13 + cameraZoom * 1.6)) : isAncientStructure ? Math.max(11, Math.min(17, 11 + cameraZoom * 1.25)) : Math.max(9, Math.min(13, 9 + cameraZoom));
-          ctx.font = `${isCity ? '500' : isMeasuredAcousticSite ? '700' : '600'} ${fontSize}px system-ui, sans-serif`;
-          ctx.lineWidth = 3;
-          ctx.strokeStyle = 'rgba(3, 10, 22, 0.92)';
-          ctx.strokeText(name, p.sx + 5, p.sy - 5);
-          const displayColor = showAcousticColorSystem ? (isMeasuredAcousticSite ? '#fb923c' : isAncientStructure ? '#facc15' : isCity ? '#dbeafe' : color) : '#e2e8f0';
-          ctx.fillStyle = isCity ? (showAcousticColorSystem ? 'rgba(219, 234, 254, 0.96)' : '#e2e8f0') : displayColor;
-          ctx.fillText(name, p.sx + 5, p.sy - 5);
-        }
+        // Site markers remain small dots at every zoom level; no text labels on the globe.
       };
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
       if (showCities) majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
@@ -1032,6 +1327,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       }
 
+      // In Earth mode the core globe itself supplies the center visual; keep its overlay clean.
+      if (!isEarthModeActive) {
       // 4. Center of Spatial Area / Universe Observer Core (0, 0, 0)
       const listenerFloor = project3D(0, -bound, 0, width, height);
 
@@ -1084,8 +1381,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.fillText('LISTENER', centerPt.sx - 22, centerPt.sy + 20);
       }
 
+      }
+
       // 5. Render Real-World Stars and Constellation Edges (Star Mode)
       if (isStarModeActive) {
+        // Constellation lines are opt-in; star points remain visible independently.
+        if (showConstellationLines) {
         // Draw Constellation Lines
         ctx.save();
         const pulsePhase = (performance.now() / 70) % 18;
@@ -1111,7 +1412,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             ctx.beginPath();
             path.forEach(([raDeg, decDeg], index) => {
               const pos = celestialPosition({ raDeg, decDeg });
-              const screen = project3D(pos.x, pos.y, pos.z, width, height);
+              const screen = projectCelestial3D(pos.x, pos.y, pos.z, width, height);
               if (index === 0) ctx.moveTo(screen.sx, screen.sy);
               else ctx.lineTo(screen.sx, screen.sy);
               renderedConstellationPoints.set(`${raDeg.toFixed(3)}:${decDeg.toFixed(3)}`, { sx: screen.sx, sy: screen.sy });
@@ -1130,11 +1431,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.setLineDash([]);
         ctx.shadowBlur = 0;
         ctx.restore();
+        }
 
         // Draw Real Stars
-        REAL_CELESTIAL_STARS.filter((star) => isConstellationEnabled(star.constellation)).forEach((star) => {
+        // Star points are independent of constellation-line visibility.
+        // The constellation toggles above only control the connecting paths.
+        REAL_CELESTIAL_STARS.forEach((star) => {
           const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+          const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const isAssignedA = star.id === starAId;
           const isAssignedB = star.id === starBId;
           const isAssignedC = star.id === starCId;
@@ -1173,12 +1477,38 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           ctx.restore();
         });
 
+        // Sun and planets use the Stardroid/JPL-style low-precision ephemeris and
+        // the same celestial-sphere projection as the existing star catalogue.
+        // They appear with Star Mode and update whenever the historical year changes.
+        timelinePlanetPositions.forEach((planet: ReturnType<typeof getPlanetSkyPositions>[number]) => {
+          const planetPosition = celestialPosition({ raDeg: planet.raDeg, decDeg: planet.decDeg });
+          const pp = projectCelestial3D(planetPosition.x, planetPosition.y, planetPosition.z, width, height);
+          const radius = Math.max(2.5, planet.size * pp.depthScale);
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(pp.sx, pp.sy, radius, 0, Math.PI * 2);
+          ctx.fillStyle = planet.color;
+          ctx.shadowColor = planet.color;
+          ctx.shadowBlur = 10;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.arc(pp.sx, pp.sy, radius + 2.2, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          ctx.fillStyle = '#f8fafc';
+          ctx.fillText(planet.name.toUpperCase(), pp.sx + radius + 5, pp.sy - 3);
+          ctx.restore();
+        });
+
         // Celestial Tether Beams: Universe Center (0,0,0) -> Assigned Stars -> Channels
         const drawTether = (starId: string, puckPos: SpatialPosition, color: string) => {
           const star = REAL_CELESTIAL_STARS.find((s) => s.id === starId);
           if (!star) return;
           const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+          const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const pp = project3D(puckPos.x, puckPos.y, puckPos.z, width, height);
 
           // Ray from Center to Star
@@ -1201,9 +1531,11 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           ctx.setLineDash([]);
         };
 
-        drawTether(starAId, aPos, '#00f0ff');
-        drawTether(starBId, bPos, '#ff007f');
-        drawTether(starCId, cPos, '#fbbf24');
+        if (!isEarthModeActive) {
+          drawTether(starAId, aPos, '#00f0ff');
+          drawTether(starBId, bPos, '#ff007f');
+          drawTether(starCId, cPos, '#fbbf24');
+        }
       }
 
       // 6. Draw 3D Sound Puck Helper
@@ -1275,6 +1607,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         );
       };
 
+      // Keep cube-space pucks/triangle confined to the 3D orbit view. In Earth
+      // mode, geographic A/B/C targets are rendered as pins on the globe.
+      if (!isEarthModeActive) {
       // 7. Draw Trinaural Acoustic Triangular Web between A, B, and C
       const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
       const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
@@ -1456,10 +1791,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
       drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
 
+      }
+
       // 8. Hovered Star Info Card (if hovered)
       if (isStarModeActive && hoveredStar && !clickedStar) {
         const hoverPosition = celestialPosition(hoveredStar);
-        const hp = project3D(hoverPosition.x, hoverPosition.y, hoverPosition.z, width, height);
+        const hp = projectCelestial3D(hoverPosition.x, hoverPosition.y, hoverPosition.z, width, height);
         ctx.save();
         ctx.fillStyle = 'rgba(6, 10, 18, 0.94)';
         ctx.strokeStyle = '#facc15';
@@ -1485,6 +1822,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
+      }
       ctx.restore();
       animId = requestAnimationFrame(render);
     };
@@ -1504,12 +1842,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     cFreq,
     isRunning,
     isStarModeActive,
+    showConstellationLines,
     constellationsEnabled,
     show110HzResearchComets,
     showDetailedStarInfo,
     isEarthModeActive,
     timelineYear,
     earthTextureLoaded,
+    earthTextureUrl,
     starAId,
     starBId,
     starCId,
@@ -1520,6 +1860,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     overlay,
     relation711.isHarmonic711,
     project3D,
+    projectCelestial3D,
     activeDrag,
     hoverNode,
     showTriangleAngles,
@@ -1527,77 +1868,93 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   ]);
 
   // Pointer interactions
+  // In Earth/top-plane mode, the globe receives pointer events. Intercept a
+  // pointer-down only if it hits a celestial star; other interactions continue
+  // to the globe, preserving globe rotate/zoom and geographic location-pinning.
+  const handleEarthStarPointerDownCapture = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isEarthModeActive || !isStarModeActive) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || !target.closest('canvas')) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    for (const star of REAL_CELESTIAL_STARS) {
+      const point = celestialPosition(star);
+      const screen = projectCelestial3D(point.x, point.y, point.z, rect.width, rect.height);
+      if (Math.hypot(x - screen.sx, y - screen.sy) < 18) {
+        event.preventDefault();
+        event.stopPropagation();
+        handleSnapChannelToStar(snapTargetChannel, star);
+        setClickedStar(star);
+        setHoveredStar(star);
+        return;
+      }
+    }
+  };
+
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
     const width = rect.width;
     const height = rect.height;
+    const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
+    const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
+    const pc = project3D(cPos.x, cPos.y, cPos.z, width, height);
+    const distA = Math.hypot(x - pa.sx, y - pa.sy);
+    const distB = Math.hypot(x - pb.sx, y - pb.sy);
+    const distC = Math.hypot(x - pc.sx, y - pc.sy);
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
 
-    // 1. Check if user clicked directly on any real star
+    // Pucks win hit-testing so a channel on a star can still be dragged.
+    // Shift-click deliberately selects an overlapping star instead.
+    if (!e.shiftKey && Math.min(distA, distB, distC) < 22) {
+      const channel: 'a' | 'b' | 'c' = distA <= distB && distA <= distC ? 'a' : distB <= distC ? 'b' : 'c';
+      setActiveDrag(channel);
+      setHoverNode(channel);
+      setLockedChannels((prev) => ({ ...prev, [channel]: false }));
+      setEarthChannelTargets((prev) => ({ ...prev, [channel]: null }));
+      if (channel === 'a') setStarAId('');
+      else if (channel === 'b') setStarBId('');
+      else setStarCId('');
+      setClickedStar(null);
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
+
     if (isStarModeActive) {
-      for (const star of REAL_CELESTIAL_STARS.filter((item) => isConstellationEnabled(item.constellation))) {
+      for (const star of REAL_CELESTIAL_STARS) {
         const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+        const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
         if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
-          // Snap currently selected target channel to this star and stay there!
           handleSnapChannelToStar(snapTargetChannel, star);
           setClickedStar(star);
           return;
         }
       }
     }
+    if (clickedStar) setClickedStar(null);
 
-    // Dismiss clicked star modal if clicking elsewhere
-    if (clickedStar) {
-      setClickedStar(null);
+    if (Math.min(distA, distB, distC) < 22) {
+      const channel: 'a' | 'b' | 'c' = distA <= distB && distA <= distC ? 'a' : distB <= distC ? 'b' : 'c';
+      setActiveDrag(channel);
+      setHoverNode(channel);
+      setLockedChannels((prev) => ({ ...prev, [channel]: false }));
+      setEarthChannelTargets((prev) => ({ ...prev, [channel]: null }));
+      if (channel === 'a') setStarAId('');
+      else if (channel === 'b') setStarBId('');
+      else setStarCId('');
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      return;
     }
-
-    const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
-    const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
-    const pc = project3D(cPos.x, cPos.y, cPos.z, width, height);
-
-    const distA = Math.hypot(x - pa.sx, y - pa.sy);
-    const distB = Math.hypot(x - pb.sx, y - pb.sy);
-    const distC = Math.hypot(x - pc.sx, y - pc.sy);
-
-    dragStartPos.current = { x: e.clientX, y: e.clientY };
-
-    if (distA < 22) {
-      // If locked to star, prevent accidental displacement unless shift is held
-      if (isStarModeActive && lockedChannels.a && !e.shiftKey) {
-        setSnapFeedback(`★ CH-A IS LOCKED TO STAR. Hold Shift to override.`);
-        window.setTimeout(() => setSnapFeedback(null), 2500);
-        return;
-      }
-      setActiveDrag('a');
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    } else if (distB < 22) {
-      if (isStarModeActive && lockedChannels.b && !e.shiftKey) {
-        setSnapFeedback(`★ CH-B IS LOCKED TO STAR. Hold Shift to override.`);
-        window.setTimeout(() => setSnapFeedback(null), 2500);
-        return;
-      }
-      setActiveDrag('b');
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    } else if (distC < 22) {
-      if (isStarModeActive && lockedChannels.c && !e.shiftKey) {
-        setSnapFeedback(`★ CH-C IS LOCKED TO STAR. Hold Shift to override.`);
-        window.setTimeout(() => setSnapFeedback(null), 2500);
-        return;
-      }
-      setActiveDrag('c');
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    } else {
-      // Orbit Camera
-      setActiveDrag('camera');
-      cameraStartAngle.current = { yaw: cameraYaw, pitch: cameraPitch };
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    }
+    setActiveDrag('camera');
+    cameraStartAngle.current = { yaw: cameraYaw, pitch: cameraPitch };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -1626,10 +1983,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         const newY = Math.max(-8, Math.min(8, aPos.y + dy));
         dragStartPos.current.y = e.clientY;
         onUpdateAPos({ ...aPos, y: Number(newY.toFixed(1)) });
-      } else {
+      } else if (cameraView === 'front') {
         const newX = Math.max(-8, Math.min(8, (x - cx) / (baseScale * 1.25)));
-        const newZ = Math.max(-8, Math.min(8, (y - cy) / (baseScale * 1.25)));
-        onUpdateAPos({ ...aPos, x: Number(newX.toFixed(1)), z: Number(newZ.toFixed(1)) });
+        const newY = Math.max(-8, Math.min(8, (cy - y) / (baseScale * 1.25)));
+        onUpdateAPos({ ...aPos, x: Number(newX.toFixed(1)), y: Number(newY.toFixed(1)) });
+      } else {
+        const mapped = unprojectOrbitPlane(x, y, aPos.y, width, height, aPos.x, aPos.z);
+        onUpdateAPos({ ...aPos, x: mapped.x, z: mapped.z });
       }
     } else if (activeDrag === 'b') {
       if (e.shiftKey) {
@@ -1637,10 +1997,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         const newY = Math.max(-8, Math.min(8, bPos.y + dy));
         dragStartPos.current.y = e.clientY;
         onUpdateBPos({ ...bPos, y: Number(newY.toFixed(1)) });
-      } else {
+      } else if (cameraView === 'front') {
         const newX = Math.max(-8, Math.min(8, (x - cx) / (baseScale * 1.25)));
-        const newZ = Math.max(-8, Math.min(8, (y - cy) / (baseScale * 1.25)));
-        onUpdateBPos({ ...bPos, x: Number(newX.toFixed(1)), z: Number(newZ.toFixed(1)) });
+        const newY = Math.max(-8, Math.min(8, (cy - y) / (baseScale * 1.25)));
+        onUpdateBPos({ ...bPos, x: Number(newX.toFixed(1)), y: Number(newY.toFixed(1)) });
+      } else {
+        const mapped = unprojectOrbitPlane(x, y, bPos.y, width, height, bPos.x, bPos.z);
+        onUpdateBPos({ ...bPos, x: mapped.x, z: mapped.z });
       }
     } else if (activeDrag === 'c') {
       if (e.shiftKey) {
@@ -1648,10 +2011,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         const newY = Math.max(-8, Math.min(8, cPos.y + dy));
         dragStartPos.current.y = e.clientY;
         onUpdateCPos({ ...cPos, y: Number(newY.toFixed(1)) });
-      } else {
+      } else if (cameraView === 'front') {
         const newX = Math.max(-8, Math.min(8, (x - cx) / (baseScale * 1.25)));
-        const newZ = Math.max(-8, Math.min(8, (y - cy) / (baseScale * 1.25)));
-        onUpdateCPos({ ...cPos, x: Number(newX.toFixed(1)), z: Number(newZ.toFixed(1)) });
+        const newY = Math.max(-8, Math.min(8, (cy - y) / (baseScale * 1.25)));
+        onUpdateCPos({ ...cPos, x: Number(newX.toFixed(1)), y: Number(newY.toFixed(1)) });
+      } else {
+        const mapped = unprojectOrbitPlane(x, y, cPos.y, width, height, cPos.x, cPos.z);
+        onUpdateCPos({ ...cPos, x: mapped.x, z: mapped.z });
       }
     } else {
       const pa = project3D(aPos.x, aPos.y, aPos.z, width, height);
@@ -1670,9 +2036,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       // Star Hover detection
       if (isStarModeActive) {
         let found: CelestialStar | null = null;
-        for (const star of REAL_CELESTIAL_STARS.filter((item) => isConstellationEnabled(item.constellation))) {
+        for (const star of REAL_CELESTIAL_STARS) {
           const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+          const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
             found = star;
             break;
@@ -1699,9 +2065,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     onUpdateCameraZoom(Number(newZoom.toFixed(2)));
   };
 
+  const handleEarthImagerySourceChange = useCallback((source: 'satellite' | 'blue-marble' | 'land-ocean') => {
+    setEarthImagerySource(source);
+    setEarthTextureUrl(earthImagerySources[source]);
+  }, []);
+
   return (
     <div
       ref={containerRef}
+      onPointerDownCapture={handleEarthStarPointerDownCapture}
       className={`relative w-full h-full bg-[#060a12] rounded-xl border border-slate-800 shadow-2xl overflow-hidden select-none flex flex-col ${
         isStageFullscreen ? 'fixed inset-0 z-[100] rounded-none' : ''
       }`}
@@ -1716,7 +2088,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       />
 
       {/* Top 3D Deck Controls */}
-      <div className="absolute top-3 left-3 right-3 z-30 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
+      <div className="absolute top-3 left-3 right-3 z-[70] flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
         {/* Left: View Mode Switches & Orbit Reset */}
         <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg">
           <button
@@ -1757,6 +2129,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
+          <button
+            onClick={() => setEarthImageryPanelOpen((open) => !open)}
+            className="ml-1 flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded border border-sky-500/40 text-sky-300 hover:bg-sky-950/50"
+            title="Choose public Earth imagery without sign-in"
+            aria-label="Earth imagery sources"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            EARTH IMAGERY
+          </button>
         </div>
 
         {/* Center: Star Celestial Alignment Button + Snap Channel Selector + Top Plane Overlay Button */}
@@ -1774,7 +2155,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 <Minimize className="w-3 h-3" />
               </button>
             ) : (
-              <div className="flex flex-col gap-1 p-2 rounded-lg border border-amber-500/40 bg-[#0b1220]/95 backdrop-blur-md shadow-xl">
+              <div className="relative z-[80] flex flex-col gap-1 p-2 rounded-lg border border-amber-500/40 bg-[#0b1220]/95 backdrop-blur-md shadow-xl pointer-events-auto">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] uppercase tracking-wider text-amber-300">Star Alignment</span>
                   <button onClick={() => setIsStarPanelExpanded(false)} className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-700" title="Minimize Star Alignment">
@@ -1783,7 +2164,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => setIsStarModeActive((prev) => !prev)}
+                    onClick={(event) => { event.stopPropagation(); setIsStarModeActive((prev) => !prev); }}
+                    aria-pressed={isStarModeActive}
                     className={`flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-bold rounded border transition-all ${
                       isStarModeActive ? 'bg-amber-400 text-slate-950 border-amber-300' : 'bg-slate-900 text-amber-300 border-amber-500/40'
                     }`}
@@ -1792,8 +2174,32 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                     <Star className={`w-3 h-3 ${isStarModeActive ? 'fill-current' : ''}`} />
                     {isStarModeActive ? 'STARS ON' : 'STARS OFF'}
                   </button>
-                  {isStarModeActive && (
+                  <button
+                    onClick={(event) => { event.stopPropagation(); setShowConstellationLines((value) => !value); }}
+                    aria-pressed={showConstellationLines}
+                    className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${showConstellationLines ? 'bg-sky-400 text-slate-950 border-sky-300' : 'bg-slate-900 text-slate-300 border-slate-700'}`}
+                    title="Toggle constellation connecting lines independently from star visibility"
+                  >
+                    CONSTELLATIONS {showConstellationLines ? 'ON' : 'OFF'}
+                  </button>
+                  <button
+                    onClick={(event) => { event.stopPropagation(); onTogglePositionPitchMode(); }}
+                    aria-pressed={positionPitchMode}
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono font-bold border ${positionPitchMode ? 'bg-emerald-400 text-slate-950 border-emerald-300' : 'bg-slate-900 text-emerald-300 border-emerald-500/40'}`}
+                    title="When on, moving A, B, or C changes its oscillator Hz based on XYZ location"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    LOCATION→HZ {positionPitchMode ? 'ON' : 'OFF'}
+                  </button>
+                  {(isStarModeActive || isEarthAssignMode) && (
                     <>
+                      <button
+                        onClick={() => setIsEarthAssignMode((value) => !value)}
+                        className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${isEarthAssignMode ? 'bg-emerald-400 text-slate-950 border-emerald-300' : 'bg-slate-900 text-emerald-300 border-emerald-500/40'}`}
+                        title="When enabled, click an Earth location to pin the selected A/B/C channel there"
+                      >
+                        PIN EARTH {isEarthAssignMode ? 'ON' : 'OFF'}
+                      </button>
                       {(['a', 'b', 'c'] as const).map((channel) => (
                         <button
                           key={channel}
@@ -1927,6 +2333,42 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </button>
         </div>
       </div>
+
+      {earthImageryPanelOpen && (
+        <div className="absolute top-16 left-3 z-40 w-[min(92vw,340px)] rounded-xl border border-sky-500/50 bg-[#07101d]/96 p-3 shadow-2xl backdrop-blur-md pointer-events-auto">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2 text-sky-200 text-xs font-mono font-bold">
+              <Layers className="w-4 h-4" />
+              PUBLIC EARTH IMAGERY
+            </div>
+            <button onClick={() => setEarthImageryPanelOpen(false)} className="p-1 rounded text-slate-400 hover:text-white" aria-label="Close Earth imagery panel">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400 leading-relaxed mb-2">
+            Choose a public globe texture. No Google Cloud project, API key, account sign-in, or environment setup is required. Your historical sites, cities, orbit controls, stars and alignment overlays stay in place.
+          </p>
+          <label className="block text-[10px] text-slate-400 mb-1" htmlFor="earth-imagery-source">Earth imagery</label>
+          <select
+            id="earth-imagery-source"
+            value={earthImagerySource}
+            onChange={(event) => handleEarthImagerySourceChange(event.target.value as 'satellite' | 'blue-marble' | 'land-ocean')}
+            className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100 mb-2"
+          >
+            <option value="satellite">Satellite imagery (Esri World Imagery)</option>
+            <option value="blue-marble">Blue Marble Earth</option>
+            <option value="land-ocean">NASA land, ocean and ice</option>
+          </select>
+          <div className="text-[10px] text-emerald-200 mb-2">No sign-in required · selected texture applies to the existing globe</div>
+          <button
+            onClick={() => setEarthTextureUrl(earthImagerySources[earthImagerySource])}
+            className="w-full rounded-md border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-xs font-mono font-bold text-sky-200 hover:bg-sky-900/80"
+          >
+            APPLY EARTH IMAGERY
+          </button>
+          <p className="mt-2 text-[9px] text-slate-500 leading-relaxed">Satellite imagery is served by Esri's public World Imagery service and may be subject to its availability and usage terms.</p>
+        </div>
+      )}
 
       {/* Real-time Snap Feedback Banner */}
       {snapFeedback && (
@@ -2344,7 +2786,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
       {isTimelineActive ? (
-        <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-3xl max-h-[82vh] overflow-y-auto rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
+        <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-2xl rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
             <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300">Historical Earth / Sky Timeline</div>
             <div className="flex items-center gap-2">
@@ -2352,51 +2794,94 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <button onClick={() => setIsTimelineActive(false)} className="rounded px-2 py-0.5 text-[10px] font-mono text-amber-300 border border-amber-500/40 hover:bg-amber-950/50" aria-label="Hide historical timeline">TIMELINE OFF</button>
             </div>
           </div>
-          <input aria-label="Historical year spanning the last 12,000 years to the present" type="range" min={timelineMinYear} max={currentTimelineYear} step="1" value={timelineYear} onChange={(e) => setTimelineYear(Number(e.target.value))} className="w-full accent-amber-400 cursor-pointer" />
-          <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400"><span>12,000 YEARS AGO ({timelineMinYear < 0 ? Math.abs(timelineMinYear).toLocaleString() + ' BCE' : timelineMinYear + ' CE'})</span><span>{timelineYearsAgo.toLocaleString()} years before present</span><span>Present</span></div>
-          <div className="mt-1 text-[9px] leading-tight text-slate-400">The year control moves in single-year increments across 12,000 years. Existing dated sites and imported GeoJSON features with year/start/end date properties follow this date. Dates and extents are only as precise as each source records.</div>
-          <HistoricalLayerPanel
-            layers={{ ancientPlaces: showAncientPlaces, structures: showAncientStructures, soundSites: showMeasuredSoundSites, cities: showCities, imported: showImportedHistoricalData, openHistoricalMap: showOpenHistoricalMap }}
-            onToggle={(layer: HistoricalLayerKey, enabled: boolean) => {
-              const setters: Record<HistoricalLayerKey, (value: boolean) => void> = {
-                ancientPlaces: setShowAncientPlaces,
-                structures: setShowAncientStructures,
-                soundSites: setShowMeasuredSoundSites,
-                cities: setShowCities,
-                imported: setShowImportedHistoricalData,
-                openHistoricalMap: setShowOpenHistoricalMap,
-              };
-              setters[layer](enabled);
-            }}
-            onGeoJsonLoaded={(data, fileName) => { setImportedHistoricalGeoJson(data); setImportedHistoricalFileName(fileName); }}
-            loadedFileName={importedHistoricalFileName}
-          />
+          <input aria-label="Historical year from 10,000 BCE to present" type="range" min="-10000" max={new Date().getUTCFullYear()} step="10" value={timelineYear} onChange={(e) => setTimelineYear(Number(e.target.value))} className="w-full accent-amber-400 cursor-pointer" />
+          <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400"><span>10,000 BCE</span><span>{timelineYearsAgo.toLocaleString()} years before present</span><span>Present</span></div>
+          <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. With STAR MODE on, Sun and planets move with this year using a local Stardroid-derived ephemeris. {planetEphemerisYearIsPreferred ? 'Orbital elements are within their preferred 1800–2050 CE range.' : 'Planet positions outside 1800–2050 CE are illustrative, not precision historical ephemerides.'} Sky precession is first-order (~50.29″/yr); year-only rotation phase is not an exact historical time-of-day.</div>
         </div>
       ) : (
         <button onClick={() => setIsTimelineActive(true)} className="absolute top-[4.6rem] left-3 z-20 pointer-events-auto rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-3 py-1.5 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline">TIMELINE OFF · SHOW</button>
       )}
 
       {/* Large interactive Earth fills the Top Plane viewport; Globe controls retain drag-to-rotate and wheel zoom. */}
-      {true && (
+      {isEarthModeActive && (
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
           <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto flex items-center justify-center">
-            <div className="w-full h-full flex items-center justify-center">
-              <div style={{ width: isEarthModeActive ? '100%' : '76%', height: isEarthModeActive ? '100%' : '88%', transition: 'width 220ms ease, height 220ms ease' }}>
-                <MapLibreEarth
-                  ref={globeRef}
-                  points={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientPlaces)}
-                  onPointClick={(site: any) => openEarthSite(site)}
-                  zoom={cameraZoom}
-                  compact={!isEarthModeActive}
-                  importedGeoJson={importedHistoricalGeoJson}
-                  showImportedHistoricalData={showImportedHistoricalData}
-                  showOpenHistoricalMap={showOpenHistoricalMap}
-                  timelineYear={timelineYear}
-                />
-              </div>
-            </div>
+            <Globe3D ref={globeRef} width={Math.max(320, (containerRef.current?.clientWidth || 800) * 0.96)}
+              height={Math.max(320, (containerRef.current?.clientHeight || 600) * 0.96)}
+              globeImageUrl={earthTextureUrl}
+              bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+              backgroundColor="rgba(0,0,0,0)"
+              showGraticules={false} showAtmosphere={earthAtmosphere}
+              arcsData={showAlignmentTriangles && showAncientStructures ? triangleEdges : []}
+              arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
+              arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
+              arcColor={() => showAcousticColorSystem ? '#38bdf8' : '#e2e8f0'} arcStroke={0.65} arcAltitude={0.008}
+              polygonsData={showAlignmentTriangles && showAncientStructures ? trianglePolygons : []}
+              polygonGeoJsonGeometry={(d: any) => d.geometry}
+              polygonCapColor={() => showAcousticColorSystem ? 'rgba(56,189,248,0.08)' : 'rgba(226,232,240,0.04)'}
+              polygonSideColor={() => 'rgba(56,189,248,0.03)'} polygonStrokeColor={() => showAcousticColorSystem ? 'rgba(125,211,252,0.72)' : 'rgba(226,232,240,0.55)'} polygonAltitude={0.012}
+              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
+              pointLabel={(d: any) => d.evidenceStatus ? `${d.layerCategory || 'SOUND'} · ${d.name} — ${d.measurementSummary || 'published acoustic record'} · reported values/bands: ${(d.measuredFrequenciesHz || []).join(', ')} Hz (check measurement context; range endpoints may not be site-specific peaks) · click to inspect` : d.isDimensionRecord ? `${d.layerCategory} · ${d.name}${d.structuralHeightFt ? ' · approximately ' + d.structuralHeightFt + ' ft' : ''} · ${d.heightBasis} · ${d.heightNote}${d.numberSystem ? ' · Number system: ' + d.numberSystem + (d.numberSystemNote ? ' — ' + d.numberSystemNote : '') : ''}${d.orientationNote ? ' · Orientation: ' + d.orientationNote : ''}${d.ritualContext ? ' · Ritual context: ' + d.ritualContext : ''}` : d.historicalRecord ? `${d.layerCategory} · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · ${d.researchReason} · click to inspect` : d.isCity ? `CITY · ${d.name} · click to open map and alignment explorer` : `${d.layerCategory || 'ANCIENT SITE'} · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
+              htmlElementsData={[...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
+              htmlElement={(d: any) => {
+                if (d.isChannelTarget) {
+                  const badge = document.createElement('button');
+                  badge.type = 'button';
+                  badge.textContent = d.channel.toUpperCase();
+                  badge.title = `CH-${d.channel.toUpperCase()} · click to select this channel`;
+                  badge.setAttribute('aria-label', `Select channel ${d.channel.toUpperCase()}`);
+                  badge.style.width = '28px';
+                  badge.style.height = '28px';
+                  badge.style.borderRadius = '50%';
+                  badge.style.border = `2px solid ${d.color}`;
+                  badge.style.background = 'rgba(3, 10, 22, 0.94)';
+                  badge.style.color = d.color;
+                  badge.style.font = 'bold 12px "JetBrains Mono", monospace';
+                  badge.style.boxShadow = `0 0 12px ${d.color}99`;
+                  badge.style.cursor = 'pointer';
+                  badge.style.pointerEvents = 'auto';
+                  badge.style.display = 'grid';
+                  badge.style.placeItems = 'center';
+                  badge.style.transform = 'translate(-50%, -50%)';
+                  badge.onclick = (event) => {
+                    event.stopPropagation();
+                    setSnapTargetChannel(d.channel);
+                  };
+                  return badge;
+                }
+                const marker = document.createElement('div');
+                marker.style.width = '52px'; marker.style.height = showCosmicBeam && d.evidenceStatus === 'published-measurement' ? '300px' : '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
+                marker.title = d.evidenceStatus === 'published-measurement' ? `Published acoustic measurement: ${d.measuredHz} Hz (not 110 Hz)` : '110 Hz research candidate · resonance unverified at this location';
+                if (showCosmicBeam && d.evidenceStatus === 'published-measurement') {
+                  const beam = document.createElement('div');
+                  beam.style.position = 'absolute'; beam.style.left = '25px'; beam.style.top = '0px'; beam.style.width = '3px'; beam.style.height = '150px';
+                  beam.style.transform = 'translateX(-50%)'; beam.style.background = 'linear-gradient(to top, rgba(251,146,60,.1), rgba(251,146,60,.8), rgba(255,255,255,.95), transparent)';
+                  beam.style.boxShadow = '0 0 12px 3px rgba(251,146,60,.5)'; beam.style.borderRadius = '99px';
+                  beam.animate([{opacity:.45, transform:'translateX(-50%) scaleY(.72)'},{opacity:1,transform:'translateX(-50%) scaleY(1)'},{opacity:.5,transform:'translateX(-50%) scaleY(.82)'}],{duration:1800,iterations:Infinity});
+                  marker.append(beam);
+                }
+                const comet = document.createElement('div');
+                comet.style.position = 'absolute'; comet.style.left = '4px'; comet.style.top = '20px'; comet.style.width = '34px'; comet.style.height = '3px';
+                comet.style.transform = 'rotate(-42deg)'; comet.style.transformOrigin = 'right center';
+                comet.style.background = 'linear-gradient(90deg, transparent, rgba(251,146,60,.15), #fdba74, #fff7ed)';
+                comet.style.filter = 'drop-shadow(0 0 5px #fb923c)';
+                comet.animate([{ opacity: 0.12, transform: 'translate(-4px, 5px) rotate(-42deg) scaleX(.25)' }, { opacity: 1, transform: 'translate(0, 0) rotate(-42deg) scaleX(1)' }, { opacity: 0.05, transform: 'translate(8px, -8px) rotate(-42deg) scaleX(.2)' }], { duration: 1450, iterations: Infinity, delay: (Math.abs(d.lat * 11 + d.lon) % 900) });
+                marker.append(comet); return marker;
+              }}
+              onPointClick={(d: any) => {
+                if (isEarthAssignMode) {
+                  handlePinChannelToEarth(snapTargetChannel, d.lat, d.lon);
+                } else {
+                  openEarthSite(d);
+                }
+              }}
+              onGlobeClick={(coords: { lat: number; lng: number }) => {
+                if (isEarthAssignMode) handlePinChannelToEarth(snapTargetChannel, coords.lat, coords.lng);
+              }} />
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
-            {showAlignmentTriangles && showAncientStructures && cameraView !== 'front' && <div className="absolute left-3 bottom-3 z-[6] max-w-[min(92%,440px)] rounded-lg border border-sky-400/40 bg-slate-950/90 p-2 text-[10px] font-mono text-slate-200 pointer-events-none"><div className="font-bold text-sky-200">EARTH TRIANGULATION · nearest 3 neighbors/site</div><div className="mt-1">{trianglePolygons.length} connected triangles · repeated 5° angle bins: {repeatedTriangleAngles.length ? repeatedTriangleAngles.slice(0,5).map(([angle,count]) => angle+'° × '+count).join(' · ') : 'none detected in current set'}</div><div className="mt-1 text-slate-400">Approximate local-plane angles; projection, site coordinates and chance patterns matter.</div></div>}
+            {showAlignmentTriangles && showAncientStructures && <div className="absolute left-3 bottom-3 z-[6] max-w-[min(92%,440px)] rounded-lg border border-sky-400/40 bg-slate-950/90 p-2 text-[10px] font-mono text-slate-200 pointer-events-none"><div className="font-bold text-sky-200">EARTH TRIANGULATION · nearest 3 neighbors/site</div><div className="mt-1">{trianglePolygons.length} connected triangles · repeated 5° angle bins: {repeatedTriangleAngles.length ? repeatedTriangleAngles.slice(0,5).map(([angle,count]) => angle+'° × '+count).join(' · ') : 'none detected in current set'}</div><div className="mt-1 text-slate-400">Approximate local-plane angles; projection, site coordinates and chance patterns matter.</div></div>}
             <div className={`absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden ${isEarthModeActive ? 'hidden' : ''}`}>
               <div className="relative w-[min(74vmin,76%)] aspect-square rounded-full border border-slate-300/20 animate-[spin_27s_linear_infinite]">
                 <div className="absolute inset-0 rounded-full border border-dashed border-slate-400/15" />
@@ -2406,7 +2891,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
         </div>
       )}
-      <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
+      <canvas
+        ref={canvasRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
+        className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`}
+      />
 
       <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} />
 
@@ -2543,6 +3036,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </button>
         </div>
       </div>
+
     </div>
   );
 };

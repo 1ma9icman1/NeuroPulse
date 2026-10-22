@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/remove-solar-sim-restore-earth-view
+      - 'feature/**'
   pull_request:
     branches:
       - main
