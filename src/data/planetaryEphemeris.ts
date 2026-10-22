@@ -131,6 +131,57 @@ export function getPlanetSkyPositions(year: number): PlanetSkyPosition[] {
   return positions;
 }
 
+
+/**
+ * Heliocentric orbital elements for the interactive solar-system view.
+ * Semimajor axes and eccentricities are physical inputs; the renderer compresses
+ * distances for legibility but preserves eccentricity, orbital inclination and
+ * relative orbital periods. Mean anomaly is evaluated at the supplied epoch.
+ */
+export interface HeliocentricOrbitElement {
+  id: string;
+  name: string;
+  semimajorAxisAu: number;
+  eccentricity: number;
+  inclinationDeg: number;
+  argumentOfPerihelionDeg: number;
+  longitudeAscendingNodeDeg: number;
+  meanAnomalyRad: number;
+  orbitalPeriodDays: number;
+  color: string;
+  size: number;
+}
+
+export function getHeliocentricOrbitElements(epochMs: number): HeliocentricOrbitElement[] {
+  const jd = epochMs / 86400000 + 2440587.5;
+  const centuries = (jd - 2451545.0) / 36525;
+  return Object.entries(ELEMENTS).map(([name, elements]) => {
+    const value = (pair: [number, number]) => pair[0] + pair[1] * centuries;
+    const a = value(elements.a);
+    const e = Math.max(0, Math.min(0.999, value(elements.e)));
+    const inclination = value(elements.i);
+    const meanLongitude = value(elements.L) * DEG;
+    const perihelion = value(elements.peri) * DEG;
+    const ascendingNode = value(elements.node) * DEG;
+    const meanAnomaly = ((meanLongitude - perihelion) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    return {
+      id: name.toLowerCase(),
+      name,
+      semimajorAxisAu: a,
+      eccentricity: e,
+      inclinationDeg: inclination,
+      argumentOfPerihelionDeg: value(elements.peri) - value(elements.node),
+      longitudeAscendingNodeDeg: value(elements.node),
+      meanAnomalyRad: meanAnomaly,
+      // Kepler's third law for heliocentric orbits; sufficient for this
+      // educational view, with small perturbations and higher-order effects omitted.
+      orbitalPeriodDays: 365.2568983 * Math.pow(a, 1.5),
+      color: elements.color,
+      size: elements.size,
+    };
+  });
+}
+
 export function isPlanetEphemerisYearInPreferredRange(year: number): boolean {
   return year >= 1800 && year <= 2050;
 }
