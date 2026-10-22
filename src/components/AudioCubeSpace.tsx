@@ -1123,7 +1123,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.shadowColor = '#60a5fa';
         ctx.shadowBlur = 12;
         ctx.setLineDash([]);
-        CONSTELLATION_LINE_SHAPES.forEach((shape) => {
+        if (isStarModeActive) CONSTELLATION_LINE_SHAPES.forEach((shape) => {
           if (!isConstellationEnabled(shape.name)) return;
           shape.lines.forEach((path) => {
             if (path.length < 2) return;
