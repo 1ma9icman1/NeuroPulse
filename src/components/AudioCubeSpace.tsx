@@ -1775,7 +1775,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             onClick={() => onUpdateCameraView('perspective')}
             className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors ${
               cameraView === 'perspective'
-                ? 'bg-purple-600 text-white shadow-sm'
+                ? 'bg-sky-500 text-slate-950 shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -1785,7 +1785,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             onClick={() => onUpdateCameraView('top')}
             className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors ${
               cameraView === 'top'
-                ? 'bg-purple-600 text-white shadow-sm'
+                ? 'bg-sky-500 text-slate-950 shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -1795,7 +1795,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             onClick={() => onUpdateCameraView('front')}
             className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors ${
               cameraView === 'front'
-                ? 'bg-purple-600 text-white shadow-sm'
+                ? 'bg-sky-500 text-slate-950 shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -1811,7 +1811,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </button>
         </div>
 
-        {/* Center: Star Celestial Alignment Button + Snap Channel Selector + Top Plane Overlay Button */}
+        {/* Specialist overlays belong to the flat workspace, not the clean Earth globe. */}
+        {!isEarthModeActive && (
         <div className="flex flex-wrap items-center gap-2">
           {/* Compact Star Alignment panel: collapsed to one button by default. */}
           <div className="flex items-start gap-1">
@@ -1937,17 +1938,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             </div>
           )}
         </div>
+        )}
 
         {/* Orbit Angles, Zoom & Stage Fullscreen */}
         <div className="flex items-center gap-2 bg-[#0b1220]/90 backdrop-blur-md px-3 py-1 rounded-lg border border-slate-800 text-xs font-mono text-slate-400">
-          <Rotate3D className="w-3.5 h-3.5 text-purple-400" />
-          <span>
-            Yaw: <strong className="text-white">{cameraYaw.toFixed(0)}°</strong>
-          </span>
-          <span>·</span>
-          <span>
-            Pitch: <strong className="text-white">{cameraPitch.toFixed(0)}°</strong>
-          </span>
+          {!isEarthModeActive && <Rotate3D className="w-3.5 h-3.5 text-sky-300" />}
+          {!isEarthModeActive && <>
+            <span>Yaw: <strong className="text-white">{cameraYaw.toFixed(0)}°</strong></span>
+            <span>·</span>
+            <span>Pitch: <strong className="text-white">{cameraPitch.toFixed(0)}°</strong></span>
+          </>}
 
           <div className="flex items-center gap-1 ml-2 border-l border-slate-700 pl-2">
             <button
