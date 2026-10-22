@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import maplibregl, { Map as MapLibreMap, GeoJSONSource } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { filterHistoricalGeoJson } from '../data/historicalGeoJson';
 
 export interface EarthMapPoint {
   name: string;
@@ -19,18 +20,27 @@ interface Props {
   onPointClick: (point: EarthMapPoint) => void;
   zoom?: number;
   compact?: boolean;
+  importedGeoJson?: GeoJSON.FeatureCollection | null;
+  showImportedHistoricalData?: boolean;
+  timelineYear?: number;
 }
 
 /** Shared Earth renderer: MapLibre globe projection, Esri imagery, Natural Earth boundaries, and dot-only site markers. */
 export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function MapLibreEarth(
-  { points, onPointClick, zoom = 1, compact = false }, ref
+  { points, onPointClick, zoom = 1, compact = false, importedGeoJson = null, showImportedHistoricalData = false, timelineYear = new Date().getUTCFullYear() }, ref
 ) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const callbackRef = useRef(onPointClick);
   const pointsRef = useRef(points);
+  const importedRef = useRef(importedGeoJson);
+  const importedVisibleRef = useRef(showImportedHistoricalData);
+  const yearRef = useRef(timelineYear);
   callbackRef.current = onPointClick;
   pointsRef.current = points;
+  importedRef.current = importedGeoJson;
+  importedVisibleRef.current = showImportedHistoricalData;
+  yearRef.current = timelineYear;
 
   useImperativeHandle(ref, () => ({
     pointOfView: (view, duration = 0) => {
@@ -76,11 +86,18 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] },
           },
+          historicalImports: {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          },
         },
         layers: [
           { id: 'earth-imagery', type: 'raster', source: 'imagery', paint: { 'raster-opacity': 1, 'raster-saturation': 0.08, 'raster-contrast': 0.08 } },
           { id: 'natural-earth-fill', type: 'fill', source: 'naturalEarth', paint: { 'fill-color': '#4b8b78', 'fill-opacity': 0.08 } },
           { id: 'natural-earth-borders', type: 'line', source: 'naturalEarth', paint: { 'line-color': '#b6e0d2', 'line-opacity': 0.52, 'line-width': ['interpolate', ['linear'], ['zoom'], 0, 0.25, 5, 0.8] } },
+          { id: 'imported-history-polygons', type: 'fill', source: 'historicalImports', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': ['coalesce', ['get', 'color'], '#eab308'], 'fill-opacity': 0.18, 'fill-outline-color': '#fbbf24' } },
+          { id: 'imported-history-lines', type: 'line', source: 'historicalImports', filter: ['in', ['geometry-type'], ['literal', ['LineString', 'MultiLineString']]], paint: { 'line-color': ['coalesce', ['get', 'color'], '#fbbf24'], 'line-width': 1.5, 'line-opacity': 0.85 } },
+          { id: 'imported-history-points', type: 'circle', source: 'historicalImports', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 3.5, 'circle-color': ['coalesce', ['get', 'color'], '#fb923c'], 'circle-stroke-color': '#fff7ed', 'circle-stroke-width': 0.8 } },
           { id: 'historical-site-dots', type: 'circle', source: 'sites', paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 0, 2.4, 3, 3.4, 7, 5],
             'circle-color': ['coalesce', ['get', 'color'], '#facc15'],
@@ -99,6 +116,7 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
     map.on('load', () => {
       const source = map.getSource('sites') as GeoJSONSource | undefined;
       if (source) source.setData(toFeatureCollection(pointsRef.current));
+      updateImportedSource(map, importedRef.current, importedVisibleRef.current, yearRef.current);
       map.resize();
     });
     map.on('click', 'historical-site-dots', (event) => {
@@ -132,11 +150,25 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!map) return;
+    const apply = () => updateImportedSource(map, importedGeoJson, showImportedHistoricalData, timelineYear);
+    if (map.isStyleLoaded()) apply();
+    else map.once('load', apply);
+  }, [importedGeoJson, showImportedHistoricalData, timelineYear]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (map) map.easeTo({ zoom: Math.max(0.85, Math.min(7, 1.25 + zoom * 0.55)), duration: 220 });
   }, [zoom]);
 
   return <div ref={hostRef} className="np-maplibre-earth" aria-label="Interactive 3D Earth map" />;
 });
+
+function updateImportedSource(map: MapLibreMap, data: GeoJSON.FeatureCollection | null, enabled: boolean, year: number) {
+  const source = map.getSource('historicalImports') as GeoJSONSource | undefined;
+  if (!source) return;
+  source.setData(enabled && data ? filterHistoricalGeoJson(data, year) : { type: 'FeatureCollection', features: [] });
+}
 
 function toFeatureCollection(points: EarthMapPoint[]) {
   return {
