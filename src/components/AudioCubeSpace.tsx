@@ -2103,7 +2103,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                     <Star className={`w-3 h-3 ${isStarModeActive ? 'fill-current' : ''}`} />
                     {isStarModeActive ? 'STARS ON' : 'STARS OFF'}
                   </button>
-                  {isStarModeActive && (
+                  {(isStarModeActive || isEarthAssignMode) && (
                     <>
                       <button
                         onClick={() => setShowConstellationLines((value) => !value)}
