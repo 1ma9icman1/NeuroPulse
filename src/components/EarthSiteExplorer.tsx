@@ -16,9 +16,10 @@ interface Props {
   alignmentSites?: Array<{ name: string; lat: number; lon: number }>;
   audioSites?: LeafletAudioPoint[];
   onAssignChannel?: (channel: 'a' | 'b' | 'c', site: EarthSiteSelection) => void;
+  onSelectMapLocation?: (site: EarthSiteSelection) => void;
 }
 
-export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description, alignmentSites = [], audioSites = [], onAssignChannel }) => {
+export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description, alignmentSites = [], audioSites = [], onAssignChannel, onSelectMapLocation }) => {
   const [mapView, setMapView] = useState<'map' | 'terrain' | 'satellite'>('satellite');
   const [activeFrequency, setActiveFrequency] = useState<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -92,7 +93,7 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description,
         </section>
         <section className="min-h-[280px] overflow-hidden rounded-xl border border-sky-500/30 bg-slate-950">
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-700/70"><span className="text-[10px] font-mono font-bold tracking-wider text-sky-200">MAP VIEW · {mapView.toUpperCase()}</span><div className="flex gap-1">{([['map','ROAD'],['terrain','TERRAIN'],['satellite','SATELLITE']] as const).map(([view,label])=><button key={view} onClick={()=>setMapView(view)} className={'rounded border px-2 py-1 text-[9px] font-mono ' + (mapView===view?'border-sky-400 bg-sky-950 text-white':'border-slate-700 text-slate-400 hover:text-white')}>{label}</button>)}</div></div>
-          <LeafletSiteMap site={site} sites={alignmentSites} layer={mapView} audioSites={audioSites} />
+          <LeafletSiteMap site={site} sites={alignmentSites} layer={mapView} audioSites={audioSites} onMapPointClick={(point) => onSelectMapLocation?.({ ...point, year: site.year })} />
           <div className="flex flex-wrap gap-3 px-3 py-2"><a className="text-[10px] text-sky-300 hover:text-white" href={'https://www.google.com/maps/search/?api=1&query=' + site.lat + ',' + site.lon} target="_blank" rel="noreferrer"><MapPin className="inline w-3 h-3 mr-1"/>OPEN FULL MAP ↗</a><a className="text-[10px] text-sky-300 hover:text-white" href={'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + site.lat + ',' + site.lon} target="_blank" rel="noreferrer">STREET VIEW ↗</a></div>
         </section>
         <section className="min-h-[280px] rounded-xl border border-emerald-500/30 bg-[#08111b] p-3 md:p-4 flex flex-col gap-3">
