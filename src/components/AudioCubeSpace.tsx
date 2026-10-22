@@ -113,16 +113,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const isEarthModeActive = cameraView === 'top';
   const globeRef = useRef<any>(null);
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
-  const [earthEnginePanelOpen, setEarthEnginePanelOpen] = useState(false);
-  const [earthEngineLayer, setEarthEngineLayer] = useState<'surface' | 'terrain'>('surface');
-  const [earthEngineTextureUrl, setEarthEngineTextureUrl] = useState<string | null>(null);
-  const [earthEngineStatus, setEarthEngineStatus] = useState('Not connected');
-  const [earthEngineError, setEarthEngineError] = useState<string | null>(null);
-  const [earthEngineBusy, setEarthEngineBusy] = useState(false);
-  const [earthEngineConnected, setEarthEngineConnected] = useState(false);
-  const earthEngineApiRef = useRef<any>(null);
-  const earthEngineClientId = String((import.meta as any).env?.VITE_EARTH_ENGINE_CLIENT_ID || '').trim();
-  const earthEngineProjectId = String((import.meta as any).env?.VITE_EARTH_ENGINE_PROJECT_ID || '').trim();
+  // Public, no-sign-in Earth imagery sources. The original globe and every existing overlay remain intact.
+  const [earthImageryPanelOpen, setEarthImageryPanelOpen] = useState(false);
+  const [earthImagerySource, setEarthImagerySource] = useState<'satellite' | 'blue-marble' | 'land-ocean'>('satellite');
+  const earthImagerySources = {
+    satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-180,-85,180,85&bboxSR=4326&imageSR=4326&size=2048,1024&format=jpg&transparent=false&f=image',
+    'blue-marble': 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
+    'land-ocean': 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png',
+  };
+  const [earthTextureUrl, setEarthTextureUrl] = useState<string>(earthImagerySources.satellite);
   const earthSites = [
     { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, year: -9600 },
     { name: 'Jericho', lat: 31.871, lon: 35.444, year: -9000 },
@@ -1702,45 +1701,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     onUpdateCameraZoom(Number(newZoom.toFixed(2)));
   };
 
-  const loadEarthEngineApi = useCallback(() => new Promise<any>((resolve, reject) => {
-    const browserWindow = window as any;
-    if (browserWindow.ee) {
-      resolve(browserWindow.ee);
-      return;
-    }
-    const existingScript = document.querySelector('script[data-earth-engine-api]') as HTMLScriptElement | null;
-    if (existingScript) {
-      existingScript.addEventListener('load', () => browserWindow.ee ? resolve(browserWindow.ee) : reject(new Error('Earth Engine API loaded without exposing its client.')), { once: true });
-      existingScript.addEventListener('error', () => reject(new Error('Could not load the Google Earth Engine JavaScript API.')), { once: true });
-      return;
-    }
-    const script = document.createElement('script');
-    script.dataset.earthEngineApi = 'true';
-    script.src = 'https://ajax.googleapis.com/ajax/libs/earthengine/0.1.365/earthengine-api.min.js';
-    script.async = true;
-    script.onload = () => browserWindow.ee ? resolve(browserWindow.ee) : reject(new Error('Earth Engine API loaded without exposing its client.'));
-    script.onerror = () => reject(new Error('Could not load the Google Earth Engine JavaScript API.'));
-    document.head.appendChild(script);
-  }), []);
+  const handleEarthImagerySourceChange = useCallback((source: 'satellite' | 'blue-marble' | 'land-ocean') => {
+    setEarthImagerySource(source);
+    setEarthTextureUrl(earthImagerySources[source]);
+  }, []);
 
-  useEffect(() => {
-    if (!earthEnginePanelOpen || !earthEngineClientId || !earthEngineProjectId || (window as any).ee) return;
-    let active = true;
-    setEarthEngineBusy(true);
-    setEarthEngineStatus('Loading Google Earth Engine…');
-    loadEarthEngineApi()
-      .then(() => {
-        if (!active) return;
-        setEarthEngineStatus('Ready to connect');
-        setEarthEngineBusy(false);
-      })
-      .catch((error) => {
-        if (!active) return;
-        setEarthEngineError(error instanceof Error ? error.message : String(error));
-        setEarthEngineStatus('Could not load Earth Engine');
-        setEarthEngineBusy(false);
-      });
-    return () => { active = false; };
+  return () => { active = false; };
   }, [earthEnginePanelOpen, earthEngineClientId, earthEngineProjectId, loadEarthEngineApi]);
 
   const renderEarthEngineTexture = useCallback((ee: any, layer: 'surface' | 'terrain') => {
@@ -1911,13 +1877,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => setEarthEnginePanelOpen((open) => !open)}
+            onClick={() => setEarthImageryPanelOpen((open) => !open)}
             className="ml-1 flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded border border-sky-500/40 text-sky-300 hover:bg-sky-950/50"
-            title="Configure Google Earth Engine imagery on the 3D Orbit Cube"
-            aria-label="Earth Engine layers"
+            title="Choose public Earth imagery without sign-in"
+            aria-label="Earth imagery sources"
           >
             <Layers className="w-3.5 h-3.5" />
-            EARTH ENGINE
+            EARTH IMAGERY
           </button>
         </div>
 
@@ -2090,54 +2056,39 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       </div>
 
-      {earthEnginePanelOpen && (
+      {earthImageryPanelOpen && (
         <div className="absolute top-16 left-3 z-40 w-[min(92vw,340px)] rounded-xl border border-sky-500/50 bg-[#07101d]/96 p-3 shadow-2xl backdrop-blur-md pointer-events-auto">
           <div className="flex items-center justify-between gap-3 mb-2">
             <div className="flex items-center gap-2 text-sky-200 text-xs font-mono font-bold">
               <Layers className="w-4 h-4" />
-              GOOGLE EARTH ENGINE
+              PUBLIC EARTH IMAGERY
             </div>
-            <button onClick={() => setEarthEnginePanelOpen(false)} className="p-1 rounded text-slate-400 hover:text-white" aria-label="Close Earth Engine panel">
+            <button onClick={() => setEarthImageryPanelOpen(false)} className="p-1 rounded text-slate-400 hover:text-white" aria-label="Close Earth imagery panel">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
           <p className="text-[10px] text-slate-400 leading-relaxed mb-2">
-            Generate a real Earth Engine raster and apply it as the globe texture. Your site markers, orbit controls, star tools and alignment overlays remain active.
+            Choose a public globe texture. No Google Cloud project, API key, account sign-in, or environment setup is required. Your historical sites, cities, orbit controls, stars and alignment overlays stay in place.
           </p>
-          <label className="block text-[10px] text-slate-400 mb-1" htmlFor="earth-engine-layer">Globe data layer</label>
+          <label className="block text-[10px] text-slate-400 mb-1" htmlFor="earth-imagery-source">Earth imagery</label>
           <select
-            id="earth-engine-layer"
-            value={earthEngineLayer}
-            onChange={(event) => handleEarthEngineLayerChange(event.target.value as 'surface' | 'terrain')}
+            id="earth-imagery-source"
+            value={earthImagerySource}
+            onChange={(event) => handleEarthImagerySourceChange(event.target.value as 'satellite' | 'blue-marble' | 'land-ocean')}
             className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100 mb-2"
           >
-            <option value="surface">MODIS global surface imagery (2023)</option>
-            <option value="terrain">Copernicus GLO-30 elevation</option>
+            <option value="satellite">Satellite imagery (Esri World Imagery)</option>
+            <option value="blue-marble">Blue Marble Earth</option>
+            <option value="land-ocean">NASA land, ocean and ice</option>
           </select>
-          <div className="text-[10px] text-slate-300 mb-2">Status: {earthEngineStatus}</div>
-          {earthEngineError && <div className="text-[10px] text-rose-300 leading-relaxed mb-2">{earthEngineError}</div>}
+          <div className="text-[10px] text-emerald-200 mb-2">No sign-in required · selected texture applies to the existing globe</div>
           <button
-            onClick={() => earthEngineConnected && earthEngineApiRef.current
-              ? renderEarthEngineTexture(earthEngineApiRef.current, earthEngineLayer)
-              : handleConnectEarthEngine()}
-            disabled={earthEngineBusy}
-            className="w-full rounded-md border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-xs font-mono font-bold text-sky-200 hover:bg-sky-900/80 disabled:opacity-50"
+            onClick={() => setEarthTextureUrl(earthImagerySources[earthImagerySource])}
+            className="w-full rounded-md border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-xs font-mono font-bold text-sky-200 hover:bg-sky-900/80"
           >
-            {earthEngineBusy ? 'PROCESSING EARTH ENGINE…' : earthEngineConnected ? 'LOAD SELECTED LAYER' : 'CONNECT EARTH ENGINE'}
+            APPLY EARTH IMAGERY
           </button>
-          {!earthEngineClientId || !earthEngineProjectId ? (
-            <p className="mt-2 text-[10px] text-amber-200/90 leading-relaxed">
-              Add VITE_EARTH_ENGINE_CLIENT_ID and VITE_EARTH_ENGINE_PROJECT_ID to your local .env file or deployment environment. Never put a service-account private key in frontend code.
-            </p>
-          ) : null}
-          {earthEngineTextureUrl && (
-            <button
-              onClick={() => setEarthEngineTextureUrl(null)}
-              className="mt-2 w-full rounded-md border border-slate-700 px-3 py-1.5 text-[10px] text-slate-300 hover:text-white"
-            >
-              USE ORIGINAL EARTH TEXTURE
-            </button>
-          )}
+          <p className="mt-2 text-[9px] text-slate-500 leading-relaxed">Satellite imagery is served by Esri's public World Imagery service and may be subject to its availability and usage terms.</p>
         </div>
       )}
 
@@ -2579,7 +2530,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto flex items-center justify-center">
             <Globe3D ref={globeRef} width={Math.max(320, (containerRef.current?.clientWidth || 800) * 0.96)}
               height={Math.max(320, (containerRef.current?.clientHeight || 600) * 0.96)}
-              globeImageUrl={earthEngineTextureUrl || "//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"}
+              globeImageUrl={earthTextureUrl}
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
               showGraticules={false} showAtmosphere={earthAtmosphere}
