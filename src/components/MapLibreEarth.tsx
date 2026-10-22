@@ -50,7 +50,6 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
     if (!hostRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: hostRef.current,
-      projection: { type: 'globe' },
       center: [12, 18],
       zoom: compact ? 1.15 : 1.45,
       minZoom: 0.85,
@@ -60,6 +59,7 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
       pitchWithRotate: true,
       style: {
         version: 8,
+        projection: { type: 'globe' },
         sources: {
           imagery: {
             type: 'raster',
