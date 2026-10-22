@@ -282,7 +282,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   }, []);
 
   // Star Celestial Alignment Mode
-  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(false);
+  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
   const IAU_CONSTELLATIONS = ["Andromeda","Antlia","Apus","Aquarius","Aquila","Ara","Aries","Auriga","Bootes","Caelum","Camelopardalis","Cancer","Canes Venatici","Canis Major","Canis Minor","Capricornus","Carina","Cassiopeia","Centaurus","Cepheus","Cetus","Chamaeleon","Circinus","Columba","Coma Berenices","Corona Australis","Corona Borealis","Corvus","Crater","Crux","Cygnus","Delphinus","Dorado","Draco","Equuleus","Eridanus","Fornax","Gemini","Grus","Hercules","Horologium","Hydra","Hydrus","Indus","Lacerta","Leo","Leo Minor","Lepus","Libra","Lupus","Lynx","Lyra","Mensa","Microscopium","Monoceros","Musca","Norma","Octans","Ophiuchus","Orion","Pavo","Pegasus","Perseus","Phoenix","Pictor","Pisces","Piscis Austrinus","Puppis","Pyxis","Reticulum","Sagitta","Sagittarius","Scorpius","Sculptor","Scutum","Serpens","Sextans","Taurus","Telescopium","Triangulum","Triangulum Australe","Tucana","Ursa Major","Ursa Minor","Vela","Virgo","Volans","Vulpecula"];
   const [constellationsEnabled, setConstellationsEnabled] = useState<Record<string, boolean>>(() => Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, true])));
   const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
@@ -358,6 +358,20 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     onUpdateCameraView('top');
     window.setTimeout(() => globeRef.current?.pointOfView({ lat: site.lat, lng: site.lon, altitude: 0.48 }, 850), 150);
   };
+  const lockChannelToEarthSite = (channel: 'a' | 'b' | 'c', site: EarthSiteSelection) => {
+    const lat = site.lat * Math.PI / 180;
+    const lon = site.lon * Math.PI / 180;
+    const radius = 7.8;
+    const position: SpatialPosition = { x: radius * Math.cos(lat) * Math.cos(lon), y: radius * Math.sin(lat), z: radius * Math.cos(lat) * Math.sin(lon) };
+    if (channel === 'a') onUpdateAPos(position);
+    else if (channel === 'b') onUpdateBPos(position);
+    else onUpdateCPos(position);
+    setLockedChannels((prev) => ({ ...prev, [channel]: true }));
+    setChannelTargets((prev) => ({ ...prev, [channel]: { type: 'location', name: site.name } }));
+    setSnapTargetChannel(channel);
+    setSnapFeedback(`CH-${channel.toUpperCase()} LOCKED TO EARTH: ${site.name}`);
+    window.setTimeout(() => setSnapFeedback(null), 3800);
+  };
   const getEarthSiteDescription = (name: string) => {
     const acousticEvidence = ACOUSTIC_SITE_EVIDENCE.find((site) => site.name.toLowerCase() === name.toLowerCase());
     if (acousticEvidence) return acousticEvidence.summary + ' ' + (acousticEvidence.measurementContext || '') + ' ' + acousticEvidence.caveat + ' Sources are linked in the acoustic evidence panel.';
@@ -425,10 +439,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [snapTargetChannel, setSnapTargetChannel] = useState<'a' | 'b' | 'c'>('a');
 
   // Locked-to-star states: when true, channels stay firmly at their assigned celestial star positions
-  const [lockedChannels, setLockedChannels] = useState<{ a: boolean; b: boolean; c: boolean }>({
-    a: true,
-    b: true,
-    c: true,
+  const [lockedChannels, setLockedChannels] = useState<{ a: boolean; b: boolean; c: boolean }>({ a: true, b: true, c: true });
+  const [channelTargets, setChannelTargets] = useState<Record<'a' | 'b' | 'c', { type: 'star' | 'location'; name: string }>>({
+    a: { type: 'star', name: 'Betelgeuse' }, b: { type: 'star', name: 'Rigel' }, c: { type: 'star', name: 'Sirius' },
   });
 
   const [hoveredStar, setHoveredStar] = useState<CelestialStar | null>(null);
@@ -575,16 +588,19 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     if (channel === 'a') {
       setStarAId(star.id);
       onUpdateAPos(celestialPosition(star));
+      setChannelTargets((prev) => ({ ...prev, a: { type: 'star', name: star.name } }));
       setLockedChannels((prev) => ({ ...prev, a: true }));
       setSnapTargetChannel('b'); // auto-advance to next channel
     } else if (channel === 'b') {
       setStarBId(star.id);
       onUpdateBPos(celestialPosition(star));
+      setChannelTargets((prev) => ({ ...prev, b: { type: 'star', name: star.name } }));
       setLockedChannels((prev) => ({ ...prev, b: true }));
       setSnapTargetChannel('c'); // auto-advance to next channel
     } else if (channel === 'c') {
       setStarCId(star.id);
       onUpdateCPos(celestialPosition(star));
+      setChannelTargets((prev) => ({ ...prev, c: { type: 'star', name: star.name } }));
       setLockedChannels((prev) => ({ ...prev, c: true }));
       setSnapTargetChannel('a'); // loop back to 'a'
     }
@@ -618,6 +634,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     if (starA) onUpdateAPos(celestialPosition(starA));
     if (starB) onUpdateBPos(celestialPosition(starB));
     if (starC) onUpdateCPos(celestialPosition(starC));
+    setChannelTargets({ a: { type: 'star', name: starA?.name || 'Star A' }, b: { type: 'star', name: starB?.name || 'Star B' }, c: { type: 'star', name: starC?.name || 'Star C' } });
 
     // Lock all 3 to stay at the astrometric star positions
     setLockedChannels({ a: true, b: true, c: true });
@@ -1135,15 +1152,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         REAL_CELESTIAL_STARS.filter((star) => isConstellationEnabled(star.constellation)).forEach((star) => {
           const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
-          const isAssignedA = star.id === starAId;
-          const isAssignedB = star.id === starBId;
-          const isAssignedC = star.id === starCId;
+          const isAssignedA = channelTargets.a.type === 'star' && star.id === starAId;
+          const isAssignedB = channelTargets.b.type === 'star' && star.id === starBId;
+          const isAssignedC = channelTargets.c.type === 'star' && star.id === starCId;
           const isHovered = hoveredStar?.id === star.id;
           const isClicked = clickedStar?.id === star.id;
 
           // Star glow
           ctx.save();
-          const baseRadius = Math.max(2.5, (3.5 - star.mag * 0.4) * sp.depthScale);
+          const starPulse = 1 + 0.2 * Math.sin(performance.now() / 310 + star.raDeg * 0.04);
+          const baseRadius = Math.max(2.5, (3.5 - star.mag * 0.4) * sp.depthScale) * starPulse;
           ctx.beginPath();
           ctx.arc(sp.sx, sp.sy, baseRadius, 0, Math.PI * 2);
           ctx.fillStyle = star.color;
@@ -1201,9 +1219,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           ctx.setLineDash([]);
         };
 
-        drawTether(starAId, aPos, '#00f0ff');
-        drawTether(starBId, bPos, '#ff007f');
-        drawTether(starCId, cPos, '#fbbf24');
+        if (channelTargets.a.type === 'star') drawTether(starAId, aPos, '#00f0ff');
+        if (channelTargets.b.type === 'star') drawTether(starBId, bPos, '#ff007f');
+        if (channelTargets.c.type === 'star') drawTether(starCId, cPos, '#fbbf24');
       }
 
       // 6. Draw 3D Sound Puck Helper
@@ -1267,7 +1285,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         // Label with Star Lock indicator
         ctx.font = '10px "JetBrains Mono", monospace';
         ctx.fillStyle = color;
-        const starText = isStarModeActive && assignedStar && isLocked ? ` ★ ${assignedStar.name} [LOCKED]` : '';
+        const target = channelTargets[channelId];
+        const starText = isLocked ? target.type === 'location' ? ` ◉ ${target.name} [EARTH LOCK]` : ` ★ ${target.name} [STAR LOCK]` : '';
         ctx.fillText(
           `${label}${starText}: ${freq.toFixed(1)}Hz [${pos.y > 0 ? '+' : ''}${pos.y.toFixed(1)}m]`,
           p.sx - 48,
@@ -1524,6 +1543,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     hoverNode,
     showTriangleAngles,
     interiorAngles,
+    channelTargets,
   ]);
 
   // Pointer interactions
@@ -2408,7 +2428,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
       <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
 
-      <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} />
+      <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} audioSites={ACOUSTIC_SITE_EVIDENCE} onAssignChannel={lockChannelToEarthSite} />
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
       <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
