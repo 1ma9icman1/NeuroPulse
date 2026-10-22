@@ -68,6 +68,10 @@ async function fetchCatalog(): Promise<HYGStar[]> {
     // Exclude distance placeholders (100,000 pc) rather than sorting guesses as real distances.
     if (!Number.isFinite(pc) || pc <= 0 || pc >= 100000 || !Number.isFinite(ra) ||
       ra < 0 || ra >= 24 || !Number.isFinite(dec) || dec < -90 || dec > 90 || !Number.isFinite(mag)) return;
+    const distanceLy = pc * PARSEC_TO_LIGHT_YEAR;
+    // The UI intentionally caps its distance slider at 100,000 light-years; keep
+    // the catalog count consistent with the maximum the user can actually reveal.
+    if (distanceLy > 100000) return;
     const proper = (f[col.proper] || '').trim();
     const bayer = (f[col.bayer] || '').trim();
     const flam = (f[col.flam] || '').trim();
@@ -78,7 +82,7 @@ async function fetchCatalog(): Promise<HYGStar[]> {
     const spect = (f[col.spect] || '').trim();
     const ci = Number(f[col.ci]);
     stars.push({
-      id: hip || f[0], name, raDeg: ra * 15, decDeg: dec, distanceLy: pc * PARSEC_TO_LIGHT_YEAR,
+      id: hip || f[0], name, raDeg: ra * 15, decDeg: dec, distanceLy,
       magnitude: mag, color: spectralColor(spect, ci), spectralType: spect || 'Unknown', constellation: con,
     });
   };
