@@ -308,8 +308,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [geologicalTimeMa, setGeologicalTimeMa] = useState<number>(0);
   const paleogeographyAgesMa = [20, 35, 50, 65, 90, 105, 120, 150, 170, 200, 220, 240, 260, 280, 300, 340, 370, 400, 430, 450, 470, 500, 540, 560, 600];
   const geologicalTextureUrl = geologicalTimeMa <= 0
-    ? '//unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
+    ? 'https://raw.githubusercontent.com/typpo/ancient-earth/master/images/scrape/000present.jpg'
     : `https://raw.githubusercontent.com/typpo/ancient-earth/master/images/scrape/${String(paleogeographyAgesMa.reduce((best, age) => Math.abs(age - geologicalTimeMa) < Math.abs(best - geologicalTimeMa) ? age : best, paleogeographyAgesMa[0])).padStart(3, '0')}Marect.jpg`;
+  const setEarthPreset = (ageMa: number) => {
+    setGeologicalTimeMa(ageMa);
+    globeRef.current?.pointOfView({ lat: 18, lng: 0, altitude: 2.15 }, 700);
+  };
+  const resetEarthView = () => {
+    globeRef.current?.pointOfView({ lat: 18, lng: 0, altitude: 2.15 }, 700);
+  };
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
   const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#60a5fa' : '#facc15', size: site.isCity ? 0.10 : 0.12, altitude: 0.012, layerCategory: site.isCity ? 'CITY' : 'ANCIENT SITE' })), ...(showAncientStructures ? ANCIENT_STRUCTURE_DIMENSIONS.filter((structure) => !earthSites.some((site: any) => !site.isCity && Math.abs(site.lat - structure.lat) < 0.08 && Math.abs(site.lon - structure.lon) < 0.08)).map((structure) => ({ name: structure.name, lat: structure.lat, lon: structure.lon, year: -3500, color: '#facc15', size: 0.12, altitude: 0.012, layerCategory: 'ANCIENT STRUCTURE HEIGHT', structuralHeightFt: structure.approximateHeightFt, heightBasis: structure.heightBasis, heightNote: structure.evidenceNote, numberSystem: structure.numberSystem, numberSystemNote: structure.numberSystemNote, orientationNote: structure.orientationNote, ritualContext: structure.ritualContext, isDimensionRecord: true })) : []), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.14, altitude: 0.016, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : [])];
   const triangleCandidates = showAlignmentTriangles && showAncientStructures ? visibleEarthSites.filter((site: any) => !site.isCity && !site.evidenceStatus) : [];
@@ -2342,16 +2349,46 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
-      {/* Deep-time geology control: separate from the existing archaeology/sky timeline. */}
+      {/* Deep-time geology control: simple presets, clear age readout, and quick camera/light controls. */}
       {isEarthModeActive && (
-        <div className="absolute top-3 left-3 z-20 pointer-events-auto w-[min(390px,calc(100%-24px))] rounded-xl border border-sky-400/35 bg-[#06101c]/90 backdrop-blur-md px-3 py-2 shadow-xl">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-200">Earth Through Deep Time</span>
-            <span className="text-xs font-mono text-white">{geologicalTimeMa === 0 ? 'PRESENT DAY' : `${geologicalTimeMa} MILLION YEARS AGO`}</span>
+        <div className="absolute top-3 left-3 z-20 pointer-events-auto w-[min(410px,calc(100%-24px))] rounded-2xl border border-white/10 bg-slate-950/75 backdrop-blur-xl px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.38)] ring-1 ring-sky-300/10">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-200/90">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.9)]" />
+                Earth Atlas
+              </div>
+              <div className="mt-1 text-lg font-medium tracking-tight text-white">{geologicalTimeMa === 0 ? 'Earth, today' : `${geologicalTimeMa} million years ago`}</div>
+              <div className="mt-0.5 text-[10px] text-slate-400">Explore the planet across geological time</div>
+            </div>
+            <button type="button" onClick={resetEarthView} className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-white" title="Reset globe view" aria-label="Reset globe view">
+              <Rotate3D className="h-4 w-4" />
+            </button>
           </div>
-          <input aria-label="Geological age from present to 600 million years ago" type="range" min="0" max="600" step="5" value={geologicalTimeMa} onChange={(e) => setGeologicalTimeMa(Number(e.target.value))} className="w-full accent-sky-400 cursor-pointer" />
-          <div className="flex items-center justify-between text-[9px] font-mono text-slate-400"><span>Present</span><span>200 Ma</span><span>400 Ma</span><span>600 Ma</span></div>
-          {geologicalTimeMa > 0 && <div className="mt-1 text-[9px] leading-tight text-sky-100/80">Reconstructed paleogeography from Ancient Earth. Modern archaeological markers are hidden because today's coordinates do not map accurately onto ancient continents.</div>}
+
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {[{label:'Today',age:0},{label:'20 Ma',age:20},{label:'100 Ma',age:105},{label:'200 Ma',age:200},{label:'300 Ma',age:300},{label:'600 Ma',age:600}].map((preset) => (
+              <button key={preset.age} type="button" onClick={() => setEarthPreset(preset.age)} className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition ${geologicalTimeMa === preset.age ? 'border-sky-300/70 bg-sky-300/15 text-sky-100 shadow-[inset_0_0_12px_rgba(56,189,248,0.08)]' : 'border-white/10 bg-white/[0.035] text-slate-300 hover:border-white/25 hover:bg-white/[0.08] hover:text-white'}`}>
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2">
+            <div className="mb-1.5 flex items-center justify-between text-[10px]">
+              <label htmlFor="geological-age-slider" className="text-slate-300">Geological age</label>
+              <span className="font-mono tabular-nums text-sky-100">{geologicalTimeMa === 0 ? 'PRESENT' : `−${geologicalTimeMa} Ma`}</span>
+            </div>
+            <input id="geological-age-slider" aria-label="Geological age from present to 600 million years ago" type="range" min="0" max="600" step="5" value={geologicalTimeMa} onChange={(e) => setGeologicalTimeMa(Number(e.target.value))} className="w-full cursor-pointer accent-sky-300" />
+            <div className="mt-1 flex items-center justify-between text-[9px] text-slate-500"><span>Now</span><span>200 Ma</span><span>400 Ma</span><span>600 Ma</span></div>
+          </div>
+
+          <div className="mt-2.5 flex items-center justify-between gap-3">
+            <span className="text-[10px] leading-relaxed text-slate-400">{geologicalTimeMa > 0 ? 'Ancient continental reconstructions · modern site pins are paused.' : 'Modern Earth texture · archaeological markers available.'}</span>
+            <button type="button" onClick={() => setEarthAtmosphere((value) => !value)} className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-medium transition ${earthAtmosphere ? 'border-sky-300/30 bg-sky-300/10 text-sky-100' : 'border-white/10 bg-white/[0.04] text-slate-400 hover:text-white'}`} aria-pressed={earthAtmosphere} title="Toggle atmospheric glow">
+              <Sparkles className="h-3.5 w-3.5" /> Glow {earthAtmosphere ? 'On' : 'Off'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -2381,13 +2418,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               height={Math.max(320, (containerRef.current?.clientHeight || 600) * 0.96)}
               globeImageUrl={geologicalTextureUrl}
               bumpImageUrl={geologicalTimeMa === 0 ? "//unpkg.com/three-globe/example/img/earth-topology.png" : undefined}
+              bumpScale={geologicalTimeMa === 0 ? 0.75 : 0}
               backgroundImageUrl="https://raw.githubusercontent.com/typpo/ancient-earth/master/images/galaxy_starfield.png"
               backgroundColor="rgba(0,0,0,0)"
               showGraticules={false}
               showAtmosphere={earthAtmosphere}
-              atmosphereColor="#68c9ff"
-              atmosphereAltitude={0.18}
+              atmosphereColor="#78cfff"
+              atmosphereAltitude={0.22}
               animateIn={false}
+              onGlobeReady={() => globeRef.current?.pointOfView({ lat: 18, lng: 0, altitude: 2.15 }, 0)}
               arcsData={geologicalTimeMa === 0 && showAlignmentTriangles && showAncientStructures && cameraView !== 'front' ? triangleEdges : []}
               arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
               arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
