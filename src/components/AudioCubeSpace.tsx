@@ -116,13 +116,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
   // Public, no-sign-in Earth imagery sources. The original globe and every existing overlay remain intact.
   const [earthImageryPanelOpen, setEarthImageryPanelOpen] = useState(false);
-  const [earthImagerySource, setEarthImagerySource] = useState<'satellite' | 'blue-marble' | 'land-ocean'>('satellite');
+  const [earthImagerySource, setEarthImagerySource] = useState<'satellite' | 'blue-marble' | 'land-ocean'>('blue-marble');
   const earthImagerySources = {
     satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-180,-85,180,85&bboxSR=4326&imageSR=4326&size=2048,1024&format=jpg&transparent=false&f=image',
     'blue-marble': 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
     'land-ocean': 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png',
   };
-  const [earthTextureUrl, setEarthTextureUrl] = useState<string>(earthImagerySources.satellite);
+  const [earthTextureUrl, setEarthTextureUrl] = useState<string>(earthImagerySources['blue-marble']);
   const earthSites = [
     { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, year: -9600 },
     { name: 'Jericho', lat: 31.871, lon: 35.444, year: -9000 },
@@ -2435,7 +2435,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
           <input aria-label="Historical year from 10,000 BCE to present" type="range" min="-10000" max={new Date().getUTCFullYear()} step="10" value={timelineYear} onChange={(e) => setTimelineYear(Number(e.target.value))} className="w-full accent-amber-400 cursor-pointer" />
           <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400"><span>10,000 BCE</span><span>{timelineYearsAgo.toLocaleString()} years before present</span><span>Present</span></div>
-          <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. With STAR MODE on, Sun and planets move with this year using a local Stardroid-derived ephemeris; its orbital elements are best for 1800–2050 CE, so ancient dates are illustrative. Sky precession is first-order (~50.29″/yr); year-only rotation phase is not an exact historical time-of-day.</div>
+          <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. With STAR MODE on, Sun and planets move with this year using a local Stardroid-derived ephemeris. {planetEphemerisYearIsPreferred ? 'Orbital elements are within their preferred 1800–2050 CE range.' : 'Planet positions outside 1800–2050 CE are illustrative, not precision historical ephemerides.'} Sky precession is first-order (~50.29″/yr); year-only rotation phase is not an exact historical time-of-day.</div>
         </div>
       ) : (
         <button onClick={() => setIsTimelineActive(true)} className="absolute top-[4.6rem] left-3 z-20 pointer-events-auto rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-3 py-1.5 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline">TIMELINE OFF · SHOW</button>
