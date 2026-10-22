@@ -2460,8 +2460,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               backgroundColor="rgba(0,0,0,0)"
               showGraticules={false}
               showAtmosphere={earthAtmosphere}
-              atmosphereColor="#78cfff"
-              atmosphereAltitude={0.22}
+              atmosphereColor="#a8d9ff"
+              atmosphereAltitude={0.14}
               animateIn={false}
               onGlobeReady={() => globeRef.current?.pointOfView({ lat: 18, lng: 0, altitude: 2.15 }, 0)}
               arcsData={geologicalTimeMa === 0 && showAlignmentTriangles && showAncientStructures ? triangleEdges : []}
@@ -2480,7 +2480,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                htmlElement={(d: any) => {
                  const marker = document.createElement('div');
                  if (d.isEarthChannelPoint) {
-                   marker.style.pointerEvents = 'auto'; marker.style.cursor = 'pointer'; marker.style.transform = 'translate(-50%, -50%)';
+                   marker.style.pointerEvents = 'auto'; marker.style.cursor = 'pointer';
                    marker.style.display = 'flex'; marker.style.alignItems = 'center'; marker.style.gap = '4px';
                    marker.style.padding = '4px 6px'; marker.style.borderRadius = '999px';
                    marker.style.border = `1px solid ${d.color}cc`; marker.style.background = 'rgba(3, 8, 18, 0.92)';
@@ -2488,7 +2488,11 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                    marker.style.color = d.color; marker.style.font = '700 11px/1 system-ui, sans-serif'; marker.style.letterSpacing = '.02em'; marker.style.userSelect = 'none';
                    marker.title = `Point ${d.channel.toUpperCase()} · ${d.locked ? 'locked to globe' : 'unlocked — click globe to reposition'}`;
                    const label = document.createElement('span'); label.textContent = d.channel.toUpperCase(); marker.append(label);
-                   const lock = document.createElement('span'); lock.textContent = d.locked ? '⌑' : '↗'; lock.style.fontSize = '10px'; lock.style.opacity = '.8'; marker.append(lock);
+                   const lock = document.createElement('span');
+                   lock.innerHTML = d.locked
+                     ? '<svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg>'
+                     : '<svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 0 1 5.5-1.5"/></svg>';
+                   lock.style.display = 'inline-flex'; lock.style.opacity = '.9'; marker.append(lock);
                    marker.addEventListener('click', (event) => { event.stopPropagation(); toggleEarthChannelLock(d.channel); });
                    return marker;
                  }
