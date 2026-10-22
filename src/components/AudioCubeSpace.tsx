@@ -777,8 +777,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
-      // No synthetic background particles: render catalogued celestial objects only.
-
       // 2. Star-field particles from the working starthing 3D orbit scene.
       // These are rendered in this same orbit canvas, not in a separate sky-map window.
       if (isStarModeActive) {
