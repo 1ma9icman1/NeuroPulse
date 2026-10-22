@@ -109,7 +109,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const earthTextureRef = useRef<HTMLImageElement | null>(null);
   const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
-  const isEarthModeActive = cameraView === 'top';
+  const isEarthModeActive = cameraView === 'perspective';
   const globeRef = useRef<any>(null);
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
   const earthSites = [
@@ -1779,7 +1779,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            3D Orbit Cube
+            3D Earth
           </button>
           <button
             onClick={() => onUpdateCameraView('top')}
@@ -1789,7 +1789,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Top Plane
+            Flat Earth Map
           </button>
           <button
             onClick={() => onUpdateCameraView('front')}
@@ -2390,49 +2390,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 <span className="font-bold">{interiorAngles.closestAngleTo711.matchPct}% Match</span>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Deep-time geology control: simple presets, clear age readout, and quick camera/light controls. */}
-      {isEarthModeActive && (
-        <div className="absolute top-3 left-3 z-20 pointer-events-auto w-[min(350px,calc(100%-24px))] rounded-2xl border border-white/10 bg-[#060b14]/80 backdrop-blur-2xl px-3.5 py-3 shadow-[0_20px_70px_rgba(0,0,0,0.5)] ring-1 ring-sky-200/10">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-200/90">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.9)]" />
-                Earth Atlas
-              </div>
-              <div className="mt-1 text-lg font-medium tracking-tight text-white">{geologicalTimeMa === 0 ? 'Earth, today' : `${geologicalTimeMa} million years ago`}</div>
-              <div className="mt-0.5 text-[10px] text-slate-400">Geological history</div>
-            </div>
-            <button type="button" onClick={resetEarthView} className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] p-2 text-slate-300 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-white" title="Reset globe view" aria-label="Reset globe view">
-              <Rotate3D className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {[{label:'Today',age:0},{label:'20 Ma',age:20},{label:'105 Ma',age:105},{label:'200 Ma',age:200},{label:'300 Ma',age:300},{label:'600 Ma',age:600}].map((preset) => (
-              <button key={preset.age} type="button" onClick={() => setEarthPreset(preset.age)} className={`h-8 min-w-[58px] rounded-lg border px-3 text-xs font-medium transition-colors ${geologicalTimeMa === preset.age ? 'border-sky-300 bg-sky-300/15 text-sky-100' : 'border-white/10 bg-white/[0.035] text-slate-300 hover:bg-white/[0.08] hover:text-white'}`}>
-                {preset.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2">
-            <div className="mb-1.5 flex items-center justify-between text-[10px]">
-              <label htmlFor="geological-age-slider" className="text-slate-300">Geological age</label>
-              <span className="font-mono tabular-nums text-sky-100">{geologicalTimeMa === 0 ? 'PRESENT' : `−${geologicalTimeMa} Ma`}</span>
-            </div>
-            <input id="geological-age-slider" aria-label="Geological age from present to 600 million years ago" type="range" min="0" max="600" step="5" value={geologicalTimeMa} onChange={(e) => setGeologicalTimeMa(Number(e.target.value))} className="w-full cursor-pointer accent-sky-300" />
-            <div className="mt-1 flex items-center justify-between text-[9px] text-slate-500"><span>Now</span><span>200 Ma</span><span>400 Ma</span><span>600 Ma</span></div>
-          </div>
-
-          <div className="mt-2.5 flex items-center justify-between gap-3">
-            <span className="text-[10px] leading-relaxed text-slate-400">{geologicalTimeMa > 0 ? 'Ancient continental reconstructions · modern site pins are paused.' : 'Modern Earth texture · archaeological markers available.'}</span>
-            <button type="button" onClick={() => setEarthAtmosphere((value) => !value)} className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-medium transition ${earthAtmosphere ? 'border-sky-300/30 bg-sky-300/10 text-sky-100' : 'border-white/10 bg-white/[0.04] text-slate-400 hover:text-white'}`} aria-pressed={earthAtmosphere} title="Toggle atmospheric glow">
-              <Sparkles className="h-3.5 w-3.5" /> Glow {earthAtmosphere ? 'On' : 'Off'}
-            </button>
           </div>
         </div>
       )}
