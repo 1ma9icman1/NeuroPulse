@@ -10,7 +10,7 @@ export function filterHistoricalGeoJson(collection: GeoJSON.FeatureCollection, y
           const match = value.match(/-?\d{1,6}/);
           if (match) {
             const numeric = Number(match[0]);
-            return /\\b(?:BCE|BC)\\b/i.test(value) ? -Math.abs(numeric) : numeric;
+            return /\b(?:BCE|BC)\b/i.test(value) ? -Math.abs(numeric) : numeric;
           }
         }
       }
