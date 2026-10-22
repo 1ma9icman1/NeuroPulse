@@ -16,6 +16,7 @@ export interface EarthMapPoint {
 }
 export interface MapLibreEarthHandle {
   pointOfView: (view: { lat?: number; lng?: number; altitude?: number }, duration?: number) => void;
+  selectAt: (x: number, y: number) => void;
 }
 interface Props {
   points: EarthMapPoint[];
@@ -50,12 +51,20 @@ export const MapLibreEarth = forwardRef<MapLibreEarthHandle, Props>(function Map
       const map = mapRef.current;
       if (!map) return;
       const targetZoom = view.altitude == null ? undefined : Math.max(1.2, Math.min(7, 5.4 - view.altitude * 2.1));
-      map.flyTo({
-        center: [view.lng ?? map.getCenter().lng, view.lat ?? map.getCenter().lat],
-        ...(targetZoom == null ? {} : { zoom: targetZoom }),
-        duration: Math.max(0, duration),
-        essential: true,
-      });
+      map.flyTo({ center: [view.lng ?? map.getCenter().lng, view.lat ?? map.getCenter().lat], ...(targetZoom == null ? {} : { zoom: targetZoom }), duration: Math.max(0, duration), essential: true });
+    },
+    selectAt: (x, y) => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded()) return;
+      const point = { x, y };
+      const features = map.queryRenderedFeatures(point, { layers: ['audio-site-core', 'historical-site-dots'] });
+      const name = features[0]?.properties?.name;
+      const matched = pointsRef.current.find((item) => item.name === name);
+      if (matched) callbackRef.current(matched);
+      else {
+        const coordinate = map.unproject([x, y]);
+        callbackRef.current({ name: 'Pinned Earth Location', lat: coordinate.lat, lon: coordinate.lng, year: yearRef.current, color: '#38bdf8' });
+      }
     },
   }), []);
 
