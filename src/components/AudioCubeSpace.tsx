@@ -269,7 +269,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Lisbon', lat: 38.7223, lon: -9.1393, year: 2026, isCity: true },
     { name: 'Kyoto', lat: 35.0116, lon: 135.7681, year: 2026, isCity: true },
   ];
-  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(1.2, 5.2 - cameraZoom) }, 250); }, [isEarthModeActive, cameraZoom]);
+  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(1.55, 3.1 - cameraZoom) }, 350); }, [isEarthModeActive, cameraZoom]);
 
   useEffect(() => {
     const texture = new Image();
@@ -450,7 +450,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
   // Star click tracking: tracks number of stars clicked (activates interior triangle angles after 3 stars)
   const [clickedStarCount, setClickedStarCount] = useState<number>(3); // Initialized with 3 default celestial stars
-  const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(true);
+  const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(false);
 
   // Compute 7-11 real-world astrometric relation on angles
   const relation711: Relation711Result = compute711Relation(aPos, bPos, cPos);
@@ -1272,24 +1272,26 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const pb = project3D(bPos.x, bPos.y, bPos.z, width, height);
       const pc = project3D(cPos.x, cPos.y, cPos.z, width, height);
 
-      ctx.beginPath();
-      ctx.moveTo(pa.sx, pa.sy);
-      ctx.lineTo(pb.sx, pb.sy);
-      ctx.lineTo(pc.sx, pc.sy);
-      ctx.closePath();
-      ctx.strokeStyle = isStarModeActive ? 'rgba(250, 204, 21, 0.35)' : 'rgba(255, 255, 255, 0.15)';
-      ctx.lineWidth = relation711.isHarmonic711 ? 1.8 : 1.2;
-      ctx.setLineDash([4, 4]);
-      ctx.stroke();
-      ctx.fillStyle = relation711.isHarmonic711 ? 'rgba(250, 204, 21, 0.07)' : 'rgba(168, 85, 247, 0.04)';
-      ctx.fill();
-      ctx.setLineDash([]);
+      if (isStarModeActive) {
+        ctx.beginPath();
+        ctx.moveTo(pa.sx, pa.sy);
+        ctx.lineTo(pb.sx, pb.sy);
+        ctx.lineTo(pc.sx, pc.sy);
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.35)';
+        ctx.lineWidth = relation711.isHarmonic711 ? 1.8 : 1.2;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.fillStyle = relation711.isHarmonic711 ? 'rgba(250, 204, 21, 0.07)' : 'rgba(168, 85, 247, 0.04)';
+        ctx.fill();
+        ctx.setLineDash([]);
+      }
 
       // 7b. Draw Interior Triangle Angles (Displayed when 3 stars are connected or showTriangleAngles is active)
       const centroidX = (pa.sx + pb.sx + pc.sx) / 3;
       const centroidY = (pa.sy + pb.sy + pc.sy) / 3;
 
-      if (showTriangleAngles) {
+      if (isStarModeActive && showTriangleAngles) {
         // Helper to draw interior corner angle arc and degree badge inside each triangle corner
         const drawCornerInteriorAngle = (
           v: { sx: number; sy: number },
@@ -1443,10 +1445,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
-      // Draw Channel A, B, C pucks.
-      drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
-      drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
-      drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
+      // Keep channel markers hidden until the user explicitly enables Stars.
+      if (isStarModeActive) {
+        drawPuck(aPos, aFreq, 'A', '#00f0ff', '#083344', 'a', activeDrag === 'a' || hoverNode === 'a');
+        drawPuck(bPos, bFreq, 'B', '#ff007f', '#4c0519', 'b', activeDrag === 'b' || hoverNode === 'b');
+        drawPuck(cPos, cFreq, 'C', '#fbbf24', '#451a03', 'c', activeDrag === 'c' || hoverNode === 'c');
+      }
 
       // 8. Hovered Star Info Card (if hovered)
       if (isStarModeActive && hoveredStar && !clickedStar) {
@@ -2411,8 +2415,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} />
 
-      {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
-      <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
+      {/* Channel position controls are shown only when Stars mode is enabled. */}
+      {isStarModeActive && <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
         {/* CH-A Elevation */}
         <div className="flex flex-col items-center gap-1">
           <span className="text-[9px] font-mono font-bold text-cyan-400">CH-A ELEV</span>
@@ -2485,10 +2489,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             {cPos.y.toFixed(1)}m
           </span>
         </div>
-      </div>
+      </div>}
 
-      {/* Bottom Status Deck */}
-      <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
+      {/* Channel A/B/C readouts and spatial routing controls stay hidden until Stars mode is enabled. */}
+      {isStarModeActive && <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
         {/* Positions Readouts */}
         <div className="flex flex-wrap items-center gap-3 bg-[#0b1220]/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-mono">
           <div className="flex items-center gap-1.5">
@@ -2543,7 +2547,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             3D HRTF Spatial Cube
           </button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 };
