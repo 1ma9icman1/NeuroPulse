@@ -2711,6 +2711,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 }}
                 className="bg-slate-900 border border-cyan-800 text-[10px] font-mono text-cyan-300 rounded px-1.5 py-1 outline-none"
               >
+                {earthChannelTargets.a ? <option value="">🌍 EARTH TARGET · {earthChannelTargets.a.lat.toFixed(3)}°, {earthChannelTargets.a.lng.toFixed(3)}°</option> : !starAId ? <option value="">FREE POSITION</option> : null}
                 {REAL_CELESTIAL_STARS.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -2739,6 +2740,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 }}
                 className="bg-slate-900 border border-pink-800 text-[10px] font-mono text-pink-300 rounded px-1.5 py-1 outline-none"
               >
+                {earthChannelTargets.b ? <option value="">🌍 EARTH TARGET · {earthChannelTargets.b.lat.toFixed(3)}°, {earthChannelTargets.b.lng.toFixed(3)}°</option> : !starBId ? <option value="">FREE POSITION</option> : null}
                 {REAL_CELESTIAL_STARS.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -2767,6 +2769,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 }}
                 className="bg-slate-900 border border-amber-800 text-[10px] font-mono text-amber-300 rounded px-1.5 py-1 outline-none"
               >
+                {earthChannelTargets.c ? <option value="">🌍 EARTH TARGET · {earthChannelTargets.c.lat.toFixed(3)}°, {earthChannelTargets.c.lng.toFixed(3)}°</option> : !starCId ? <option value="">FREE POSITION</option> : null}
                 {REAL_CELESTIAL_STARS.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
