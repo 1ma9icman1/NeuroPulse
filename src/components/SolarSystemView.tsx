@@ -42,6 +42,152 @@ function orbitPoint(body: HeliocentricOrbitElement, eccentricAnomaly: number, di
   };
 }
 
+const PLANET_SPIN_DAYS: Record<string, number> = {
+  mercury: 58.646, venus: -243.025, earth: 0.9972695663, mars: 1.025957,
+  jupiter: 0.41354, saturn: 0.44401, uranus: -0.71833, neptune: 0.67125, pluto: 6.387,
+};
+
+function drawCrater(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number) {
+  ctx.fillStyle = 'rgba(12,16,22,.22)';
+  ctx.beginPath(); ctx.ellipse(x, y, radius, radius * 0.72, -0.24, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.17)'; ctx.lineWidth = Math.max(.45, radius * .12);
+  ctx.beginPath(); ctx.ellipse(x - radius * .08, y - radius * .06, radius * .87, radius * .62, -0.24, Math.PI * 1.06, Math.PI * 1.94); ctx.stroke();
+}
+
+function drawPlanetDisk(ctx: CanvasRenderingContext2D, body: HeliocentricOrbitElement, x: number, y: number, radius: number, elapsedDays: number) {
+  const id = body.id;
+  const spinDays = PLANET_SPIN_DAYS[id] || 1;
+  const spin = elapsedDays / spinDays * TAU;
+  const base = id === 'mercury' ? '#8a8379' : id === 'venus' ? '#d7b783' : id === 'earth' ? '#1457a0' :
+    id === 'mars' ? '#b64f35' : id === 'jupiter' ? '#c99d73' : id === 'saturn' ? '#d7bd88' :
+    id === 'uranus' ? '#76cbd1' : id === 'neptune' ? '#315bcb' : '#b7a99a';
+
+  // Draw far-side Saturn rings first so its body naturally occludes the far half.
+  if (id === 'saturn') {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-0.28);
+    ctx.strokeStyle = 'rgba(173,145,104,.5)'; ctx.lineWidth = Math.max(1.6, radius * .45);
+    ctx.beginPath(); ctx.ellipse(0, 0, radius * 2.1, radius * .72, 0, Math.PI, TAU); ctx.stroke();
+    ctx.strokeStyle = 'rgba(241,220,173,.62)'; ctx.lineWidth = Math.max(.7, radius * .12);
+    ctx.beginPath(); ctx.ellipse(0, 0, radius * 1.75, radius * .59, 0, Math.PI, TAU); ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.clip();
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(spin);
+  const r = radius;
+
+  const surface = ctx.createRadialGradient(-r * .38, -r * .42, r * .03, r * .15, r * .14, r * 1.22);
+  surface.addColorStop(0, id === 'sun' ? '#fff7b1' : base);
+  surface.addColorStop(.76, base);
+  surface.addColorStop(1, '#07101e');
+  ctx.fillStyle = surface; ctx.fillRect(-r, -r, 2 * r, 2 * r);
+
+  if (id === 'mercury' || id === 'pluto') {
+    const craters = id === 'mercury'
+      ? [[-.48,-.42,.18],[.24,-.55,.12],[.56,-.15,.21],[-.12,.05,.22],[.37,.42,.15],[-.52,.48,.12],[.03,.6,.11]]
+      : [[-.5,-.35,.19],[.24,-.43,.13],[.45,.1,.2],[-.15,.2,.22],[.18,.58,.12],[-.55,.48,.1]];
+    craters.forEach(([cx, cy, size]) => drawCrater(ctx, cx * r, cy * r, size * r));
+    if (id === 'pluto') {
+      ctx.fillStyle = 'rgba(249,231,205,.55)';
+      ctx.beginPath(); ctx.ellipse(-r * .15, -r * .2, r * .28, r * .18, -.3, 0, TAU); ctx.fill();
+    }
+  } else if (id === 'venus') {
+    ctx.globalAlpha = .72;
+    for (let band = -3; band <= 3; band += 1) {
+      ctx.strokeStyle = band % 2 ? '#f1d8ac' : '#b18d62';
+      ctx.lineWidth = Math.max(1, r * .2);
+      ctx.beginPath();
+      ctx.moveTo(-r, band * r * .27);
+      ctx.bezierCurveTo(-r * .45, band * r * .27 - r * .12, r * .12, band * r * .27 + r * .15, r, band * r * .22);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  } else if (id === 'earth') {
+    // Simplified continent silhouettes with cloud swirls; textured enough to read as Earth at this scale.
+    ctx.fillStyle = '#348653';
+    ctx.beginPath(); ctx.moveTo(-r*.72,-r*.13); ctx.lineTo(-r*.53,-r*.49); ctx.lineTo(-r*.19,-r*.55); ctx.lineTo(-r*.04,-r*.27); ctx.lineTo(-r*.22,-r*.06); ctx.lineTo(-r*.29,r*.18); ctx.lineTo(-r*.47,r*.34); ctx.lineTo(-r*.57,r*.12); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(r*.06,-r*.07); ctx.lineTo(r*.28,-r*.18); ctx.lineTo(r*.5,-r*.06); ctx.lineTo(r*.62,r*.2); ctx.lineTo(r*.42,r*.4); ctx.lineTo(r*.27,r*.2); ctx.lineTo(r*.15,r*.35); ctx.lineTo(r*.04,r*.16); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(151,219,232,.66)';
+    for (let band = -2; band <= 2; band += 1) {
+      ctx.strokeStyle = band % 2 ? 'rgba(229,246,255,.58)' : 'rgba(180,225,239,.35)';
+      ctx.lineWidth = Math.max(.65, r * .09);
+      ctx.beginPath(); ctx.moveTo(-r, band * r * .25);
+      ctx.bezierCurveTo(-r*.35, band*r*.25-r*.12, r*.25, band*r*.25+r*.1, r, band*r*.22); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(239,248,255,.72)';
+    ctx.beginPath(); ctx.ellipse(0,-r*.83,r*.47,r*.12,0,0,TAU); ctx.fill();
+  } else if (id === 'mars') {
+    ctx.fillStyle = 'rgba(87,38,31,.55)';
+    ctx.beginPath(); ctx.ellipse(-r*.32,-r*.12,r*.34,r*.2,-.45,0,TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(r*.38,r*.27,r*.29,r*.17,.3,0,TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,210,176,.55)';
+    ctx.beginPath(); ctx.ellipse(-r*.06,-r*.82,r*.4,r*.11,-.08,0,TAU); ctx.fill();
+    drawCrater(ctx, r*.2, -r*.05, r*.12);
+  } else if (id === 'jupiter' || id === 'saturn') {
+    const bands = id === 'jupiter'
+      ? [{ y:-.72, h:.13, c:'#ead0aa' },{ y:-.5,h:.09,c:'#9b6e53' },{y:-.3,h:.18,c:'#e8c69c'},{y:-.08,h:.11,c:'#9c6a51'},{y:.15,h:.14,c:'#e8c9a2'},{y:.4,h:.17,c:'#9c7158'},{y:.65,h:.1,c:'#e8d0ae'}]
+      : [{y:-.7,h:.12,c:'#f1dfb9'},{y:-.48,h:.1,c:'#9f8a69'},{y:-.25,h:.15,c:'#f4dfb0'},{y:0,h:.11,c:'#b89b73'},{y:.24,h:.17,c:'#ead3a5'},{y:.5,h:.1,c:'#a89070'},{y:.7,h:.08,c:'#e9d6af'}];
+    bands.forEach((band) => {
+      ctx.fillStyle = band.c;
+      ctx.beginPath(); ctx.ellipse(0, band.y*r, r*1.15, band.h*r, 0, 0, TAU); ctx.fill();
+    });
+    if (id === 'jupiter') {
+      ctx.fillStyle = '#bd6547'; ctx.beginPath(); ctx.ellipse(r*.28,r*.25,r*.26,r*.15,-.2,0,TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(250,222,182,.8)'; ctx.lineWidth = Math.max(.6,r*.07);
+      ctx.beginPath(); ctx.ellipse(r*.28,r*.25,r*.2,r*.1,-.2,Math.PI*.08,Math.PI*1.2); ctx.stroke();
+    } else {
+      ctx.fillStyle = 'rgba(245,232,197,.72)'; ctx.beginPath(); ctx.ellipse(0,-r*.82,r*.32,r*.09,0,0,TAU); ctx.fill();
+    }
+  } else if (id === 'uranus' || id === 'neptune') {
+    for (let band = -3; band <= 3; band += 1) {
+      ctx.strokeStyle = band % 2 ? 'rgba(219,250,255,.22)' : 'rgba(8,54,130,.24)';
+      ctx.lineWidth = Math.max(.8,r*.11);
+      ctx.beginPath(); ctx.moveTo(-r,band*r*.23); ctx.bezierCurveTo(-r*.45,band*r*.23-r*.08,r*.45,band*r*.23+r*.07,r,band*r*.2); ctx.stroke();
+    }
+    if (id === 'neptune') {
+      ctx.fillStyle = 'rgba(10,36,112,.6)'; ctx.beginPath(); ctx.ellipse(r*.27,r*.1,r*.2,r*.1,-.25,0,TAU); ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  // Fixed-direction night-side falloff and lit-rim reflection.
+  const lighting = ctx.createLinearGradient(x - r, y - r * .25, x + r, y + r * .2);
+  lighting.addColorStop(0, 'rgba(255,255,255,.14)');
+  lighting.addColorStop(.42, 'rgba(255,255,255,0)');
+  lighting.addColorStop(.76, 'rgba(2,6,18,.28)');
+  lighting.addColorStop(1, 'rgba(0,3,12,.88)');
+  ctx.fillStyle = lighting;
+  ctx.fillRect(x-r,y-r,2*r,2*r);
+
+  const edge = ctx.createRadialGradient(x-r*.3,y-r*.34,r*.22,x,y,r*1.04);
+  edge.addColorStop(.7,'rgba(0,0,0,0)');
+  edge.addColorStop(.93,'rgba(0,0,0,.24)');
+  edge.addColorStop(1,'rgba(0,0,0,.75)');
+  ctx.fillStyle = edge;
+  ctx.fillRect(x-r,y-r,2*r,2*r);
+  ctx.restore();
+
+  ctx.beginPath(); ctx.arc(x,y,radius,0,TAU);
+  ctx.strokeStyle = id === 'earth' ? 'rgba(125,211,252,.84)' : 'rgba(226,232,240,.3)';
+  ctx.lineWidth = id === 'earth' ? 1.2 : .65;
+  ctx.stroke();
+
+  // The near half of Saturn's rings sits over its sphere.
+  if (id === 'saturn') {
+    ctx.save(); ctx.translate(x,y); ctx.rotate(-.28);
+    ctx.strokeStyle = 'rgba(235,217,173,.85)'; ctx.lineWidth = Math.max(1.2,r*.25);
+    ctx.beginPath(); ctx.ellipse(0,0,r*2.05,r*.69,0,0,Math.PI); ctx.stroke();
+    ctx.strokeStyle = 'rgba(123,103,76,.9)'; ctx.lineWidth = Math.max(.6,r*.07);
+    ctx.beginPath(); ctx.ellipse(0,0,r*1.62,r*.53,0,0,Math.PI); ctx.stroke();
+    ctx.restore();
+  }
+}
+
 function formatDate(epochMs: number) {
   const date = new Date(epochMs);
   if (!Number.isFinite(date.getTime())) return 'Simulation date unavailable';
@@ -176,43 +322,11 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
         const mean = body.meanAnomalyRad + elapsedDays / body.orbitalPeriodDays * TAU;
         const eccentricAnomaly = solveEccentricAnomaly(mean, body.eccentricity);
         const p = project(orbitPoint(body, eccentricAnomaly, aPixels));
-        const radius = body.id === 'earth' ? 5.8 : Math.max(3, Math.min(6.8, body.size * 0.82));
+        const radius = body.id === 'jupiter' ? 12.5 : body.id === 'saturn' ? 10.8 : body.id === 'earth' ? 7.4 : body.id === 'venus' ? 7 : body.id === 'uranus' || body.id === 'neptune' ? 7.2 : body.id === 'mars' ? 6.3 : body.id === 'mercury' ? 4.7 : 4.5;
         positionById[body.id] = { x: p.x, y: p.y, z: 0, radius };
 
-        // Directional planet lighting keeps the bodies spherical without hiding their colors.
-        ctx.save();
-        const shading = ctx.createRadialGradient(p.x - radius * 0.35, p.y - radius * 0.38, 0.5, p.x, p.y, radius * 1.6);
-        shading.addColorStop(0, '#ffffff');
-        shading.addColorStop(0.22, body.color);
-        shading.addColorStop(1, '#020617');
-        ctx.fillStyle = shading;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, radius, 0, TAU);
-        ctx.fill();
-        if (body.id === 'saturn') {
-          ctx.strokeStyle = 'rgba(253,230,138,.9)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.ellipse(p.x, p.y, radius * 1.8, radius * 0.58, -0.25, 0, TAU);
-          ctx.stroke();
-        }
-        if (body.id === 'earth') {
-          // A single rotating meridian cue illustrates Earth's sidereal spin.
-          const spin = (elapsedDays / EARTH_SIDEREAL_DAY_DAYS) * TAU;
-          ctx.strokeStyle = 'rgba(186,230,253,.8)';
-          ctx.lineWidth = 1.1;
-          ctx.beginPath();
-          ctx.ellipse(p.x, p.y, Math.max(1.2, Math.abs(Math.cos(spin)) * radius * 0.92), radius * 0.88, spin * 0.06, 0, TAU);
-          ctx.stroke();
-          ctx.fillStyle = 'rgba(74,222,128,.75)';
-          ctx.beginPath();
-          ctx.ellipse(p.x - radius * 0.25, p.y - radius * 0.12, radius * 0.32, radius * 0.2, 0.4, 0, TAU);
-          ctx.fill();
-          ctx.beginPath();
-          ctx.ellipse(p.x + radius * 0.3, p.y + radius * 0.22, radius * 0.21, radius * 0.14, -0.5, 0, TAU);
-          ctx.fill();
-        }
-        ctx.restore();
+        // Distinct surface features, rotating texture marks, atmospheric shading and rim light.
+        drawPlanetDisk(ctx, body, p.x, p.y, radius, elapsedDays);
 
         ctx.font = body.id === 'earth' ? 'bold 10px ui-monospace, monospace' : '9px ui-monospace, monospace';
         ctx.fillStyle = body.color;
