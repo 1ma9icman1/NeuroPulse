@@ -805,6 +805,40 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     [cameraView, cameraYaw, cameraPitch, cameraZoom]
   );
 
+  // Keep the celestial sky on the same camera projection when switching between
+  // the working 3D orbit and the Earth/top-plane view. Do not change project3D:
+  // the 3D orbit's room, planets, Earth core, and A/B/C puck projection depend on it.
+  const projectCelestial3D = useCallback(
+    (x: number, y: number, z: number, w: number, h: number) => {
+      if (cameraView !== 'top') return project3D(x, y, z, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+      const baseScale = Math.min(w, h) * 0.042 * cameraZoom;
+      const radYaw = (cameraYaw * Math.PI) / 180;
+      const radPitch = (cameraPitch * Math.PI) / 180;
+
+      // Mirror the existing perspective branch in project3D exactly.
+      // Celestial coordinates use this in top-plane view so stars/constellations
+      // retain their screen positions when switching views.
+      const rx = x * Math.cos(radYaw) - z * Math.sin(radYaw);
+      const rz = x * Math.sin(radYaw) + z * Math.cos(radYaw);
+      const ry = y * Math.cos(radPitch) - rz * Math.sin(radPitch);
+      const rz2 = y * Math.sin(radPitch) + rz * Math.cos(radPitch);
+      const cameraDist = 28;
+      const fov = 350;
+      const depth = cameraDist + rz2;
+      const factor = fov / Math.max(6, depth);
+
+      return {
+        sx: cx + rx * factor * baseScale * 0.065,
+        sy: cy - ry * factor * baseScale * 0.065,
+        depthScale: factor / (fov / cameraDist),
+      };
+    },
+    [cameraView, cameraYaw, cameraPitch, cameraZoom, project3D]
+  );
+
   const unprojectOrbitPlane = (
     screenX: number,
     screenY: number,
@@ -1378,7 +1412,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             ctx.beginPath();
             path.forEach(([raDeg, decDeg], index) => {
               const pos = celestialPosition({ raDeg, decDeg });
-              const screen = project3D(pos.x, pos.y, pos.z, width, height);
+              const screen = projectCelestial3D(pos.x, pos.y, pos.z, width, height);
               if (index === 0) ctx.moveTo(screen.sx, screen.sy);
               else ctx.lineTo(screen.sx, screen.sy);
               renderedConstellationPoints.set(`${raDeg.toFixed(3)}:${decDeg.toFixed(3)}`, { sx: screen.sx, sy: screen.sy });
@@ -1404,7 +1438,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         // The constellation toggles above only control the connecting paths.
         REAL_CELESTIAL_STARS.forEach((star) => {
           const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+          const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const isAssignedA = star.id === starAId;
           const isAssignedB = star.id === starBId;
           const isAssignedC = star.id === starCId;
@@ -1448,7 +1482,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         // They appear with Star Mode and update whenever the historical year changes.
         timelinePlanetPositions.forEach((planet: ReturnType<typeof getPlanetSkyPositions>[number]) => {
           const planetPosition = celestialPosition({ raDeg: planet.raDeg, decDeg: planet.decDeg });
-          const pp = project3D(planetPosition.x, planetPosition.y, planetPosition.z, width, height);
+          const pp = projectCelestial3D(planetPosition.x, planetPosition.y, planetPosition.z, width, height);
           const radius = Math.max(2.5, planet.size * pp.depthScale);
           ctx.save();
           ctx.beginPath();
@@ -1474,7 +1508,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           const star = REAL_CELESTIAL_STARS.find((s) => s.id === starId);
           if (!star) return;
           const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+          const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const pp = project3D(puckPos.x, puckPos.y, puckPos.z, width, height);
 
           // Ray from Center to Star
@@ -1755,7 +1789,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       // 8. Hovered Star Info Card (if hovered)
       if (isStarModeActive && hoveredStar && !clickedStar) {
         const hoverPosition = celestialPosition(hoveredStar);
-        const hp = project3D(hoverPosition.x, hoverPosition.y, hoverPosition.z, width, height);
+        const hp = projectCelestial3D(hoverPosition.x, hoverPosition.y, hoverPosition.z, width, height);
         ctx.save();
         ctx.fillStyle = 'rgba(6, 10, 18, 0.94)';
         ctx.strokeStyle = '#facc15';
@@ -1819,6 +1853,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     overlay,
     relation711.isHarmonic711,
     project3D,
+    projectCelestial3D,
     activeDrag,
     hoverNode,
     showTriangleAngles,
@@ -1861,7 +1896,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     if (isStarModeActive) {
       for (const star of REAL_CELESTIAL_STARS) {
         const starPosition = celestialPosition(star);
-        const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+        const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
         if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
           handleSnapChannelToStar(snapTargetChannel, star);
           setClickedStar(star);
@@ -1969,7 +2004,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         let found: CelestialStar | null = null;
         for (const star of REAL_CELESTIAL_STARS) {
           const starPosition = celestialPosition(star);
-          const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
+          const sp = projectCelestial3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
             found = star;
             break;
