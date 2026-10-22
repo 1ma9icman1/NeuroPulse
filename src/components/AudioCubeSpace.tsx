@@ -282,7 +282,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   }, []);
 
   // Star Celestial Alignment Mode
-  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
+  const [isStarModeActive, setIsStarModeActive] = useState<boolean>(false);
   const IAU_CONSTELLATIONS = ["Andromeda","Antlia","Apus","Aquarius","Aquila","Ara","Aries","Auriga","Bootes","Caelum","Camelopardalis","Cancer","Canes Venatici","Canis Major","Canis Minor","Capricornus","Carina","Cassiopeia","Centaurus","Cepheus","Cetus","Chamaeleon","Circinus","Columba","Coma Berenices","Corona Australis","Corona Borealis","Corvus","Crater","Crux","Cygnus","Delphinus","Dorado","Draco","Equuleus","Eridanus","Fornax","Gemini","Grus","Hercules","Horologium","Hydra","Hydrus","Indus","Lacerta","Leo","Leo Minor","Lepus","Libra","Lupus","Lynx","Lyra","Mensa","Microscopium","Monoceros","Musca","Norma","Octans","Ophiuchus","Orion","Pavo","Pegasus","Perseus","Phoenix","Pictor","Pisces","Piscis Austrinus","Puppis","Pyxis","Reticulum","Sagitta","Sagittarius","Scorpius","Sculptor","Scutum","Serpens","Sextans","Taurus","Telescopium","Triangulum","Triangulum Australe","Tucana","Ursa Major","Ursa Minor","Vela","Virgo","Volans","Vulpecula"];
   const [constellationsEnabled, setConstellationsEnabled] = useState<Record<string, boolean>>(() => Object.fromEntries(IAU_CONSTELLATIONS.map((name) => [name, true])));
   const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
@@ -471,7 +471,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
   // Star click tracking: tracks number of stars clicked (activates interior triangle angles after 3 stars)
   const [clickedStarCount, setClickedStarCount] = useState<number>(3); // Initialized with 3 default celestial stars
-  const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(true);
+  const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(false);
 
   // Compute 7-11 real-world astrometric relation on angles
   const relation711: Relation711Result = compute711Relation(aPos, bPos, cPos);
@@ -1570,6 +1570,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           return;
         }
       }
+      if (isEarthModeActive) {
+        globeRef.current?.selectAt(x, y);
+        return;
+      }
     }
 
     // Dismiss clicked star modal if clicking elsewhere
@@ -1589,7 +1593,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
     if (distA < 22) {
       // If locked to star, prevent accidental displacement unless shift is held
-      if (lockedChannels.a && !e.shiftKey) {
+      if (lockedChannels.a && (channelTargets.a.type === 'location' || isStarModeActive) && !e.shiftKey) {
         setSnapFeedback(`CH-A IS LOCKED TO ${channelTargets.a.type.toUpperCase()}: ${channelTargets.a.name}. Hold Shift to override.`);
         window.setTimeout(() => setSnapFeedback(null), 2500);
         return;
@@ -1597,7 +1601,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       setActiveDrag('a');
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } else if (distB < 22) {
-      if (lockedChannels.b && !e.shiftKey) {
+      if (lockedChannels.b && (channelTargets.b.type === 'location' || isStarModeActive) && !e.shiftKey) {
         setSnapFeedback(`CH-B IS LOCKED TO ${channelTargets.b.type.toUpperCase()}: ${channelTargets.b.name}. Hold Shift to override.`);
         window.setTimeout(() => setSnapFeedback(null), 2500);
         return;
@@ -1605,7 +1609,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       setActiveDrag('b');
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } else if (distC < 22) {
-      if (lockedChannels.c && !e.shiftKey) {
+      if (lockedChannels.c && (channelTargets.c.type === 'location' || isStarModeActive) && !e.shiftKey) {
         setSnapFeedback(`CH-C IS LOCKED TO ${channelTargets.c.type.toUpperCase()}: ${channelTargets.c.name}. Hold Shift to override.`);
         window.setTimeout(() => setSnapFeedback(null), 2500);
         return;
@@ -2426,7 +2430,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
         </div>
       )}
-      <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
+      <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive && !isStarModeActive ? 'pointer-events-none' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
 
       <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} audioSites={ACOUSTIC_SITE_EVIDENCE} onAssignChannel={lockChannelToEarthSite} onSelectMapLocation={openEarthSite} />
 
