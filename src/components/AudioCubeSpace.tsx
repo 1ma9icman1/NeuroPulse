@@ -1156,7 +1156,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
 
         // Draw Real Stars
-        REAL_CELESTIAL_STARS.filter((star) => isStarModeActive && isConstellationEnabled(star.constellation)).forEach((star) => {
+        REAL_CELESTIAL_STARS.filter(() => isStarModeActive).forEach((star) => {
           const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           const isAssignedA = isStarModeActive && channelTargets.a.type === 'star' && star.id === starAId;
@@ -1580,7 +1580,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
     // Select an individual catalogued star only when Stars mode is explicitly on.
     if (isStarModeActive) {
-      for (const star of REAL_CELESTIAL_STARS.filter((item) => isConstellationEnabled(item.constellation))) {
+      for (const star of REAL_CELESTIAL_STARS) {
         const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
         if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
@@ -1722,7 +1722,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       // Star Hover detection
       if (isStarModeActive) {
         let found: CelestialStar | null = null;
-        for (const star of REAL_CELESTIAL_STARS.filter((item) => isConstellationEnabled(item.constellation))) {
+        for (const star of REAL_CELESTIAL_STARS) {
           const starPosition = celestialPosition(star);
           const sp = project3D(starPosition.x, starPosition.y, starPosition.z, width, height);
           if (Math.hypot(x - sp.sx, y - sp.sy) < 18) {
