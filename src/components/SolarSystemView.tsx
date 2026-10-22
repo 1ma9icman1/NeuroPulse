@@ -226,7 +226,6 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
     const images: HTMLImageElement[] = [];
     Object.entries(PLANET_TEXTURE_URLS).forEach(([body, url]) => {
       const image = new Image();
-      image.crossOrigin = 'anonymous';
       image.onload = () => {
         if (cancelled) return;
         planetTexturesRef.current = { ...planetTexturesRef.current, [body]: image };
