@@ -194,4 +194,17 @@ export const ANCIENT_STRUCTURE_DIMENSIONS: AncientStructureDimension[] = [
     numberSystemNote: 'Maya mathematics used a base-20 system and place-value notation, with calendar-specific conventions.',
     sourceUrl: 'https://whc.unesco.org/en/list/64/'
   },
+
+  {
+    id: 'ziggurat-of-ur',
+    name: 'Ziggurat of Ur',
+    lat: 30.9628, lon: 46.1031, location: 'Dhi Qar, Iraq',
+    approximateHeightFt: 100,
+    heightBasis: 'Approximate reconstructed original height; surviving structure is lower.',
+    evidenceNote: 'Mesopotamian mathematical texts used sexagesimal (base-60) methods, although the system developed over time.',
+    geometryClaim: 'Base-60 mathematics is important historical context, but does not by itself prove this monument encodes modern mathematical constants.',
+    numberSystem: 'sexagesimal',
+    numberSystemNote: 'Mesopotamian scribal mathematics used sexagesimal notation. Modern time and angle conventions have a long history and should not be attributed to one monument.',
+    sourceUrl: 'https://whc.unesco.org/en/list/113'
+  },
 ];
