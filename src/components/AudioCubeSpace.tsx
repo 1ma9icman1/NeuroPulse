@@ -638,7 +638,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // longitude, then transform back to equatorial XYZ. This is illustrative, not a precision
   // IAU/astrometry solution over 12 millennia.
   const celestialPosition = (star: Pick<CelestialStar, 'raDeg' | 'decDeg'>, radius = 7.8): SpatialPosition => {
-    const ra = (star.raDeg * Math.PI) / 180;
+    const ra = ((star.raDeg + dailyRotationDegreesRef.current) * Math.PI) / 180;
     const dec = (star.decDeg * Math.PI) / 180;
     const eps = 23.439281 * Math.PI / 180;
     const eqX = Math.cos(dec) * Math.cos(ra);
@@ -646,7 +646,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const eqZ = Math.sin(dec);
     const eclY = eqY * Math.cos(eps) + eqZ * Math.sin(eps);
     const eclZ = -eqY * Math.sin(eps) + eqZ * Math.cos(eps);
-    const eclLon = Math.atan2(eclY, eqX) + (timelineYearsAgo * 50.29 / 3600) * Math.PI / 180 + dailyRotationDegreesRef.current * Math.PI / 180;
+    const eclLon = Math.atan2(eclY, eqX) + (timelineYearsAgo * 50.29 / 3600) * Math.PI / 180;
     const eclLat = Math.asin(Math.max(-1, Math.min(1, eclZ)));
     const x = Math.cos(eclLat) * Math.cos(eclLon);
     const yEcl = Math.cos(eclLat) * Math.sin(eclLon);
@@ -1954,6 +1954,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     show110HzResearchComets,
     showDetailedStarInfo,
     isEarthModeActive,
+    is24HourRotationActive,
     timelineYear,
     earthTextureLoaded,
     earthTextureUrl,
