@@ -486,6 +486,29 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     b: true,
     c: true,
   });
+  const [isEarthAssignMode, setIsEarthAssignMode] = useState<boolean>(false);
+  const [earthChannelTargets, setEarthChannelTargets] = useState<{
+    a: { lat: number; lng: number } | null;
+    b: { lat: number; lng: number } | null;
+    c: { lat: number; lng: number } | null;
+  }>({ a: null, b: null, c: null });
+
+  const earthChannelMarkers = (['a', 'b', 'c'] as const).flatMap((channel) => {
+    const target = earthChannelTargets[channel];
+    if (!target) return [];
+    const color = channel === 'a' ? '#00f0ff' : channel === 'b' ? '#ff007f' : '#fbbf24';
+    return [{
+      name: `CH-${channel.toUpperCase()}`,
+      channel,
+      isChannelTarget: true,
+      lat: target.lat,
+      lon: target.lng,
+      color,
+      size: 0.35,
+      altitude: 0.025,
+      layerCategory: 'CHANNEL TARGET',
+    }];
+  });
 
   const [hoveredStar, setHoveredStar] = useState<CelestialStar | null>(null);
   const [clickedStar, setClickedStar] = useState<CelestialStar | null>(null);
@@ -655,6 +678,35 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       );
     }
     window.setTimeout(() => setSnapFeedback(null), 3800);
+  };
+
+  const handlePinChannelToEarth = (channel: 'a' | 'b' | 'c', latitude: number, longitude: number) => {
+    const lat = Math.max(-89.999, Math.min(89.999, latitude));
+    const lng = ((longitude + 180) % 360 + 360) % 360 - 180;
+    const gmstDeg = calculateTimelineGmstDeg(timelineYear);
+    const position = latLonToCartesian(lat, lng, 3.42, gmstDeg, 23.439281);
+
+    setEarthChannelTargets((prev) => ({ ...prev, [channel]: { lat, lng } }));
+    setLockedChannels((prev) => ({ ...prev, [channel]: false }));
+    setClickedStar(null);
+    setShowTriangleAngles(false);
+
+    if (channel === 'a') {
+      setStarAId('');
+      onUpdateAPos(position);
+      setSnapTargetChannel('b');
+    } else if (channel === 'b') {
+      setStarBId('');
+      onUpdateBPos(position);
+      setSnapTargetChannel('c');
+    } else {
+      setStarCId('');
+      onUpdateCPos(position);
+      setSnapTargetChannel('a');
+    }
+
+    setSnapFeedback(`CH-${channel.toUpperCase()} pinned to Earth · ${lat.toFixed(3)}°, ${lng.toFixed(3)}°`);
+    window.setTimeout(() => setSnapFeedback(null), 3000);
   };
 
   // Apply Star Alignment Preset
@@ -2060,6 +2112,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                       >
                         CONSTELLATIONS {showConstellationLines ? 'ON' : 'OFF'}
                       </button>
+                      <button
+                        onClick={() => setIsEarthAssignMode((value) => !value)}
+                        className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${isEarthAssignMode ? 'bg-emerald-400 text-slate-950 border-emerald-300' : 'bg-slate-900 text-emerald-300 border-emerald-500/40'}`}
+                        title="When enabled, click an Earth location to pin the selected A/B/C channel there"
+                      >
+                        PIN EARTH {isEarthAssignMode ? 'ON' : 'OFF'}
+                      </button>
                       {(['a', 'b', 'c'] as const).map((channel) => (
                         <button
                           key={channel}
@@ -2683,9 +2742,34 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => d.evidenceStatus ? `${d.layerCategory || 'SOUND'} · ${d.name} — ${d.measurementSummary || 'published acoustic record'} · reported values/bands: ${(d.measuredFrequenciesHz || []).join(', ')} Hz (check measurement context; range endpoints may not be site-specific peaks) · click to inspect` : d.isDimensionRecord ? `${d.layerCategory} · ${d.name}${d.structuralHeightFt ? ' · approximately ' + d.structuralHeightFt + ' ft' : ''} · ${d.heightBasis} · ${d.heightNote}${d.numberSystem ? ' · Number system: ' + d.numberSystem + (d.numberSystemNote ? ' — ' + d.numberSystemNote : '') : ''}${d.orientationNote ? ' · Orientation: ' + d.orientationNote : ''}${d.ritualContext ? ' · Ritual context: ' + d.ritualContext : ''}` : d.historicalRecord ? `${d.layerCategory} · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · ${d.researchReason} · click to inspect` : d.isCity ? `CITY · ${d.name} · click to open map and alignment explorer` : `${d.layerCategory || 'ANCIENT SITE'} · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
-              htmlElementsData={showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : []}
-              htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => 0.04}
+              htmlElementsData={[...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
+                if (d.isChannelTarget) {
+                  const badge = document.createElement('button');
+                  badge.type = 'button';
+                  badge.textContent = d.channel.toUpperCase();
+                  badge.title = `CH-${d.channel.toUpperCase()} · click to select this channel`;
+                  badge.setAttribute('aria-label', `Select channel ${d.channel.toUpperCase()}`);
+                  badge.style.width = '28px';
+                  badge.style.height = '28px';
+                  badge.style.borderRadius = '50%';
+                  badge.style.border = `2px solid ${d.color}`;
+                  badge.style.background = 'rgba(3, 10, 22, 0.94)';
+                  badge.style.color = d.color;
+                  badge.style.font = 'bold 12px "JetBrains Mono", monospace';
+                  badge.style.boxShadow = `0 0 12px ${d.color}99`;
+                  badge.style.cursor = 'pointer';
+                  badge.style.pointerEvents = 'auto';
+                  badge.style.display = 'grid';
+                  badge.style.placeItems = 'center';
+                  badge.style.transform = 'translate(-50%, -50%)';
+                  badge.onclick = (event) => {
+                    event.stopPropagation();
+                    setSnapTargetChannel(d.channel);
+                  };
+                  return badge;
+                }
                 const marker = document.createElement('div');
                 marker.style.width = '52px'; marker.style.height = showCosmicBeam && d.evidenceStatus === 'published-measurement' ? '300px' : '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
                 marker.title = d.evidenceStatus === 'published-measurement' ? `Published acoustic measurement: ${d.measuredHz} Hz (not 110 Hz)` : '110 Hz research candidate · resonance unverified at this location';
@@ -2705,7 +2789,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 comet.animate([{ opacity: 0.12, transform: 'translate(-4px, 5px) rotate(-42deg) scaleX(.25)' }, { opacity: 1, transform: 'translate(0, 0) rotate(-42deg) scaleX(1)' }, { opacity: 0.05, transform: 'translate(8px, -8px) rotate(-42deg) scaleX(.2)' }], { duration: 1450, iterations: Infinity, delay: (Math.abs(d.lat * 11 + d.lon) % 900) });
                 marker.append(comet); return marker;
               }}
-              onPointClick={(d: any) => openEarthSite(d)} />
+              onPointClick={(d: any) => {
+                if (isEarthAssignMode) {
+                  handlePinChannelToEarth(snapTargetChannel, d.lat, d.lon);
+                } else {
+                  openEarthSite(d);
+                }
+              }}
+              onGlobeClick={(coords: { lat: number; lng: number }) => {
+                if (isEarthAssignMode) handlePinChannelToEarth(snapTargetChannel, coords.lat, coords.lng);
+              }} />
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
             {showAlignmentTriangles && showAncientStructures && <div className="absolute left-3 bottom-3 z-[6] max-w-[min(92%,440px)] rounded-lg border border-sky-400/40 bg-slate-950/90 p-2 text-[10px] font-mono text-slate-200 pointer-events-none"><div className="font-bold text-sky-200">EARTH TRIANGULATION · nearest 3 neighbors/site</div><div className="mt-1">{trianglePolygons.length} connected triangles · repeated 5° angle bins: {repeatedTriangleAngles.length ? repeatedTriangleAngles.slice(0,5).map(([angle,count]) => angle+'° × '+count).join(' · ') : 'none detected in current set'}</div><div className="mt-1 text-slate-400">Approximate local-plane angles; projection, site coordinates and chance patterns matter.</div></div>}
             <div className={`absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden ${isEarthModeActive ? 'hidden' : ''}`}>
