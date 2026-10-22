@@ -371,6 +371,11 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     return point ? [{ name: `Point ${channel.toUpperCase()}`, channel, lat: point.lat, lon: point.lon, locked: point.locked, color: earthChannelColors[channel], size: 0.22, altitude: 0.025, isEarthChannelPoint: true }] : [];
   });
   const placeEarthChannelPoint = (lat: number, lon: number, channel: EarthChannel = earthPlacementChannel) => {
+    const spatialPoint = latLonToCartesian(lat, lon, 7.8);
+    if (channel === 'a') onUpdateAPos(spatialPoint);
+    if (channel === 'b') onUpdateBPos(spatialPoint);
+    if (channel === 'c') onUpdateCPos(spatialPoint);
+    setLockedChannels((previous) => ({ ...previous, [channel]: true }));
     setEarthChannelPoints((previous) => ({ ...previous, [channel]: { lat, lon, locked: true } }));
     setEarthPlacementChannel(channel);
     setIsPlacingEarthPoint(false);
@@ -2513,7 +2518,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Globe points</div>
               <div className="mt-0.5 text-sm font-semibold text-white">A / B / C anchors</div>
             </div>
-            <button type="button" onClick={() => setIsPlacingEarthPoint((active) => !active)} className={`h-8 rounded-lg border px-3 text-xs font-medium transition-colors ${isPlacingEarthPoint ? 'border-sky-300 bg-sky-300 text-slate-950' : 'border-white/15 bg-white/5 text-slate-200 hover:bg-white/10'}`}>
+            <button type="button" onClick={() => { const next = !isPlacingEarthPoint; setIsPlacingEarthPoint(next); if (next) { setEarthChannelPoints((previous) => ({ ...previous, [earthPlacementChannel]: previous[earthPlacementChannel] ? { ...previous[earthPlacementChannel]!, locked: false } : null })); setLockedChannels((previous) => ({ ...previous, [earthPlacementChannel]: false })); } }} className={`h-8 rounded-lg border px-3 text-xs font-medium transition-colors ${isPlacingEarthPoint ? 'border-sky-300 bg-sky-300 text-slate-950' : 'border-white/15 bg-white/5 text-slate-200 hover:bg-white/10'}`}>
               {isPlacingEarthPoint ? 'Cancel' : 'Place point'}
             </button>
           </div>
@@ -2528,7 +2533,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                     <div className="text-xs font-semibold text-white">{point ? `${point.lat.toFixed(3)}°, ${point.lon.toFixed(3)}°` : 'Not placed'}</div>
                     <div className="mt-0.5 text-[10px] text-slate-400">{point ? (point.locked ? 'Pinned to globe' : 'Ready to reposition') : 'Choose a location on the globe'}</div>
                   </div>
-                  <button type="button" onClick={() => { setEarthPlacementChannel(channel); setIsPlacingEarthPoint(true); setEarthChannelPoints((previous) => ({ ...previous, [channel]: previous[channel] ? { ...previous[channel]!, locked: false } : null })); }} className={`h-8 min-w-[62px] rounded-lg border px-2 text-[11px] font-medium transition-colors ${active && isPlacingEarthPoint ? 'border-sky-300 bg-sky-300 text-slate-950' : 'border-white/15 bg-white/5 text-slate-200 hover:bg-white/10'}`}>{point ? 'Move' : 'Place'}</button>
+                  <button type="button" onClick={() => { setEarthPlacementChannel(channel); setIsPlacingEarthPoint(true); setEarthChannelPoints((previous) => ({ ...previous, [channel]: previous[channel] ? { ...previous[channel]!, locked: false } : null })); setLockedChannels((previous) => ({ ...previous, [channel]: false })); }} className={`h-8 min-w-[62px] rounded-lg border px-2 text-[11px] font-medium transition-colors ${active && isPlacingEarthPoint ? 'border-sky-300 bg-sky-300 text-slate-950' : 'border-white/15 bg-white/5 text-slate-200 hover:bg-white/10'}`}>{point ? 'Move' : 'Place'}</button>
                 </div>
                 {point && <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-2">
                   <span className="text-[10px] text-slate-500">Geographic anchor</span>
