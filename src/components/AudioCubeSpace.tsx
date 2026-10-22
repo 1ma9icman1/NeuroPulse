@@ -290,6 +290,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showCities, setShowCities] = useState<boolean>(false);
   const [showAncientPlaces, setShowAncientPlaces] = useState<boolean>(true);
   const [showImportedHistoricalData, setShowImportedHistoricalData] = useState<boolean>(false);
+  const [showOpenHistoricalMap, setShowOpenHistoricalMap] = useState<boolean>(false);
   const [importedHistoricalGeoJson, setImportedHistoricalGeoJson] = useState<GeoJSON.FeatureCollection | null>(null);
   const [importedHistoricalFileName, setImportedHistoricalFileName] = useState<string | null>(null);
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
@@ -2355,7 +2356,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400"><span>12,000 YEARS AGO ({timelineMinYear < 0 ? Math.abs(timelineMinYear).toLocaleString() + ' BCE' : timelineMinYear + ' CE'})</span><span>{timelineYearsAgo.toLocaleString()} years before present</span><span>Present</span></div>
           <div className="mt-1 text-[9px] leading-tight text-slate-400">The year control moves in single-year increments across 12,000 years. Existing dated sites and imported GeoJSON features with year/start/end date properties follow this date. Dates and extents are only as precise as each source records.</div>
           <HistoricalLayerPanel
-            layers={{ ancientPlaces: showAncientPlaces, structures: showAncientStructures, soundSites: showMeasuredSoundSites, cities: showCities, imported: showImportedHistoricalData }}
+            layers={{ ancientPlaces: showAncientPlaces, structures: showAncientStructures, soundSites: showMeasuredSoundSites, cities: showCities, imported: showImportedHistoricalData, openHistoricalMap: showOpenHistoricalMap }}
             onToggle={(layer: HistoricalLayerKey, enabled: boolean) => {
               const setters: Record<HistoricalLayerKey, (value: boolean) => void> = {
                 ancientPlaces: setShowAncientPlaces,
@@ -2363,6 +2364,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 soundSites: setShowMeasuredSoundSites,
                 cities: setShowCities,
                 imported: setShowImportedHistoricalData,
+                openHistoricalMap: setShowOpenHistoricalMap,
               };
               setters[layer](enabled);
             }}
@@ -2388,6 +2390,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   compact={!isEarthModeActive}
                   importedGeoJson={importedHistoricalGeoJson}
                   showImportedHistoricalData={showImportedHistoricalData}
+                  showOpenHistoricalMap={showOpenHistoricalMap}
                   timelineYear={timelineYear}
                 />
               </div>
