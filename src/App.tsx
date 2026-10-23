@@ -86,7 +86,6 @@ export default function App() {
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
   const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street'>('globe');
 
-  const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? researchSites[0];
   const handleGlobeSiteSelect = useCallback((site: any) => {
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === site.name.toLowerCase());
     setSelectedSiteId(known?.id ?? site.name);
@@ -119,6 +118,7 @@ export default function App() {
       });
     return [...core, ...legacy];
   }, []);
+  const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? researchSites[0];
   const moduleSites = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase();
     return researchSites.filter((site) =>
