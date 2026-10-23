@@ -432,7 +432,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const earthZoomTier = earthViewAltitude > 1.55 ? 0 : earthViewAltitude > 0.95 ? 1 : earthViewAltitude > 0.58 ? 2 : 3;
   const zoomMajorCityNames = new Set(['New York', 'Los Angeles', 'Chicago', 'Mexico City', 'Toronto', 'Rio de Janeiro', 'London', 'Paris', 'Rome', 'Cairo', 'Lagos', 'Nairobi', 'Istanbul', 'Dubai', 'Mumbai', 'Delhi', 'Bangkok', 'Singapore', 'Beijing', 'Seoul', 'Tokyo', 'Sydney', 'Auckland', 'Moscow', 'Reykjavik', 'Honolulu', 'Anchorage', 'Washington', 'Washington, D.C.', 'Ottawa', 'Brasilia', 'Buenos Aires', 'Madrid', 'Berlin', 'Athens', 'Jerusalem', 'Tehran', 'Karachi', 'Dhaka', 'Jakarta', 'Manila', 'Hanoi', 'Taipei', 'Kuala Lumpur', 'Cape Town', 'Johannesburg', 'Addis Ababa', 'Accra', 'Perth', 'Melbourne', 'Vancouver', 'San Francisco', 'Seattle', 'Boston', 'Miami', 'Denver', 'Phoenix']);
   const isMajorZoomCity = (site: any) => !!site.isMajorCity || !!site.isCapital || zoomMajorCityNames.has(String(site.name || '').trim());
-  const zoomTierLabel = earthZoomTier === 0 ? 'WORLD · MAJOR CITIES' : earthZoomTier === 1 ? 'CONTINENT · CITIES' : earthZoomTier === 2 ? 'REGION · SITES' : 'CLOSE-UP · ALL SITES';
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
 
