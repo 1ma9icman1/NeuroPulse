@@ -389,6 +389,21 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     globeRef.current.pointOfView({ altitude: Math.max(1.35, 2.05 - cameraZoom * 0.18) }, 250);
   }, [cameraZoom, isEarthModeActive]);
 
+  // Poll the globe's actual camera altitude so mouse wheel, trackpad, touch,
+  // zoom buttons, and animated pointOfView calls all update the visible site tier.
+  useEffect(() => {
+    if (!isEarthModeActive) return;
+    const syncZoomTier = () => {
+      const altitude = Number(globeRef.current?.pointOfView?.()?.altitude);
+      if (!Number.isFinite(altitude) || altitude <= 0) return;
+      const roundedAltitude = Math.round(altitude * 1000) / 1000;
+      setEarthViewAltitude((current) => Math.abs(current - roundedAltitude) >= 0.015 ? roundedAltitude : current);
+    };
+    syncZoomTier();
+    const timer = window.setInterval(syncZoomTier, 180);
+    return () => window.clearInterval(timer);
+  }, [isEarthModeActive]);
+
   useEffect(() => {
     setEarthTextureLoaded(false);
     earthTextureRef.current = null;
