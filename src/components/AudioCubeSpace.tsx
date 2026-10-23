@@ -484,7 +484,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const tick = () => {
       const startedAt = dailyRotationSessionStartRef.current;
       if (startedAt === null) return;
-      const angle = dailyRotationBaseRef.current + ((performance.now() - startedAt) / 86400000) * 360;
+      const angle = dailyRotationBaseRef.current + ((performance.now() - startedAt) / 24000) * 360;
       dailyRotationDegreesRef.current = angle;
       setDailyRotationDegrees(angle);
     };
@@ -506,7 +506,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const controls = globeRef.current?.controls?.();
       if (!controls) return false;
       controls.autoRotate = true;
-      controls.autoRotateSpeed = -0.0006944444444444445;
+      controls.autoRotateSpeed = -2.5;
       controls.update?.();
       return true;
     };
@@ -2412,7 +2412,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             onClick={toggle24HourRotation}
             aria-pressed={is24HourRotationActive}
             className={`ml-1 rounded border px-2 py-1 text-[10px] font-mono font-bold transition-colors ${is24HourRotationActive ? 'border-emerald-300 bg-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(52,211,153,.35)]' : 'border-emerald-700 text-emerald-300 hover:bg-emerald-950/50'}`}
-            title={is24HourRotationActive ? '24-hour rotation is running continuously; click to pause it' : 'Start continuous 24-hour Earth and sky rotation; it keeps running beyond 24 hours until clicked again'}
+            title={is24HourRotationActive ? 'Accelerated 24-hour day simulation is running; click to pause it' : 'Run an accelerated 24-hour day simulation (one full day every 24 seconds); click again to pause'}
           >
             {is24HourRotationActive ? '24H DAY · ON' : '24H DAY'}
           </button>
