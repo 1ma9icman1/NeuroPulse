@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { fromUrl } from 'geotiff';
+import { fromBlob } from 'geotiff';
 import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw } from 'lucide-react';
 
 type Site = { name: string; lat: number; lon: number } | null;
@@ -78,7 +78,18 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         setLoading(true);
         setLoadError('');
         setDatasetInfo('Requesting real elevation values from NOAA NCEI…');
-        const tiff = await fromUrl(NOAA_DEM_URL, { allowFullFile: true });
+        // Read the export as a complete response. Some ArcGIS configurations do not
+        // support the byte-range requests used by GeoTIFF's URL reader.
+        const response = await fetch(NOAA_DEM_URL, { mode: 'cors', credentials: 'omit' });
+        if (!response.ok) throw new Error(`NOAA elevation request failed (HTTP ${response.status}). Check NOAA service/network access and retry.`);
+        const contentType = response.headers.get('content-type') || '';
+        if (/json|html|xml/i.test(contentType)) {
+          const detail = (await response.text()).slice(0, 240).replace(/\\s+/g, ' ');
+          throw new Error(`NOAA returned a service message instead of a GeoTIFF: ${detail || contentType}`);
+        }
+        const rasterBlob = await response.blob();
+        if (rasterBlob.size < 1024) throw new Error('NOAA returned an empty or incomplete elevation raster.');
+        const tiff = await fromBlob(rasterBlob);
         if (cancelled) return;
         const image = await tiff.getImage();
         const raster = await image.readRasters({ width: 720, height: 360, interleave: true });
