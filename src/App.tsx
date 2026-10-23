@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AudioEngine } from './audio/AudioEngine';
 import type { TrinauralConfig } from './types/index';
 import {
-  Activity, AudioLines, Atom, AudioWaveform, ChevronDown, Compass,
-  Database, Globe2, Layers3, Map, MapPin, Orbit, Radar, Search, Settings2,
+  Activity, AudioLines, Atom, AudioWaveform, Building2, ChevronDown, Compass,
+  Database, Globe2, Landmark, Layers3, Map, MapPin, Orbit, Radar, Search, Settings2,
   Signal, SlidersHorizontal, Star, Target, Waves, X, Zap, Volume2, ChevronUp
 } from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
