@@ -7,7 +7,7 @@ type Site = { name: string; lat: number; lon: number } | null;
 type CatalogueSite = { name: string; lat: number; lon: number; category?: string; color?: string };
 type Props = { selectedSite: Site; siteCatalogue: CatalogueSite[]; onBack: () => void };
 
-const NOAA_DEM_URL = 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic/ImageServer/exportImage?bbox=-180,-90,180,90&bboxSR=4326&size=720,360&imageSR=4326&format=tiff&pixelType=F32&f=image';
+const NOAA_DEM_URL = 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic/ImageServer/exportImage?bbox=-180,-90,180,90&bboxSR=4326&size=720,360&imageSR=4326&format=tiff&pixelType=F32&interpolation=RSP_BilinearInterpolation&f=image';
 const NOAA_SOURCE = 'https://www.ncei.noaa.gov/products/etopo-global-relief-model';
 const BASE_RADIUS = 100;
 const HEIGHT_SCALE = 0.0015;
@@ -78,7 +78,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         setLoading(true);
         setLoadError('');
         setDatasetInfo('Requesting real elevation values from NOAA NCEI…');
-        const tiff = await fromUrl(NOAA_DEM_URL);
+        const tiff = await fromUrl(NOAA_DEM_URL, { allowFullFile: true });
         if (cancelled) return;
         const image = await tiff.getImage();
         const raster = await image.readRasters({ width: 720, height: 360, interleave: true });
