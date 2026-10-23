@@ -4,9 +4,12 @@ import type { TrinauralConfig } from './types/index';
 import {
   Activity, AudioLines, Atom, AudioWaveform, ChevronDown, Compass,
   Database, Globe2, Layers3, Map, MapPin, Orbit, Radar, Search, Settings2,
-  Signal, SlidersHorizontal, Star, Target, Waves, X, Zap
+  Signal, SlidersHorizontal, Star, Target, Waves, X, Zap, Volume2, AudioWaveform, ChevronUp
 } from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
+import { OscillatorDeck } from './components/OscillatorDeck';
+import { DeltaHUD } from './components/DeltaHUD';
+import { FrequencyMatrix } from './components/FrequencyMatrix';
 import type { CameraView, SpatialPosition, SpatialRoutingMode } from './types';
 import { DEFAULT_EARTH_POINTS } from './data/earthData';
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
@@ -25,6 +28,8 @@ const NAV_ITEMS = [
   { label: 'TRIGONOMETRY', icon: Atom },
   { label: 'MAP OVERLAYS', icon: Layers3 },
   { label: 'DATABASE', icon: Database },
+  { label: 'A/B/C AUDIO CONTROLS', icon: AudioLines },
+  { label: 'TRINAURAL / SOLFEGGIO', icon: AudioWaveform },
   { label: 'SETTINGS', icon: Settings2 },
 ];
 
@@ -57,6 +62,8 @@ export default function App() {
   const [includeGeometry, setIncludeGeometry] = useState(true);
   const [showSiteList, setShowSiteList] = useState(false);
   const [scanRequested, setScanRequested] = useState(false);
+  const [audioMenuOpen, setAudioMenuOpen] = useState(true);
+  const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
 
   const selectedSite = DEFAULT_EARTH_POINTS.find((site) => site.id === selectedSiteId) ?? DEFAULT_EARTH_POINTS[0];
   const filteredSites = useMemo(() => {
@@ -96,6 +103,8 @@ export default function App() {
     'TRIGONOMETRY': 'Inspect distances and geometric relationships calculated from site coordinates.',
     'MAP OVERLAYS': 'Use the globe controls to switch map overlays and visualization layers.',
     'DATABASE': 'Browse the site, star, and acoustic reference data already included in this build.',
+    'A/B/C AUDIO CONTROLS': 'Full A, B, and C oscillator controls, waveform selection, gain, fine tuning, mute, and spatial elevation.',
+    'TRINAURAL / SOLFEGGIO': 'Restore the trinaural delta lock, brainwave presets, and Solfeggio frequency matrix.',
     'SETTINGS': 'Interface and visualization preferences.',
   };
 
@@ -190,6 +199,37 @@ export default function App() {
               <span><i className="legend-line" /> GEOMETRY {includeGeometry ? 'ON' : 'OFF'}</span>
             </div>
           </div>
+          {(activeNav === 'A/B/C AUDIO CONTROLS' || audioMenuOpen) && (
+            <section className="atlas-audio-workspace">
+              <div className="atlas-audio-menu-header">
+                <div><strong><AudioLines size={15} /> A / B / C SPATIAL AUDIO ENGINE</strong><span>Independent oscillator controls · changes update the live audio engine</span></div>
+                <button className="atlas-secondary-button" onClick={() => setAudioMenuOpen(v => !v)}>{audioMenuOpen ? 'COLLAPSE' : 'OPEN'} <ChevronUp size={13} /></button>
+              </div>
+              {audioMenuOpen && <>
+                <div className="atlas-master-controls">
+                  <button className="atlas-primary-button" onClick={handleToggleAudio}>{isRunning ? 'STOP AUDIO ENGINE' : 'START AUDIO ENGINE'}</button>
+                  <label><Volume2 size={15} /> MASTER VOLUME <strong>{Math.round(config.masterVolume * 100)}%</strong><input type="range" min="0" max="1" step="0.01" value={config.masterVolume} onChange={e => handleUpdateConfig({ masterVolume: Number(e.target.value) })} /></label>
+                  <button className="atlas-secondary-button" onClick={() => setMatrixMenuOpen(v => !v)}>{matrixMenuOpen ? 'HIDE FREQUENCY MATRIX' : 'OPEN FREQUENCY MATRIX'}</button>
+                </div>
+                <div className="atlas-oscillator-grid">
+                  <OscillatorDeck channel="a" frequency={config.aFreq} fineTune={config.aFineTune} waveform={config.aWaveform} gain={config.aGain} muted={config.aMuted} position={config.aPos} audioEngine={audioEngineRef.current} isRunning={isRunning}
+                    onUpdateFrequency={aFreq => handleUpdateConfig({ aFreq })} onUpdateFineTune={aFineTune => handleUpdateConfig({ aFineTune })} onUpdateWaveform={aWaveform => handleUpdateConfig({ aWaveform })} onUpdateGain={aGain => handleUpdateConfig({ aGain })} onUpdateElevation={y => updatePosition('a', { ...config.aPos, y })} onToggleMute={() => handleUpdateConfig({ aMuted: !config.aMuted })} />
+                  <OscillatorDeck channel="b" frequency={config.bFreq} fineTune={config.bFineTune} waveform={config.bWaveform} gain={config.bGain} muted={config.bMuted} position={config.bPos} audioEngine={audioEngineRef.current} isRunning={isRunning}
+                    onUpdateFrequency={bFreq => handleUpdateConfig({ bFreq })} onUpdateFineTune={bFineTune => handleUpdateConfig({ bFineTune })} onUpdateWaveform={bWaveform => handleUpdateConfig({ bWaveform })} onUpdateGain={bGain => handleUpdateConfig({ bGain })} onUpdateElevation={y => updatePosition('b', { ...config.bPos, y })} onToggleMute={() => handleUpdateConfig({ bMuted: !config.bMuted })} />
+                  <OscillatorDeck channel="c" frequency={config.cFreq} fineTune={config.cFineTune} waveform={config.cWaveform} gain={config.cGain} muted={config.cMuted} position={config.cPos} audioEngine={audioEngineRef.current} isRunning={isRunning}
+                    onUpdateFrequency={cFreq => handleUpdateConfig({ cFreq })} onUpdateFineTune={cFineTune => handleUpdateConfig({ cFineTune })} onUpdateWaveform={cWaveform => handleUpdateConfig({ cWaveform })} onUpdateGain={cGain => handleUpdateConfig({ cGain })} onUpdateElevation={y => updatePosition('c', { ...config.cPos, y })} onToggleMute={() => handleUpdateConfig({ cMuted: !config.cMuted })} />
+                </div>
+                <DeltaHUD aFreq={config.aFreq} bFreq={config.bFreq} cFreq={config.cFreq} aFineTune={config.aFineTune} bFineTune={config.bFineTune} cFineTune={config.cFineTune} isDeltaLocked={config.isDeltaLocked} audioEngine={audioEngineRef.current} isRunning={isRunning}
+                  onToggleDeltaLock={() => { const locked = !config.isDeltaLocked; handleUpdateConfig({ isDeltaLocked: locked, lockedDeltaAB: Math.abs(config.bFreq - config.aFreq), lockedDeltaBC: Math.abs(config.cFreq - config.bFreq) }); }}
+                  onSetQuickDelta={delta => handleUpdateConfig({ bFreq: config.aFreq + delta, cFreq: config.aFreq + delta * 2, lockedDeltaAB: delta, lockedDeltaBC: delta, isDeltaLocked: true })} />
+                {matrixMenuOpen && <FrequencyMatrix aFreq={config.aFreq} bFreq={config.bFreq} cFreq={config.cFreq} lockedDeltaAB={config.lockedDeltaAB} lockedDeltaBC={config.lockedDeltaBC} isDeltaLocked={config.isDeltaLocked}
+                  onApplySolfeggio={(freq, target) => { if (target === 'base' || target === 'tri-spread') { const deltaAB = config.isDeltaLocked ? config.lockedDeltaAB : Math.abs(config.bFreq - config.aFreq); const deltaBC = config.isDeltaLocked ? config.lockedDeltaBC : Math.abs(config.cFreq - config.bFreq); handleUpdateConfig({ aFreq: freq, bFreq: freq + deltaAB, cFreq: freq + deltaAB + deltaBC }); } else if (target === 'a') handleUpdateConfig({ aFreq: freq }); else if (target === 'b') handleUpdateConfig({ bFreq: freq }); else handleUpdateConfig({ cFreq: freq }); }}
+                  onApplyBrainwaveDelta={delta => handleUpdateConfig({ bFreq: config.aFreq + delta, cFreq: config.aFreq + delta * 2, lockedDeltaAB: delta, lockedDeltaBC: delta, isDeltaLocked: true })} />}
+              </>}
+            </section>
+          )}
+          {activeNav === 'TRINAURAL / SOLFEGGIO' && !audioMenuOpen && <section className="atlas-audio-workspace"><button className="atlas-primary-button" onClick={() => { setAudioMenuOpen(true); setMatrixMenuOpen(true); }}>OPEN TRINAURAL CONTROLS & FREQUENCY MATRIX</button></section>}
+
           {showSiteList && (
             <div className="atlas-results-strip">
               <div className="atlas-results-title"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></div>
