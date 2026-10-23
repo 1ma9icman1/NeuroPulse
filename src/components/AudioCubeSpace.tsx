@@ -2842,8 +2842,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           )}
         </div>
 
-        {/* Orbit Angles, Zoom & Stage Fullscreen */}
-        <div className="flex items-center gap-2 bg-[#0b1220]/90 backdrop-blur-md px-3 py-1 rounded-lg border border-slate-800 text-xs font-mono text-slate-400">
+        {/* Camera yaw, pitch, zoom and fullscreen controls live in the right tools sidebar. */}
+        {typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
+        <div className="atlas-camera-control-panel flex flex-wrap items-center gap-2 bg-[#0b1220]/95 backdrop-blur-md px-3 py-2 rounded-lg border border-purple-500/50 text-xs font-mono text-slate-400 shadow-lg">
           <Rotate3D className="w-3.5 h-3.5 text-purple-400" />
           <span>
             Yaw: <strong className="text-white">{cameraYaw.toFixed(0)}°</strong>
@@ -2881,7 +2882,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           >
             {isStageFullscreen ? <Minimize className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize className="w-3.5 h-3.5" />}
           </button>
-        </div>
+        </div>,
+        document.querySelector('.atlas-right') as HTMLElement
+        )}
       </div>
 
       {earthImageryPanelOpen && (
