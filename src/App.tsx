@@ -380,7 +380,6 @@ export default function App() {
         <section className="atlas-center">
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
-            {earthAreaView !== 'elevation' && <button type="button" onClick={() => setEarthAreaView('elevation')} className="absolute right-3 top-12 z-[80] rounded-lg border border-emerald-400/60 bg-slate-950/90 px-3 py-2 text-[10px] font-mono font-bold tracking-wide text-emerald-200 shadow-lg hover:bg-emerald-950/90 hover:text-white">EARTH · ELEVATION</button>}
             {earthAreaView === 'elevation' ? <EarthElevation selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null} siteCatalogue={researchSites} onBack={() => setEarthAreaView('globe')} /> : (earthAreaView === 'globe' || !selectedSite) ? <AudioCubeSpace
               aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
               spatialMode={config.spatialMode} cameraView={config.cameraView}
