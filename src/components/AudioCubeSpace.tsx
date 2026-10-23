@@ -62,6 +62,7 @@ import {
   cartesianToLatLon,
 } from '../data/earthData';
 import { calculateSubstellarPoint, fetchIersDut1Seconds, fetchPlaceImage, resolveStarAstrometry, EarthTarget, PlaceImage } from '../services/celestialEarthData';
+import { SeaLevelDemTool } from './SeaLevelDemTool';
 
 
 const calculateTimelineGmstDeg = (year: number): number => {
@@ -2841,7 +2842,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
 
       {showSeaLevelOverlay && isEarthModeActive && (
-        <div className="absolute top-16 right-3 z-40 w-[min(94vw,370px)] rounded-xl border border-cyan-400/60 bg-[#04111d]/95 p-3 shadow-2xl backdrop-blur-md pointer-events-auto">
+        <div className="absolute top-16 right-3 z-40 w-[min(94vw,390px)] max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-xl border border-cyan-400/60 bg-[#04111d]/95 p-3 shadow-2xl backdrop-blur-md pointer-events-auto">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-mono font-bold text-cyan-200"><Layers className="h-4 w-4" /> SEA-LEVEL / RELIEF TIMELINE</div>
             <button onClick={() => activateSeaLevelOverlay(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close sea-level overlay"><X className="h-3.5 w-3.5" /></button>
@@ -2863,8 +2864,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <option value="intermediate">Intermediate pathway</option>
             <option value="high">High warming / high ice loss</option>
           </select>
-          <p className="text-[10px] leading-relaxed text-slate-400">Earth has switched to a topographic map view. The past end is a rounded global estimate. IPCC-based future ranges are available through 2150; values beyond 2150 are illustrative long-term scenarios, not validated predictions. This view currently displays the global sea-level estimate over relief imagery; it does not yet calculate pixel-accurate flooded coastlines from an elevation raster.</p>
-          <div className="mt-2 text-[9px] text-slate-500">Relief source: ArcGIS World Topographic Map. Science references: NOAA ETOPO Global Relief Model; NASA/IPCC AR6 Sea Level Projection Tool.</div>
+          <p className="text-[10px] leading-relaxed text-slate-400">The timeline is a broad global estimate, not a coastline simulation. Use the local DEM extractor below to create a real pixel-based elevation band (30 m by default) from a GeoTIFF downloaded to this computer. For a future sea-level flood study, the low-terrain mask is a starting layer only: it does not account for ocean connectivity, tides, subsidence, defenses, or local vertical-datum differences.</p>
+          <div className="mt-2 text-[9px] text-slate-500">Free data sources: NOAA Sea Level Rise Viewer and USGS The National Map. DEM processing below runs locally and requires no API key.</div>
+          <SeaLevelDemTool />
         </div>
       )}
 
