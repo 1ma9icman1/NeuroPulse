@@ -2642,27 +2642,29 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
         {/* Center: Star Celestial Alignment Button + Snap Channel Selector + Top Plane Overlay Button */}
         <div className="flex flex-wrap items-center justify-evenly gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg">
-          {/* Compact Star Alignment panel: collapsed to one button by default. */}
+          {/* One persistent STARS button controls both star panels in the right sidebar. */}
           <div className="flex items-start gap-1">
-            {!isStarPanelExpanded ? (
-              <button
-                onClick={() => {
-                  setIsStarPanelExpanded(true);
-                  setIsStarModeActive(true);
-                  setIsCelestialDeckCollapsed(false);
-                }}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-mono rounded-lg border border-amber-500/40 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/50 shadow-md"
-                title="Expand Star Alignment controls"
-                aria-label="Expand Star Alignment controls"
-              >
-                <Star className="w-3.5 h-3.5" />
-                <span>STARS</span>
-              </button>
-            ) : typeof document !== 'undefined' && document.querySelector('.atlas-right') ? createPortal((
+            <button
+              type="button"
+              onClick={() => {
+                const open = !isStarPanelExpanded;
+                setIsStarPanelExpanded(open);
+                setIsCelestialDeckCollapsed(!open);
+                if (open) setIsStarModeActive(true);
+              }}
+              className={`flex items-center gap-1 px-3 py-1 text-xs font-mono font-bold rounded-lg border shadow-md transition-colors ${isStarPanelExpanded ? 'border-amber-300 bg-amber-400 text-slate-950' : 'border-amber-500/40 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/50'}`}
+              title={isStarPanelExpanded ? 'Minimize star controls in the right sidebar' : 'Open star controls in the right sidebar'}
+              aria-label="STARS"
+              aria-expanded={isStarPanelExpanded}
+            >
+              <Star className="w-3.5 h-3.5" />
+              <span>STARS</span>
+            </button>
+            {isStarPanelExpanded && typeof document !== 'undefined' && document.querySelector('.atlas-right') ? createPortal((
               <div className="atlas-panel atlas-star-alignment-panel max-h-[65vh] overflow-y-auto overscroll-contain pointer-events-auto" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto' }}>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] uppercase tracking-wider text-amber-300">Star Alignment</span>
-                  <button onClick={() => setIsStarPanelExpanded(false)} className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-700" title="Minimize Star Alignment">
+                  <button onClick={() => { setIsStarPanelExpanded(false); setIsCelestialDeckCollapsed(true); }} className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-700" title="Minimize all star controls">
                     <Minimize className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -2796,17 +2798,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <span>{overlay.imageUrl ? 'OVERLAY LOADED' : 'UPLOAD OVERLAY'}</span>
           </button>
 
-          {isStarModeActive && (
-            <button
-              onClick={() => setIsCelestialDeckCollapsed((prev) => !prev)}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-amber-500/50 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/60 shadow-md"
-              title={isCelestialDeckCollapsed ? 'Open Real Celestial menu' : 'Minimize Real Celestial menu beside Upload Overlay'}
-              aria-label={isCelestialDeckCollapsed ? 'Open Real Celestial menu' : 'Minimize Real Celestial menu'}
-            >
-              <Star className="w-3.5 h-3.5" />
-              <span>{isCelestialDeckCollapsed ? 'STAR MENU' : 'MINIMIZE STAR MENU'}</span>
-            </button>
-          )}
           {isEarthModeActive && !isTimelineActive && (
             <button type="button" onClick={() => setIsTimelineActive(true)}
               className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-amber-500/60 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/60 shadow-md"
