@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Activity, AudioLines, Atom, AudioWaveform, ChevronDown, CircleDot, Compass,
+  Activity, AudioLines, Atom, AudioWaveform, ChevronDown, Compass,
   Database, Globe2, Layers3, Map, MapPin, Orbit, Radar, Search, Settings2,
-  Signal, SlidersHorizontal, Sparkles, Star, Target, Waves, X, Zap
+  Signal, SlidersHorizontal, Star, Target, Waves, X, Zap
 } from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
 import type { CameraView, SpatialPosition, SpatialRoutingMode } from './types';
@@ -70,9 +70,9 @@ export default function App() {
     if (!selectedSite) return [];
     return ACOUSTIC_SITE_EVIDENCE
       .map((record) => ({ ...record, distance: distanceKm(selectedSite, record) }))
-      .filter((record) => record.distance < 100)
+      .filter((record) => record.distance < 100 && record.measuredFrequenciesHz.some((hz) => hz <= frequencyMax))
       .sort((a, b) => a.distance - b.distance);
-  }, [selectedSite]);
+  }, [selectedSite, frequencyMax]);
 
   const noopPosition = (_position: SpatialPosition) => {};
   const noopView = (_view: CameraView) => {};
@@ -112,7 +112,7 @@ export default function App() {
         </div>
         <nav className="atlas-topnav" aria-label="Primary views">
           {['EARTH', 'SOLAR SYSTEM', 'GALAXY', 'UNIVERSAL ARCHIVE'].map((item, index) => (
-            <button key={item} className={index === 0 ? 'active' : ''} onClick={() => setActiveNav(index === 0 ? 'GLOBAL SEARCH' : item)}>
+            <button key={item} className={(index === 0 ? activeNav === 'GLOBAL SEARCH' : activeNav === item) ? 'active' : ''} onClick={() => setActiveNav(index === 0 ? 'GLOBAL SEARCH' : item)}>
               {item}
             </button>
           ))}
@@ -219,7 +219,7 @@ export default function App() {
                 <div><span>Geometry limit</span><strong>{angleMax}° max angle</strong></div>
               </div>
               <div className="atlas-subheading">ACOUSTIC EVIDENCE</div>
-              {linkedAcousticRecords.length > 0 ? linkedAcousticRecords.slice(0, 2).map((record) => (
+              {!includeAcoustics ? <div className="atlas-no-data">Acoustic evidence is excluded by the current search filters.</div> : linkedAcousticRecords.length > 0 ? linkedAcousticRecords.slice(0, 2).map((record) => (
                 <div className="atlas-evidence-row" key={record.id}>
                   <div><strong>{record.name}</strong><span>{record.status === 'published-measurement' ? 'Published measurement' : 'Candidate only'} · {Math.round(record.distance)} km</span></div>
                   <b>{record.measuredFrequenciesHz.length ? record.measuredFrequenciesHz.map((hz) => `${hz} Hz`).join(' / ') : 'No measured Hz'}</b>
@@ -230,7 +230,7 @@ export default function App() {
 
           <section className="atlas-panel atlas-related-panel">
             <div className="atlas-panel-heading"><Orbit size={13} /> NEAREST LISTED SITES</div>
-            {nearestSites.map((site) => (
+            {includeGeometry && nearestSites.map((site) => (
               <button key={site.id} className="atlas-related-row" onClick={() => { setSelectedSiteId(site.id); setShowSiteList(false); }}>
                 <span className="atlas-related-marker"><MapPin size={14} /></span>
                 <span className="atlas-related-copy"><strong>{site.name}</strong><small>{formatCoordinate(site.lat, 'N', 'S')} · {formatCoordinate(site.lon, 'E', 'W')}</small></span>
@@ -241,7 +241,7 @@ export default function App() {
 
           <section className="atlas-panel atlas-star-panel">
             <div className="atlas-panel-heading"><Star size={13} /> STAR CATALOGUE <span className="atlas-panel-count">{REAL_CELESTIAL_STARS.length} RECORDS</span></div>
-            {REAL_CELESTIAL_STARS.slice(0, 4).map((star) => (
+            {includeStars ? REAL_CELESTIAL_STARS.slice(0, 4).map((star) => (
               <div className="atlas-star-row" key={star.id}><span className="star-spark">✦</span><span><strong>{star.name}</strong><small>{star.constellation}</small></span><b>{star.distLy.toLocaleString()} ly</b></div>
             ))}
             <div className="atlas-footnote">Star catalogue coordinates and distances are reference data; a site alignment requires a dated sky calculation and verified architectural axis.</div>
