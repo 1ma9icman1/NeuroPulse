@@ -283,3 +283,25 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 
 /* Apply the expanded viewport consistently at desktop and responsive breakpoints. */
 .atlas-app { grid-template-rows: 58px minmax(0, 1fr) 0px 18px !important; }
+
+
+/* Left-side research workspace: Earth selection data and categorized site catalogue. */
+.atlas-left { min-width: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+.atlas-left-selected-site { padding-bottom: 8px; }
+.atlas-left-selected-site .atlas-site-hero { padding: 9px 10px 6px; }
+.atlas-left-selected-site .atlas-site-hero h2 { font-size: 12px; line-height: 1.3; }
+.atlas-left-selected-site .atlas-site-description { margin: 5px 10px 8px; font-size: 10px; line-height: 1.45; }
+.atlas-left-selected-site .atlas-coordinates { padding: 6px 10px; gap: 8px; }
+.atlas-left-selected-site .atlas-coordinates strong { font-size: 10px; }
+.atlas-left-selected-site .atlas-data-table { padding: 4px 10px 8px; }
+.atlas-left-selected-site .atlas-data-table > div { gap: 6px; font-size: 9px; }
+.atlas-left-selected-site .atlas-data-table strong { text-align: right; }
+.atlas-left-site-actions { display:flex; flex-wrap:wrap; gap:5px; padding:0 10px 8px; }
+.atlas-left-site-actions a { color:#76d8ff; border:1px solid rgba(34,145,207,.45); border-radius:3px; padding:5px 6px; font:8px ui-monospace,monospace; text-decoration:none; }
+.atlas-module-site-list { display:grid; gap:2px; padding:5px; max-height:290px; overflow:auto; }
+.atlas-module-site { display:grid; grid-template-columns:12px minmax(0,1fr); align-items:center; gap:5px; text-align:left; border:1px solid transparent; background:rgba(2,10,23,.45); color:#b4cce0; padding:6px; font-size:9px; cursor:pointer; }
+.atlas-module-site span { overflow-wrap:anywhere; }
+.atlas-module-site small { grid-column:2; color:#5f8ba8; font-size:8px; }
+.atlas-module-site:hover,.atlas-module-site.selected { border-color:rgba(34,190,255,.5); background:rgba(0,100,150,.2); color:#e0f7ff; }
+@media (max-width:900px) { .atlas-left { max-height:55vh; } .atlas-module-site-list { max-height:180px; } }
+@media (max-width:560px) { .atlas-left { max-height:none; } .atlas-left-selected-site { max-height:40vh; overflow:auto; } .atlas-module-site-list { max-height:160px; } }
