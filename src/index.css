@@ -261,3 +261,13 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 .atlas-oscillator-grid > * { min-width:0; }
 .atlas-audio-workspace .bg-\\[\\#0b101c\\], .atlas-audio-workspace .bg-\\[\\#0c121e\\] { color:#e6f5ff; }
 @media (max-width: 900px) { .atlas-oscillator-grid { grid-template-columns:1fr; } .atlas-audio-workspace { max-height:60vh; } }
+
+/* Slim persistent audio dock: preserve controls while giving the globe maximum room. */
+.atlas-audio-workspace { flex: 0 0 auto; margin: 2px 0 0; padding: 0 8px; gap: 8px; max-height: min(54vh, 620px); }
+.atlas-audio-menu-header { min-height: 32px; flex-wrap: nowrap; }
+.atlas-audio-menu-header > div { flex: 1; min-width: 0; flex-direction: row; align-items: center; gap: 10px; }
+.atlas-audio-menu-header strong { white-space: nowrap; }
+.atlas-audio-menu-header span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atlas-audio-menu-header .atlas-secondary-button { flex: 0 0 auto; margin: 0; min-width: 82px; }
+.atlas-audio-workspace:not(:has(.atlas-master-controls)) { min-height: 34px; }
+@media (max-width: 900px) { .atlas-audio-menu-header span { display: none; } }
