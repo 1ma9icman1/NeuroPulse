@@ -104,6 +104,7 @@ interface AudioCubeSpaceProps {
   siteCatalogue?: Array<{ name: string; lat: number; lon: number; year?: number; category?: string; isCity?: boolean; color?: string; desc?: string; [key: string]: any }>;
   showChannelElevationControls?: boolean;
   openWaterElevationRequest?: number;
+  onOpenWaterElevation?: () => void;
 }
 
 export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
@@ -133,6 +134,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   siteCatalogue = [],
   showChannelElevationControls = false,
   openWaterElevationRequest = 0,
+  onOpenWaterElevation,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -2892,7 +2894,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             Earth View
           </button>
           <button
-            onClick={() => activateSeaLevelOverlay(true)}
+            onClick={() => { if (onOpenWaterElevation) onOpenWaterElevation(); else activateSeaLevelOverlay(true); }}
             aria-pressed={showSeaLevelOverlay}
             className={`px-2.5 py-1 text-xs font-mono font-bold rounded-md border transition-colors ${
               showSeaLevelOverlay
