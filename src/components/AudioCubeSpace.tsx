@@ -2884,48 +2884,41 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           )}
         </div>
 
-        {/* Camera yaw, pitch, zoom and fullscreen controls live in the right tools sidebar. */}
-        {typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
-        <div className="atlas-camera-control-panel flex flex-wrap items-center gap-2 bg-[#0b1220]/95 backdrop-blur-md px-3 py-2 rounded-lg border border-purple-500/50 text-xs font-mono text-slate-400 shadow-lg">
-          <Rotate3D className="w-3.5 h-3.5 text-purple-400" />
-          <span>
-            Yaw: <strong className="text-white">{cameraYaw.toFixed(0)}°</strong>
-          </span>
-          <span>·</span>
-          <span>
-            Pitch: <strong className="text-white">{cameraPitch.toFixed(0)}°</strong>
-          </span>
-
-          <div className="flex items-center gap-1 ml-2 border-l border-slate-700 pl-2">
+        {/* Earth camera controls belong in the Earth window's bottom bar, not beneath Search in the sidebar. */}
+        {isEarthModeActive && (
+          <div className="absolute bottom-3 left-3 z-[70] flex flex-wrap items-center gap-2 rounded-lg border border-purple-500/50 bg-[#0b1220]/95 px-3 py-2 text-xs font-mono text-slate-300 shadow-lg backdrop-blur-md pointer-events-auto">
+            <Rotate3D className="w-3.5 h-3.5 text-purple-400" />
+            <span>Yaw: <strong className="text-white">{cameraYaw.toFixed(0)}°</strong></span>
+            <span className="text-slate-600">·</span>
+            <span>Pitch: <strong className="text-white">{cameraPitch.toFixed(0)}°</strong></span>
+            <div className="flex items-center gap-1 border-l border-slate-700 pl-2">
+              <button
+                onClick={() => onUpdateCameraZoom(Math.max(0.6, +(cameraZoom - 0.1).toFixed(2)))}
+                className="rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+                title="Zoom Out"
+                aria-label="Zoom out Earth view"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <span className="w-8 text-center text-[10px] text-slate-300">{Math.round(cameraZoom * 100)}%</span>
+              <button
+                onClick={() => onUpdateCameraZoom(Math.min(5, +(cameraZoom + 0.1).toFixed(2)))}
+                className="rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+                title="Zoom In"
+                aria-label="Zoom in Earth view"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <button
-              onClick={() => onUpdateCameraZoom(Math.max(0.6, +(cameraZoom - 0.1).toFixed(2)))}
-              className="p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800"
-              title="Zoom Out"
+              onClick={handleToggleStageFullscreen}
+              className="ml-1 rounded border-l border-slate-700 pl-2 p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-cyan-300"
+              title={isStageFullscreen ? 'Exit Earth window fullscreen' : 'Expand Earth window fullscreen'}
+              aria-label={isStageFullscreen ? 'Exit Earth fullscreen' : 'Enter Earth fullscreen'}
             >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <span className="text-[10px] text-slate-300 w-8 text-center">
-              {Math.round(cameraZoom * 100)}%
-            </span>
-            <button
-              onClick={() => onUpdateCameraZoom(Math.min(5, +(cameraZoom + 0.1).toFixed(2)))}
-              className="p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
+              {isStageFullscreen ? <Minimize className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize className="w-3.5 h-3.5" />}
             </button>
           </div>
-
-          {/* Stage Fullscreen Toggle */}
-          <button
-            onClick={handleToggleStageFullscreen}
-            className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-800 transition-colors ml-1 border-l border-slate-700 pl-2"
-            title={isStageFullscreen ? 'Exit 3D Stage Fullscreen' : 'Expand 3D Stage Fullscreen'}
-          >
-            {isStageFullscreen ? <Minimize className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize className="w-3.5 h-3.5" />}
-          </button>
-        </div>,
-        document.querySelector('.atlas-right') as HTMLElement
         )}
       </div>
 
