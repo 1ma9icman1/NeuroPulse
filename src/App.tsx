@@ -184,6 +184,18 @@ export default function App() {
     return [...core, ...legacy, ...uniqueAdditions];
   }, []);
   const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? null;
+
+  // Google can return a valid iframe document even when no panorama exists at the
+  // exact pin. Give Street View time to find nearby imagery, then leave the user on
+  // satellite imagery instead of a permanently blank panorama.
+  useEffect(() => {
+    if (earthAreaView !== 'street' || !selectedSite) return;
+    const fallbackTimer = window.setTimeout(() => {
+      setStreetFallbackNotice(true);
+      setEarthAreaView((current) => current === 'street' ? 'satellite' : current);
+    }, 12000);
+    return () => window.clearTimeout(fallbackTimer);
+  }, [earthAreaView, selectedSite?.id, selectedSite?.lat, selectedSite?.lon]);
   const moduleSites = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase();
     return researchSites.filter((site) =>
@@ -377,7 +389,7 @@ export default function App() {
               onSiteSelect={handleGlobeSiteSelect}
               siteCatalogue={researchSites}
               showChannelElevationControls={audioMenuOpen && ['A/B/C AUDIO CONTROLS', 'TRINAURAL / SOLFEGGIO'].includes(activeNav)}
-            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,0,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
+            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} loading="eager" src={earthAreaView === 'street' ? 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + selectedSite.lat + ',' + selectedSite.lon : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
             <div className="atlas-globe-overlay atlas-globe-overlay-bottom" aria-label="Earth map legend">
               <span><i className="legend-dot" style={{background:'#60a5fa'}} /> CITIES</span>
