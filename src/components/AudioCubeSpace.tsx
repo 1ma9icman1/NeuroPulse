@@ -3438,57 +3438,27 @@ remove old timeline button      {/* Historical Earth / sky timeline is off by de
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={() => 'rgba(34,211,238,0.055)'}
               polygonSideColor={() => 'rgba(8,145,178,0.22)'} polygonStrokeColor={() => 'rgba(165,243,252,0.92)'} polygonAltitude={0.018}
-              labelsData={visibleEarthSites.filter((site: any) => site.isCity && showCities)}
-      labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
-      labelColor={() => '#f8fafc'} labelSize={0.55} labelAltitude={0.012} labelDotRadius={0.12}
-              htmlElementsData={[...visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures).map((site: any) => ({ ...site, isRetroLedSite: true, altitude: 0.035 })), ...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)}
+              pointLat={(d: any) => d.lat}
+              pointLng={(d: any) => d.lon}
+              pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'}
+              pointRadius={(d: any) => d.size}
+              pointAltitude={(d: any) => d.altitude}
+              customThreeObject={(d: any) => {
+                const obj = makeRetroLed(d);
+                obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay;
+                return obj;
+              }}
+              customThreeObjectUpdate={(obj: any, d: any) => {
+                obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay;
+                obj.children.forEach((child: any) => {
+                  if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay;
+                });
+              }}
+              labelsData={[]}
+              htmlElementsData={[...earthChannelMarkers, ...visibleEarthSites.filter((site: any) => site.isCity && showCities).map((site: any) => ({ ...site, isEarthSiteLabel: true })), ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
-                if (d.isRetroLedSite) {
-                  const marker = document.createElement('div');
-                  marker.style.display = 'flex';
-                  marker.style.flexDirection = 'column';
-                  marker.style.gap = '3px';
-                  marker.style.padding = '5px';
-                  marker.style.border = '1px solid rgba(125,211,252,.7)';
-                  marker.style.borderRadius = '6px';
-                  marker.style.background = 'rgba(2,6,23,.88)';
-                  marker.style.boxShadow = '0 0 14px rgba(56,189,248,.28)';
-                  marker.style.pointerEvents = 'none';
-                  marker.style.transform = 'translate(-50%, -50%)';
-                  marker.title = `Retro LED ladder · ${d.name}`;
-                  const ledRows = [
-                    ['RED OFF', '#ff302b', false], ['RED ON', '#ff302b', true],
-                    ['YELLOW OFF', '#ffd52a', false], ['YELLOW ON', '#ffd52a', true],
-                    ['BLUE OFF', '#168dff', false], ['BLUE ON', '#168dff', true],
-                    ['GREEN OFF', '#20ff58', false], ['GREEN ON', '#20ff58', true],
-                    ['PURPLE OFF', '#e13cff', false], ['PURPLE ON', '#e13cff', true],
-                  ] as const;
-                  ledRows.forEach(([name, color, on]) => {
-                    const row = document.createElement('div');
-                    row.style.display = 'flex';
-                    row.style.alignItems = 'center';
-                    row.style.gap = '5px';
-                    row.style.height = '7px';
-                    const bulb = document.createElement('span');
-                    bulb.style.display = 'block';
-                    bulb.style.flex = '0 0 7px';
-                    bulb.style.width = '7px';
-                    bulb.style.height = '7px';
-                    bulb.style.borderRadius = '50%';
-                    bulb.style.background = on ? color : '#111827';
-                    bulb.style.border = `1px solid ${color}`;
-                    bulb.style.boxShadow = on ? `0 0 7px 2px ${color}` : 'none';
-                    const label = document.createElement('span');
-                    label.textContent = name;
-                    label.style.font = 'bold 7px/1 monospace';
-                    label.style.letterSpacing = '.04em';
-                    label.style.color = on ? color : '#94a3b8';
-                    row.append(bulb, label);
-                    marker.append(row);
-                  });
-                  return marker;
-                }
                 if (d.isEarthSiteLabel) {
                   const label = document.createElement('button');
                   label.type = 'button';
