@@ -170,7 +170,7 @@ export default function App() {
       modules: [...new Set(['DATABASE', 'GLOBAL SEARCH', 'MAP OVERLAYS', ...(site.tags ?? []), ...researchModuleForSite(site as any)])],
       sourceUrl: site.sourceUrl,
     }));
-    const normalizeName = (value: string) => value.toLocaleLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const normalizeName = (value: string) => value.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
     const seen = new Set([...core, ...legacy].map((site) => normalizeName(site.name)));
     const uniqueAdditions = additions.filter((site) => {
       const key = normalizeName(site.name);
