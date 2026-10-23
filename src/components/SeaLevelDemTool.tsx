@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { fromBlob, writeArrayBuffer } from 'geotiff';
 import { Download, FileImage, FileUp, Waves } from 'lucide-react';
 
-type MaskMode = 'band' | 'below';
+type MaskMode = 'band' | 'below'; // below = ocean-connected inundation, not a simple low-terrain mask
 type GeoMeta = {
   width: number;
   height: number;
@@ -30,7 +30,7 @@ export const SeaLevelDemTool: React.FC = () => {
   const [mode, setMode] = useState<MaskMode>('band');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState('Choose a local elevation GeoTIFF to create a map-ready 30 m layer.');
+  const [status, setStatus] = useState('Choose a coastal elevation/bathymetry GeoTIFF containing ocean cells along at least one raster edge.');
   const [error, setError] = useState('');
   const [metadata, setMetadata] = useState<GeoMeta | null>(null);
   const [tiffProduct, setTiffProduct] = useState<Product | null>(null);
@@ -50,7 +50,7 @@ export const SeaLevelDemTool: React.FC = () => {
     setProgress(0);
     setError('');
     setStatus(next
-      ? `Selected ${next.name}. Choose the 30 m band or terrain below the threshold, then build the layer.`
+      ? `Selected ${next.name}. Choose the elevation band or ocean-connected flood model, then build the layer.`
       : 'Choose a local elevation GeoTIFF to create a map-ready 30 m layer.');
   };
 
@@ -73,7 +73,8 @@ export const SeaLevelDemTool: React.FC = () => {
       const height = image.getHeight();
       const total = width * height;
       if (!Number.isSafeInteger(total) || total < 1) throw new Error('The selected file has invalid raster dimensions.');
-      if (total > 45_000_000) throw new Error('This raster contains more than 45 million pixels. Use a smaller tile or clip it before processing.');
+      const pixelLimit = mode === 'below' ? 15_000_000 : 45_000_000;
+      if (total > pixelLimit) throw new Error(`This raster contains more than ${pixelLimit.toLocaleString()} pixels for the selected mode. Use a smaller coastal tile to keep the connected-flood calculation within browser memory limits.`);
 
       const origin = image.getOrigin();
       const resolution = image.getResolution();
@@ -89,31 +90,90 @@ export const SeaLevelDemTool: React.FC = () => {
       const noDataValue = image.getGDALNoData();
       const noData = Number.isFinite(noDataValue) ? noDataValue : null;
       const mask = new Float32Array(total);
+      mask.fill(NODATA);
       let matched = 0;
       let valid = 0;
       const lower = target - tolerance;
       const upper = target + tolerance;
       const chunk = 500_000;
-      for (let start = 0; start < total; start += chunk) {
-        const stop = Math.min(total, start + chunk);
-        for (let i = start; i < stop; i++) {
+
+      if (mode === 'band') {
+        for (let start = 0; start < total; start += chunk) {
+          const stop = Math.min(total, start + chunk);
+          for (let i = start; i < stop; i++) {
+            const elevation = Number(input[i]);
+            const isValid = Number.isFinite(elevation) && !(noData !== null && elevation === noData);
+            if (isValid) valid++;
+            if (isValid && elevation >= lower && elevation <= upper) {
+              mask[i] = elevation;
+              matched++;
+            }
+          }
+          setProgress(Math.round((stop / total) * 65));
+          await delay();
+        }
+      } else {
+        // Flood-fill only from ocean-connected cells on the raster perimeter.
+        // The source DEM must include sea/bathymetry at an edge; a land-only tile
+        // cannot establish ocean connectivity and is rejected rather than guessed.
+        for (let i = 0; i < total; i++) {
           const elevation = Number(input[i]);
+          if (Number.isFinite(elevation) && !(noData !== null && elevation === noData)) valid++;
+        }
+        const queue = new Uint32Array(total);
+        let head = 0;
+        let tail = 0;
+        const seedLimit = Math.min(0, target);
+        const seed = (index: number) => {
+          const elevation = Number(input[index]);
           const isValid = Number.isFinite(elevation) && !(noData !== null && elevation === noData);
-          if (isValid) valid++;
-          const include = isValid && (mode === 'band'
-            ? elevation >= lower && elevation <= upper
-            : elevation <= target);
-          if (include) {
-            mask[i] = mode === 'band' ? elevation : 1;
-            matched++;
-          } else {
-            mask[i] = NODATA;
+          if (isValid && elevation <= seedLimit && mask[index] === NODATA) {
+            mask[index] = 1;
+            queue[tail++] = index;
+          }
+        };
+        for (let x = 0; x < width; x++) {
+          seed(x);
+          if (height > 1) seed((height - 1) * width + x);
+        }
+        for (let y = 1; y < height - 1; y++) {
+          seed(y * width);
+          if (width > 1) seed(y * width + width - 1);
+        }
+        if (tail === 0) {
+          throw new Error('No ocean/bathymetry cells at or below the selected sea level touch this raster edge. Use a coastal DEM tile that includes the sea, not a land-only elevation tile.');
+        }
+        let lastYield = 0;
+        while (head < tail) {
+          const index = queue[head++];
+          const x = index % width;
+          const y = Math.floor(index / width);
+          const neighbors = [
+            x > 0 ? index - 1 : -1,
+            x + 1 < width ? index + 1 : -1,
+            y > 0 ? index - width : -1,
+            y + 1 < height ? index + width : -1,
+          ];
+          for (const next of neighbors) {
+            if (next < 0 || mask[next] !== NODATA) continue;
+            const elevation = Number(input[next]);
+            const isValid = Number.isFinite(elevation) && !(noData !== null && elevation === noData);
+            if (isValid && elevation <= target) {
+              mask[next] = 1;
+              queue[tail++] = next;
+            }
+          }
+          if (head - lastYield >= chunk) {
+            lastYield = head;
+            setProgress(Math.min(65, Math.round((head / Math.max(1, total)) * 65)));
+            await delay();
           }
         }
-        setProgress(Math.round((stop / total) * 65));
-        await delay();
+        matched = tail;
       }
-      if (!matched) throw new Error('No raster pixels matched that elevation. Try a wider tolerance or a different target value.');
+      if (!matched) throw new Error(mode === 'below'
+        ? 'No ocean-connected pixels were flooded at this sea level. Try a higher level or check the DEM elevation units.'
+        : 'No raster pixels matched that elevation. Try a wider tolerance or a different target value.');
 
       const rawImage = image as any;
       const fileDirectory = rawImage.getFileDirectory?.() ?? rawImage.fileDirectory ?? {};
@@ -231,10 +291,10 @@ export const SeaLevelDemTool: React.FC = () => {
   return (
     <section className="mt-3 rounded-xl border border-cyan-800/70 bg-slate-950/80 p-3">
       <div className="flex items-center gap-2 text-xs font-mono font-bold text-cyan-200">
-        <Waves className="h-4 w-4" /> LOCAL DEM / 30 m ELEVATION EXTRACTOR
+        <Waves className="h-4 w-4" /> DEM-BASED SEA-LEVEL INUNDATION
       </div>
       <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
-        Process a downloaded elevation GeoTIFF on this computer. No API key, server upload, or paid service. The GeoTIFF output keeps the source grid and coordinate metadata for GIS/map use.
+        Load a coastal elevation/bathymetry GeoTIFF, set sea level in metres relative to the DEM's vertical datum, and calculate only land connected to ocean cells on the raster edge. Processing stays local; the output GeoTIFF preserves georeferencing.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <input ref={fileInputRef} type="file" accept=".tif,.tiff,image/tiff" className="hidden" onChange={event => chooseFile(event.target.files?.[0] ?? null)} />
@@ -246,7 +306,7 @@ export const SeaLevelDemTool: React.FC = () => {
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <div className="flex justify-between text-[10px] text-slate-300"><label htmlFor="dem-target">Target elevation</label><strong className="font-mono text-cyan-200">{target} m</strong></div>
+          <div className="flex justify-between text-[10px] text-slate-300"><label htmlFor="dem-target">Sea level / target elevation</label><strong className="font-mono text-cyan-200">{target} m</strong></div>
           <input id="dem-target" aria-label="Target elevation in meters" type="range" min="-500" max="9000" step="1" value={target} disabled={busy} onChange={event => setTarget(Number(event.target.value))} className="w-full accent-cyan-400" />
           <div className="flex justify-between text-[9px] text-slate-500"><span>-500 m</span><span>9,000 m</span></div>
         </div>
@@ -257,15 +317,15 @@ export const SeaLevelDemTool: React.FC = () => {
         </div>
       </div>
 
-      <label htmlFor="dem-mode" className="mt-3 mb-1 block text-[10px] text-slate-300">Extract mode</label>
+      <label htmlFor="dem-mode" className="mt-3 mb-1 block text-[10px] text-slate-300">Processing mode</label>
       <select id="dem-mode" value={mode} disabled={busy} onChange={event => setMode(event.target.value as MaskMode)} className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-[11px] text-slate-100">
         <option value="band">Isolate elevation contour band (default: 29–31 m)</option>
-        <option value="below">Mark all terrain at or below the target level (low-terrain mask)</option>
+        <option value="below">Simulate ocean-connected inundation at this sea level</option>
       </select>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button type="button" disabled={!file || busy} onClick={buildMask} className="inline-flex items-center gap-1 rounded bg-cyan-500 px-3 py-2 text-[10px] font-mono font-bold text-slate-950 hover:bg-cyan-400 disabled:opacity-50">
-          <FileImage className="h-3.5 w-3.5" /> {busy ? `PROCESSING ${progress}%` : 'BUILD MAP LAYER'}
+          <FileImage className="h-3.5 w-3.5" /> {busy ? `PROCESSING ${progress}%` : 'RUN INUNDATION MODEL'}
         </button>
         <button type="button" disabled={!tiffProduct || busy} onClick={() => download(tiffProduct)} className="inline-flex items-center gap-1 rounded border border-emerald-700 px-3 py-2 text-[10px] font-mono text-emerald-200 hover:bg-emerald-950 disabled:opacity-50"><Download className="h-3.5 w-3.5" /> DOWNLOAD GEOTIFF</button>
         <button type="button" disabled={!pngProduct || busy} onClick={() => download(pngProduct)} className="inline-flex items-center gap-1 rounded border border-sky-700 px-3 py-2 text-[10px] font-mono text-sky-200 hover:bg-sky-950 disabled:opacity-50"><Download className="h-3.5 w-3.5" /> PNG PREVIEW</button>
@@ -280,13 +340,13 @@ export const SeaLevelDemTool: React.FC = () => {
       </div>}
       {pngPreviewUrl && metadata && <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/70 p-2">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-[10px] font-mono font-bold text-sky-200">GENERATED ELEVATION LAYER PREVIEW</div>
+          <div className="text-[10px] font-mono font-bold text-sky-200">GENERATED DEM MASK PREVIEW</div>
           <span className="text-[9px] text-slate-400">Transparent pixels = no match</span>
         </div>
         <div className="overflow-hidden rounded border border-slate-800 bg-slate-950">
           <img src={pngPreviewUrl} alt="Preview of generated elevation mask" className="block max-h-72 w-full object-contain" />
         </div>
-        <p className="mt-2 text-[9px] leading-relaxed text-slate-400">This is a raster preview of the selected DEM tile. Its GeoTIFF download retains georeferencing for GIS. It is not yet draped onto the live 3D Earth globe.</p>
+        <p className="mt-2 text-[9px] leading-relaxed text-slate-400">This is the computed raster for the selected DEM tile. The GeoTIFF retains georeferencing for GIS. This regional raster is not automatically draped onto the live global globe.</p>
       </div>}
       <div className="mt-3 border-t border-slate-800 pt-2 text-[9px] leading-relaxed text-slate-500">
         <div className="mb-1 font-bold uppercase tracking-wide text-slate-400">Free NOAA / USGS DEM data — no API key</div>
@@ -297,7 +357,7 @@ export const SeaLevelDemTool: React.FC = () => {
         <a className="underline decoration-cyan-700 underline-offset-2 hover:text-cyan-200" href="https://coast.noaa.gov/slrdata/" target="_blank" rel="noreferrer">NOAA Sea Level Rise Viewer data portal</a>
         <span> · </span>
         <a className="underline decoration-cyan-700 underline-offset-2 hover:text-cyan-200" href="https://apps.nationalmap.gov/downloader/" target="_blank" rel="noreferrer">USGS The National Map</a>
-        <p className="mt-1">For the 30 m band, input pixels are compared in the elevation units stored in your DEM (normally metres). The low-terrain mode does not claim that all low pixels are connected to the ocean. Use small local tiles: processing is limited to 300 MB / 45 million pixels per file.</p>
+        <p className="mt-1">Elevation values must use metres and a consistent vertical datum. Ocean-connected inundation requires bathymetry/ocean cells touching the raster edge; inland depressions disconnected from the ocean stay dry. This is a static bathtub model, not a hydrodynamic forecast. Flood mode is limited to 15 million pixels to control browser memory.</p>
       </div>
     </section>
   );
