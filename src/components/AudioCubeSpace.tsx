@@ -2830,13 +2830,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <span>{isCelestialDeckCollapsed ? 'STAR MENU' : 'MINIMIZE STAR MENU'}</span>
             </button>
           )}
-          {isEarthModeActive && !isTimelineActive && (
-            <button type="button" onClick={() => setIsTimelineActive(true)}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-amber-500/60 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/60 shadow-md"
-              aria-label="Show historical timeline" title="Show historical Earth / sky timeline">
-              <Layers className="w-3.5 h-3.5" /><span>TIMELINE</span>
-            </button>
-          )}
           {/* Quick Overlay Visibility / Controls Toggle */}
           {overlay.imageUrl && (
             <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800">
@@ -2896,7 +2889,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             </button>
           </div>
 
-          {/* Stage Fullscreen Toggle */}
+          {/* Timeline control sits directly beside the stage minimize/fullscreen button. */}
+          {isEarthModeActive && !isTimelineActive && (
+                      <button type="button" onClick={() => setIsTimelineActive(true)}
+                        className="flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-bold rounded border border-amber-500/60 text-amber-300 hover:bg-amber-950/60"
+                        aria-label="Show historical timeline" title="Show historical Earth / sky timeline">
+                        <Layers className="w-3 h-3" /><span>TIMELINE</span>
+                      </button>
+                    )}
           <button
             onClick={handleToggleStageFullscreen}
             className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-800 transition-colors ml-1 border-l border-slate-700 pl-2"
