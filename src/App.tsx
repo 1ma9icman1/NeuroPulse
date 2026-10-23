@@ -264,7 +264,7 @@ export default function App() {
         </div>
       </header>
 
-      {showFavorites && <section className="atlas-panel" role="dialog" aria-label="Favorite sites" style={{position:'absolute',zIndex:100,top:84,right:20,width:'min(420px, calc(100vw - 32px)',maxHeight:'70vh',overflow:'auto',padding:16}}>
+      {showFavorites && <section className="atlas-panel" role="dialog" aria-label="Favorite sites" style={{position:'absolute',zIndex:100,top:84,right:20,width:'min(420px, calc(100vw - 32px))',maxHeight:'70vh',overflow:'auto',padding:16}}>
         <div className="atlas-panel-heading"><Star size={14} fill="currentColor"/> FAVORITE SITES <button className="atlas-secondary-button" onClick={() => setShowFavorites(false)}>CLOSE</button></div>
         {favoriteSites.length ? favoriteSites.map((site: any) => <div key={site.id} className="atlas-favorite-row" style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',padding:'6px 0'}}><button className="atlas-result-chip" onClick={() => { setSelectedGlobeSite(site); setSelectedSiteId(site.id); setEarthAreaView('satellite'); setShowFavorites(false); }}><MapPin size={12}/><span>{site.name}</span></button><button aria-label={'Remove '+site.name+' from favorites'} onClick={() => toggleFavorite(site)}><Star size={14} fill="currentColor"/></button></div>) : <p className="atlas-no-data">No favorites saved yet. Select a site and use Save to Favorites.</p>}
       </section>}
