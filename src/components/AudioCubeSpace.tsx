@@ -2631,7 +2631,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       />
 
       {/* Top 3D Deck Controls */}
-      <div className="absolute top-3 left-3 right-3 z-[70] flex h-11 flex-nowrap items-center gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-slate-800 bg-[#0b1220]/95 px-1 py-1 shadow-xl backdrop-blur-md pointer-events-auto [scrollbar-width:thin]">
+      <div className="absolute bottom-3 top-auto left-3 right-3 z-[70] flex h-11 flex-nowrap items-center gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-slate-800 bg-[#0b1220]/95 px-1 py-1 shadow-xl backdrop-blur-md pointer-events-auto [scrollbar-width:thin]">
         {/* Left: View Mode Switches & Orbit Reset */}
         <div className="flex shrink-0 flex-nowrap items-center gap-1 border-r border-slate-700 pr-1">
           <button
@@ -3435,7 +3435,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
       {isTimelineActive ? createPortal((
-        <section className="atlas-panel atlas-timeline-panel max-h-[65vh] overflow-y-auto">
+        <section className="atlas-panel atlas-timeline-panel order-first max-h-[65vh] overflow-y-auto">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
             <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300">Historical Earth / Sky Timeline</div>
             <div className="flex items-center gap-2">
