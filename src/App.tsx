@@ -93,7 +93,7 @@ export default function App() {
   const isFavorite = (site: any) => !!site && favoriteSites.some(item => String(item.name || item.id || '') === String(site.name || site.id || ''));
   const [frequencyMax, setFrequencyMax] = useState(20000);
   const [angleMax, setAngleMax] = useState(180);
-  const [includeStars, setIncludeStars] = useState(true);
+  const [includeStars, setIncludeStars] = useState(false);
   const [includeAcoustics, setIncludeAcoustics] = useState(true);
   const [includeGeometry, setIncludeGeometry] = useState(true);
   const [showSiteList, setShowSiteList] = useState(false);
@@ -508,7 +508,7 @@ export default function App() {
           <section className="atlas-panel atlas-navigation">
             <div className="atlas-panel-heading">RESEARCH MODULES</div>
             {NAV_ITEMS.map(({ label, icon: Icon }) => (
-              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
+              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'STELLAR ALIGNMENTS') setIncludeStars(true); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
                 <Icon size={15} strokeWidth={1.8} /><span>{label}</span><span className="nav-chevron">›</span>
               </button>
             ))}
@@ -596,13 +596,13 @@ export default function App() {
             ))}</div>}
           </section>
 
-          <section className="atlas-panel atlas-star-panel">
+          {activeNav === 'STELLAR ALIGNMENTS' && <section className="atlas-panel atlas-star-panel">
             <div className="atlas-panel-heading"><Star size={13} /> STAR CATALOGUE <span className="atlas-panel-count">{REAL_CELESTIAL_STARS.length} RECORDS</span></div>
-            {includeStars ? REAL_CELESTIAL_STARS.slice(0, 4).map((star) => (
+            {includeStars && REAL_CELESTIAL_STARS.slice(0, 4).map((star) => (
               <div className="atlas-star-row" key={star.id}><span className="star-spark">✦</span><span><strong>{star.name}</strong><small>{star.constellation}</small></span><b>{star.distLy.toLocaleString()} ly</b></div>
-            )) : <div className="atlas-no-data">Star catalogue is excluded by the current search filters.</div>}
+            ))}
             <div className="atlas-footnote">Star catalogue coordinates and distances are reference data; a site alignment requires a dated sky calculation and verified architectural axis.</div>
-          </section>
+          </section>}
         </aside>
       </div>
 
