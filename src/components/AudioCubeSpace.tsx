@@ -544,13 +544,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const bucket = `${Math.round(Number(site.lat) / 3)}:${Math.round(Number(site.lon) / 3)}`;
       const slot = buckets.get(bucket) ?? 0;
       buckets.set(bucket, slot + 1);
+      // Leave the first label at its pin. Only fan labels outward when multiple
+      // locations occupy the same tight geographic bucket, and stagger them far
+      // enough apart to keep their buttons readable.
       const column = slot % 2;
       const row = Math.floor(slot / 2);
       return {
         ...site,
         isEarthSiteLabel: true,
-        labelOffsetX: 14 + column * 124,
-        labelOffsetY: (row % 2 === 0 ? 1 : -1) * (18 + Math.ceil(row / 2) * 22),
+        labelNeedsLeader: slot > 0,
+        labelOffsetX: slot === 0 ? 14 : 14 + column * 124,
+        labelOffsetY: slot === 0 ? 0 : (row % 2 === 1 ? -1 : 1) * (28 + Math.floor((row - 1) / 2) * 30),
       };
     });
   })();
@@ -3534,15 +3538,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                     if (isEarthAssignMode) handlePinChannelToEarth(snapTargetChannel, d.lat, d.lon);
                     else openEarthSite(d);
                   };
-                  const leader = document.createElement('span');
-                  leader.style.position = 'absolute';
-                  leader.style.width = '13px';
-                  leader.style.height = '2px';
-                  leader.style.left = '-14px';
-                  leader.style.top = '50%';
-                  leader.style.background = d.color || '#facc15';
-                  leader.style.boxShadow = `0 0 5px ${d.color || '#facc15'}66`;
-                  label.appendChild(leader);
+                  if (d.labelNeedsLeader) {
+                    const leader = document.createElement('span');
+                    leader.style.position = 'absolute';
+                    leader.style.width = '13px';
+                    leader.style.height = '2px';
+                    leader.style.left = '-14px';
+                    leader.style.top = '50%';
+                    leader.style.background = d.color || '#facc15';
+                    leader.style.boxShadow = `0 0 5px ${d.color || '#facc15'}66`;
+                    label.appendChild(leader);
+                  }
                   return label;
                 }
                 if (d.isChannelTarget) {
