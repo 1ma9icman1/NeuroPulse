@@ -3112,7 +3112,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       {/* Floating Celestial Star & 7-11 Astrometric Deck (When Star Mode is active) */}
       {isStarModeActive && !isCelestialDeckCollapsed && typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
-        <div className="atlas-panel relative z-30 w-full max-w-full max-h-[65vh] overflow-y-auto overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-2 rounded-lg border border-amber-500/40 shadow-2xl flex flex-col gap-2.5" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto' }}>
+        <div className="atlas-panel atlas-celestial-star-deck relative z-30 w-full max-w-full overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-2 rounded-lg border border-amber-500/40 shadow-2xl flex flex-col gap-2.5" >
           {/* Header & 7-11 Match Badge */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5">
