@@ -97,11 +97,8 @@ export default function App() {
     }
     setStreetFallbackNotice(false);
     const fallbackTimer = window.setTimeout(() => {
-      setEarthAreaView((current) => {
-        if (current !== 'street') return current;
-        setStreetFallbackNotice(true);
-        return 'road';
-      });
+      setStreetFallbackNotice(true);
+      setEarthAreaView('road');
     }, 8000);
     return () => window.clearTimeout(fallbackTimer);
   }, [earthAreaView, selectedSite?.lat, selectedSite?.lon]);
