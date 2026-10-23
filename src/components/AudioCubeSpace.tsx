@@ -444,33 +444,42 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
 
-  // True 3D vintage LED bulbs: domed colored lens, dark collar, and two metal leads.
+  // Load the repository's LED sheet once. Each sprite shares the live texture so it
+  // still appears when the browser finishes loading the PNG after markers are created.
+  const retroLedAtlas = useMemo(() => {
+    const texture = new THREE.TextureLoader().load(new URL('../../Retro LED Tilesheet and Neon Earth Globe.png', import.meta.url).href);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    return texture;
+  }, []);
+
   const makeRetroLed = useCallback((site: any) => {
     const group = new THREE.Group();
     const raw = String(site.color || '#facc15').toLowerCase();
-    const color = /orange|fb923c|f97316|red|ef4444|f87171/.test(raw) ? '#ff302b'
-      : /yellow|gold|facc15|fbbf24/.test(raw) ? '#ffd52a'
-      : /blue|sky|60a5fa|38bdf8/.test(raw) ? '#168dff'
-      : /green|34d399|10b981|22c55e/.test(raw) ? '#20ff58'
-      : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? '#e13cff' : raw;
-    const ledColor = new THREE.Color(color);
-    const lensMaterial = new THREE.MeshStandardMaterial({ color: ledColor, emissive: ledColor, emissiveIntensity: 0.16, roughness: 0.24, metalness: 0.08 });
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.72, 12, 10), lensMaterial);
-    bulb.scale.set(1, 1.12, 0.88);
-    bulb.position.y = 0.52;
-    bulb.userData.isRetroLedLens = true;
-    group.add(bulb);
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.43, 0.28, 10), new THREE.MeshStandardMaterial({ color: '#343b45', metalness: 0.78, roughness: 0.32 }));
-    collar.position.y = -0.06;
-    group.add(collar);
-    const leadMaterial = new THREE.MeshStandardMaterial({ color: '#b8c3cf', metalness: 0.9, roughness: 0.24 });
-    for (const x of [-0.18, 0.18]) {
-      const lead = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.48, 6), leadMaterial);
-      lead.position.set(x, -0.42, 0);
-      group.add(lead);
-    }
-    group.scale.setScalar(0.12 + Math.min(0.045, Number(site.size || 0.1) * 0.12));
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.045, 75, 5, 1, true), new THREE.MeshBasicMaterial({ color: ledColor, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const row = /orange|fb923c|f97316|red|ef4444|f87171/.test(raw) ? 0
+      : /yellow|gold|facc15|fbbf24/.test(raw) ? 1
+      : /blue|sky|60a5fa|38bdf8/.test(raw) ? 2
+      : /green|34d399|10b981|22c55e/.test(raw) ? 3
+      : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
+    // Use a camera-facing sprite, not a flat plane that can turn edge-on to the globe camera.
+    // Each marker gets a cloned texture view so its UV crop cannot change other markers.
+    // Ten vertical states: OFF/ON for red, yellow, blue, green, purple.
+    // The right-hand column duplicates the artwork; deliberately use column one only.
+    const tileTexture = retroLedAtlas.clone();
+    tileTexture.repeat.set(0.5, 0.1);
+    tileTexture.offset.set(0, (9 - row * 2) * 0.1);
+    tileTexture.needsUpdate = true;
+    const material = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.04, depthWrite: false });
+    const sprite = new THREE.Sprite(material);
+    sprite.userData.isRetroLedSprite = true;
+    sprite.userData.ledTexture = tileTexture;
+    sprite.scale.set(2.0, 2.0, 1);
+    group.add(sprite);
+    group.scale.setScalar(1.0);
+    group.userData.ledColorIndex = row;
+    const beamColor = new THREE.Color(row === 0 ? '#ff302b' : row === 1 ? '#ffd52a' : row === 2 ? '#168dff' : row === 3 ? '#20ff58' : '#e13cff');
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.045, 75, 5, 1, true), new THREE.MeshBasicMaterial({ color: beamColor, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }));
     beam.position.y = 38;
     beam.userData.isLaserSpaceBeam = true;
     group.add(beam);
@@ -479,11 +488,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     beamCore.userData.isLaserSpaceBeam = true;
     group.add(beamCore);
     group.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
-    group.userData.ledLens = bulb;
-    group.userData.ledColor = color;
-    group.userData.ledMaterial = lensMaterial;
     return group;
-  }, []);
+  }, [retroLedAtlas]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -491,15 +497,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       if (!scene) return;
       const now = performance.now() * 0.001;
       scene.traverse((object: any) => {
-        if (object.userData?.isLaserSpaceBeam) { const parent = object.parent; object.visible = !!parent?.userData?.showLaserSpaceOverlay; if (object.material) object.material.opacity = 0.2 + ((Math.sin(now * 1.8 + Number(parent?.userData?.ledPhase || 0)) + 1) * 0.5) * 0.5; return; }
-        if (!object.userData?.isRetroLedLens) return;
         const parent = object.parent;
-        const phase = Number(parent?.userData?.ledPhase || 0);
-        const pulse = (Math.sin(now * 2.1 + phase) + 1) * 0.5;
-        const material = object.material as THREE.MeshStandardMaterial;
-        material.emissiveIntensity = 0.08 + pulse * 2.8;
-        material.color.set(parent?.userData?.ledColor || '#ffffff');
-        material.needsUpdate = true;
+        const phase = now * 2.2 + Number(parent?.userData?.ledPhase || 0);
+        const isOn = Math.sin(phase) > -0.05;
+        if (object.userData?.isRetroLedSprite) {
+          const colorIndex = Number(parent?.userData?.ledColorIndex ?? 1);
+          const texture = object.userData.ledTexture as THREE.Texture | undefined;
+          if (texture) texture.offset.y = (9 - (colorIndex * 2 + (isOn ? 1 : 0))) * 0.1;
+          const material = object.material as THREE.SpriteMaterial | undefined;
+          if (material) {
+            material.opacity = isOn ? 1 : 0.38;
+            material.color.set(isOn ? '#ffffff' : '#9ca3af');
+          }
+          return;
+        }
+        if (!object.userData?.isLaserSpaceBeam) return;
+        object.visible = !!parent?.userData?.showLaserSpaceOverlay;
+        if (object.material) object.material.opacity = 0.2 + ((Math.sin(phase) + 1) * 0.5) * 0.5;
       });
     }, 80);
     return () => window.clearInterval(timer);
@@ -1623,7 +1637,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         { name: 'Moscow', lat: 55.7558, lon: 37.6173 }, { name: 'Reykjavik', lat: 64.1466, lon: -21.9426 },
         { name: 'Honolulu', lat: 21.3099, lon: -157.8581 }, { name: 'Anchorage', lat: 61.2181, lon: -149.9003 },
       ];
-      const labelEarthPoint = (_name: string, lat: number, lon: number, color: string, isCity = false) => {
+      const labelEarthPoint = (name: string, lat: number, lon: number, color: string, isCity = false) => {
         const v = earthPoint(lat, lon, earthRadius * 1.002);
         if (!cameraFront(v)) return;
         const p = project3D(v.x, v.y, v.z, width, height);
@@ -1634,7 +1648,21 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.shadowBlur = isCity ? 3 : 7;
         ctx.fill();
         ctx.shadowBlur = 0;
-        // Site markers remain small dots at every zoom level; no text labels on the globe.
+        // Paint city names on the same Earth projection so the WebGL label layer
+        // cannot disappear behind the custom canvas overlay.
+        if (isCity) {
+          const fontSize = Math.max(9, Math.min(12, earthScreenRadius * 0.035));
+          ctx.save();
+          ctx.font = `600 ${fontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = 'rgba(2, 8, 23, 0.96)';
+          ctx.fillStyle = '#f8fafc';
+          ctx.strokeText(name, p.sx + 5, p.sy - 3);
+          ctx.fillText(name, p.sx + 5, p.sy - 3);
+          ctx.restore();
+        }
       };
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
       if (showCities) majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
@@ -2802,7 +2830,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <span>{isCelestialDeckCollapsed ? 'STAR MENU' : 'MINIMIZE STAR MENU'}</span>
             </button>
           )}
-
+          {isEarthModeActive && !isTimelineActive && (
+            <button type="button" onClick={() => setIsTimelineActive(true)}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-amber-500/60 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/60 shadow-md"
+              aria-label="Show historical timeline" title="Show historical Earth / sky timeline">
+              <Layers className="w-3.5 h-3.5" /><span>TIMELINE</span>
+            </button>
+          )}
           {/* Quick Overlay Visibility / Controls Toggle */}
           {overlay.imageUrl && (
             <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800">
@@ -2910,7 +2944,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
 
       {showSeaLevelOverlay && isEarthModeActive && (
-        <div className="absolute top-16 right-3 z-40 w-[min(94vw,390px)] max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-xl border border-cyan-400/60 bg-[#04111d]/95 p-3 shadow-2xl backdrop-blur-md pointer-events-auto">
+        <div className="absolute top-16 left-3 z-40 w-[min(94vw,340px)] max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-xl border border-cyan-400/60 bg-[#04111d]/95 p-3 shadow-2xl backdrop-blur-md pointer-events-auto">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-mono font-bold text-cyan-200"><Layers className="h-4 w-4" /> SEA-LEVEL / RELIEF TIMELINE</div>
             <button onClick={() => activateSeaLevelOverlay(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close sea-level overlay"><X className="h-3.5 w-3.5" /></button>
@@ -3356,7 +3390,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         document.querySelector('.atlas-left') as HTMLElement
       )}
 
-      {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
+remove old timeline button      {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
       {isTimelineActive ? (
         <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-2xl rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
@@ -3379,9 +3413,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
           <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. With STAR MODE on, Sun and planets move with this year using a local Stardroid-derived ephemeris. {planetEphemerisYearIsPreferred ? 'Orbital elements are within their preferred 1800–2050 CE range.' : 'Planet positions outside 1800–2050 CE are illustrative, not precision historical ephemerides.'} Sky precession is first-order (~50.29″/yr); year-only rotation phase is not an exact historical time-of-day.</div>
         </div>
-      ) : (
-        <button onClick={() => setIsTimelineActive(true)} className="absolute top-[4.6rem] left-3 z-20 pointer-events-auto rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-3 py-1.5 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline">TIMELINE OFF · SHOW</button>
-      )}
+      ) : null}
 
       {/* Large interactive Earth fills the Top Plane viewport; Globe controls retain drag-to-rotate and wheel zoom. */}
       {isEarthModeActive && !isSolarSystemMode && (
@@ -3392,7 +3424,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               globeImageUrl={earthTextureUrl}
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
-              showGraticules={false} showAtmosphere={earthAtmosphere}
+              showGraticules={isEarthModeActive} showAtmosphere={earthAtmosphere}
               arcsData={showAlignmentTriangles ? triangleEdges : []}
               arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
               arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
@@ -3401,10 +3433,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={() => 'rgba(34,211,238,0.055)'}
               polygonSideColor={() => 'rgba(8,145,178,0.22)'} polygonStrokeColor={() => 'rgba(165,243,252,0.92)'} polygonAltitude={0.018}
-              labelsData={[]}
+              labelsData={visibleEarthSites.filter((site: any) => site.isCity && showCities)}
+      labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
+      labelColor={() => '#f8fafc'} labelSize={0.55} labelAltitude={0.012} labelDotRadius={0.12}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-              customThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; return obj; }} customThreeObjectUpdate={(obj: any, d: any) => { obj.scale.setScalar(0.12 + Math.min(0.045, Number(d.size || 0.1) * 0.12)); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); }}
+              customThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; return obj; }} customThreeObjectUpdate={(obj: any, d: any) => { obj.scale.setScalar(1.0); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); }}
               pointLabel={(d: any) => {
                 if (!d || d.isChannelTarget) return '';
                 const escapeHtml = (value: unknown) => String(value ?? '')
