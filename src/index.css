@@ -370,3 +370,47 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
   .atlas-center-heading { min-height: 34px; }
   .atlas-center-heading p { display: none; }
 }
+
+
+/* Keep the Stars tools reachable and independently scrollable; do not hide them
+   behind the workspace's clipped main viewport. */
+.atlas-right {
+  min-height: 0;
+  align-self: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: auto;
+}
+.atlas-star-alignment-panel {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: calc(100dvh - 86px);
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  scrollbar-width: auto;
+}
+@media (max-width: 900px) {
+  .atlas-right {
+    top: 62px;
+    bottom: 8px;
+    max-height: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .atlas-star-alignment-panel {
+    max-height: calc(100dvh - 86px);
+  }
+}
+@media (max-width: 560px) {
+  .atlas-right {
+    top: 56px;
+    right: 5px;
+    bottom: 5px;
+    width: min(360px, calc(100vw - 10px));
+    z-index: 120;
+  }
+  .atlas-star-alignment-panel {
+    max-height: calc(100dvh - 70px);
+  }
+}
