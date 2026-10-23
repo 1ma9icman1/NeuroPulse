@@ -96,6 +96,7 @@ export default function App() {
   const [includeAcoustics, setIncludeAcoustics] = useState(true);
   const [includeGeometry, setIncludeGeometry] = useState(true);
   const [showSiteList, setShowSiteList] = useState(false);
+  const [showSearchPanel, setShowSearchPanel] = useState(false);
   const [scanRequested, setScanRequested] = useState(false);
   const [audioMenuOpen, setAudioMenuOpen] = useState(false);
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
@@ -350,9 +351,7 @@ export default function App() {
             <div className="atlas-brand-micro">ALIGNMENT · FREQUENCY · GEOMETRY · THE STARS</div>
           </div>
         </div>
-        <div className="atlas-topnav"><button className="atlas-secondary-button" onClick={() => setShowFavorites(value => !value)}><Star size={15} fill={favoriteSites.length ? 'currentColor' : 'none'} /> FAVORITES · {favoriteSites.length}</button></div>
-        <div className="atlas-status">
-          <div className="atlas-status-line"><div className="atlas-clock"><span className="status-dot" /> {isRunning ? "AUDIO ENGINE RUNNING" : "SYSTEM ONLINE"}</div><button className="atlas-audio-top-button" onClick={handleToggleAudio}><Volume2 size={14} /> {isRunning ? "STOP AUDIO" : "START AUDIO"}</button></div>
+        <div className="atlas-topnav"><button className="atlas-search-top-button" onClick={() => setShowSearchPanel(value => !value)} aria-expanded={showSearchPanel}><Search size={15} /> {showSearchPanel ? "CLOSE SEARCH" : "SEARCH"}</button></div>
           <div className="atlas-status-sub">LOCAL DATA · {researchSites.length.toLocaleString()} SITES · {REAL_CELESTIAL_STARS.length} STARS</div>
         </div>
       </header>
@@ -362,25 +361,7 @@ export default function App() {
         {favoriteSites.length ? favoriteSites.map((site: any) => <div key={site.id} className="atlas-favorite-row" style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',padding:'6px 0'}}><button className="atlas-result-chip" onClick={() => { setSelectedGlobeSite(site); setSelectedSiteId(site.id); setEarthAreaView('satellite'); setShowFavorites(false); }}><MapPin size={12}/><span>{site.name}</span></button><button aria-label={'Remove '+site.name+' from favorites'} onClick={() => toggleFavorite(site)}><Star size={14} fill="currentColor"/></button></div>) : <p className="atlas-no-data">No favorites saved yet. Select a site and use Save to Favorites.</p>}
       </section>}
       <div className="atlas-workspace">
-        <aside className="atlas-left">
-          <section className="atlas-panel atlas-navigation">
-            <div className="atlas-panel-heading">RESEARCH MODULES</div>
-            {NAV_ITEMS.map(({ label, icon: Icon }) => (
-              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
-                <Icon size={15} strokeWidth={1.8} /><span>{label}</span><span className="nav-chevron">›</span>
-              </button>
-            ))}
-          </section>
-
-
-
-        </aside>
-
         <section className="atlas-center">
-          <div className="atlas-center-heading">
-            <div><div className="atlas-eyebrow">ACTIVE WORKSPACE / EARTH</div><h1>{activeNav === 'GLOBAL SEARCH' ? 'Global Alignment Explorer' : activeNav}</h1><p>{navDescription[activeNav] ?? 'This view is represented in the navigation; its dedicated visualization is not yet connected.'}</p></div>
-            <div className="atlas-live-tag"><span className="status-dot" /> LIVE GLOBE</div>
-          </div>
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
             {earthAreaView === 'globe' || !selectedSite ? <AudioCubeSpace
@@ -467,30 +448,6 @@ export default function App() {
               )}
             </section>
           )}
-          <section className="atlas-panel atlas-filter-panel">
-            <div className="atlas-panel-heading"><SlidersHorizontal size={13} /> SEARCH FILTERS</div>
-            <label className="atlas-searchbox">
-              <Search size={14} />
-              <input value={searchText} onChange={(event) => { setSearchText(event.target.value); setShowSiteList(true); setScanRequested(false); }} placeholder="Name, region, keyword..." />
-              {searchText && <button aria-label="Clear search" onClick={() => setSearchText('')}><X size={13} /></button>}
-            </label>
-            {!showSiteList && <button className="atlas-search-expand" onClick={() => setShowSiteList(true)}><Search size={12} /> SHOW SEARCH RESULTS ({filteredSites.length})</button>}
-            <label className="atlas-field-label">SITE CATEGORY</label>
-            <select className="atlas-select-like" aria-label="Filter by site category" value={categoryFilter} onChange={event => { setCategoryFilter(event.target.value); setShowSiteList(true); setScanRequested(false); }}><option value="ALL">All documented categories</option>{categoryOptions.map(category => <option key={category} value={category}>{category}</option>)}</select>
-            <label className="atlas-field-label">FREQUENCY RANGE (HZ) <strong>{frequencyMax.toLocaleString()} Hz</strong></label>
-            <input className="atlas-range" aria-label="Maximum frequency" type="range" min="100" max="20000" step="100" value={frequencyMax} onChange={(event) => setFrequencyMax(Number(event.target.value))} />
-            <div className="atlas-range-labels"><span>100</span><span>20,000</span></div>
-            <label className="atlas-field-label">ANGLE RANGE <strong>{angleMax}°</strong></label>
-            <input className="atlas-range" aria-label="Maximum angle" type="range" min="1" max="180" value={angleMax} onChange={(event) => setAngleMax(Number(event.target.value))} />
-            <div className="atlas-range-labels"><span>1°</span><span>180°</span></div>
-            <div className="atlas-checks">
-              <label><input type="checkbox" checked={includeStars} onChange={(event) => setIncludeStars(event.target.checked)} /> Include star catalogue</label>
-              <label><input type="checkbox" checked={includeAcoustics} onChange={(event) => setIncludeAcoustics(event.target.checked)} /> Include acoustic evidence</label>
-              <label><input type="checkbox" checked={includeGeometry} onChange={(event) => setIncludeGeometry(event.target.checked)} /> Include geometric comparisons</label>
-            </div>
-            <button className="atlas-primary-button" onClick={handleRunSearch}><Radar size={16} /> RUN GLOBAL SEARCH</button>
-          </section>
-
           {['A/B/C AUDIO CONTROLS', 'TRINAURAL / SOLFEGGIO'].includes(activeNav) && (
             <section className="atlas-audio-workspace">
               <div className="atlas-audio-menu-header">
@@ -522,6 +479,44 @@ export default function App() {
           )}
           {activeNav === 'TRINAURAL / SOLFEGGIO' && !audioMenuOpen && <section className="atlas-audio-workspace"><button className="atlas-primary-button" onClick={() => { setAudioMenuOpen(true); setMatrixMenuOpen(true); }}>OPEN TRINAURAL CONTROLS & FREQUENCY MATRIX</button></section>}
 
+
+
+        <aside className="atlas-right">
+          {showSearchPanel && <div className="atlas-search-drawer">
+            <div className="atlas-search-drawer-title"><strong><Search size={14} /> GLOBAL SEARCH</strong><button className="atlas-search-close" onClick={() => setShowSearchPanel(false)} aria-label="Close search"><X size={14} /></button></div>
+          <section className="atlas-panel atlas-navigation">
+            <div className="atlas-panel-heading">RESEARCH MODULES</div>
+            {NAV_ITEMS.map(({ label, icon: Icon }) => (
+              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
+                <Icon size={15} strokeWidth={1.8} /><span>{label}</span><span className="nav-chevron">›</span>
+              </button>
+            ))}
+          </section>
+          <section className="atlas-panel atlas-filter-panel">
+            <div className="atlas-panel-heading"><SlidersHorizontal size={13} /> SEARCH FILTERS</div>
+            <label className="atlas-searchbox">
+              <Search size={14} />
+              <input value={searchText} onChange={(event) => { setSearchText(event.target.value); setShowSiteList(true); setScanRequested(false); }} placeholder="Name, region, keyword..." />
+              {searchText && <button aria-label="Clear search" onClick={() => setSearchText('')}><X size={13} /></button>}
+            </label>
+            {!showSiteList && <button className="atlas-search-expand" onClick={() => setShowSiteList(true)}><Search size={12} /> SHOW SEARCH RESULTS ({filteredSites.length})</button>}
+            <label className="atlas-field-label">SITE CATEGORY</label>
+            <select className="atlas-select-like" aria-label="Filter by site category" value={categoryFilter} onChange={event => { setCategoryFilter(event.target.value); setShowSiteList(true); setScanRequested(false); }}><option value="ALL">All documented categories</option>{categoryOptions.map(category => <option key={category} value={category}>{category}</option>)}</select>
+            <label className="atlas-field-label">FREQUENCY RANGE (HZ) <strong>{frequencyMax.toLocaleString()} Hz</strong></label>
+            <input className="atlas-range" aria-label="Maximum frequency" type="range" min="100" max="20000" step="100" value={frequencyMax} onChange={(event) => setFrequencyMax(Number(event.target.value))} />
+            <div className="atlas-range-labels"><span>100</span><span>20,000</span></div>
+            <label className="atlas-field-label">ANGLE RANGE <strong>{angleMax}°</strong></label>
+            <input className="atlas-range" aria-label="Maximum angle" type="range" min="1" max="180" value={angleMax} onChange={(event) => setAngleMax(Number(event.target.value))} />
+            <div className="atlas-range-labels"><span>1°</span><span>180°</span></div>
+            <div className="atlas-checks">
+              <label><input type="checkbox" checked={includeStars} onChange={(event) => setIncludeStars(event.target.checked)} /> Include star catalogue</label>
+              <label><input type="checkbox" checked={includeAcoustics} onChange={(event) => setIncludeAcoustics(event.target.checked)} /> Include acoustic evidence</label>
+              <label><input type="checkbox" checked={includeGeometry} onChange={(event) => setIncludeGeometry(event.target.checked)} /> Include geometric comparisons</label>
+            </div>
+            <button className="atlas-primary-button" onClick={handleRunSearch}><Radar size={16} /> RUN GLOBAL SEARCH</button>
+          </section>
+
+
           {showSiteList && (
             <div className="atlas-results-strip">
               <div className="atlas-results-title"><span className="atlas-results-heading"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></span><button className="atlas-results-minimize" onClick={() => setShowSiteList(false)} aria-label="Minimize search results">MINIMIZE <ChevronDown size={12} /></button></div>
@@ -536,9 +531,7 @@ export default function App() {
               {scanRequested && <div className="atlas-search-note">Catalogue search complete · {filteredSites.length} combined site records · UNESCO source links appear in the selected-site details where available.</div>}
             </div>
           )}
-        </section>
-
-        <aside className="atlas-right">
+          </div>}
           <section className="atlas-panel atlas-site-card">
             <div className="atlas-panel-heading"><MapPin size={13} /> SELECTED SITE <span className="atlas-panel-count">REFERENCE DATA</span></div>
             {selectedSite ? <>
