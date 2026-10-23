@@ -306,6 +306,65 @@ export default function App() {
               <span><i className="legend-line" /> GEOMETRY {includeGeometry ? 'ON' : 'OFF'}</span>
             </div>
           </div>
+          {['ANCIENT SITES', 'HISTORICAL SITES', 'CITIES', 'FREQUENCY / HZ', 'SOUND PATTERNS', 'MAP OVERLAYS', 'SETTINGS'].includes(activeNav) && (
+            <section className="atlas-panel atlas-module-workspace">
+              <div className="atlas-panel-heading">
+                {activeNav === 'FREQUENCY / HZ' || activeNav === 'SOUND PATTERNS' ? 'ACOUSTIC RESEARCH' : activeNav === 'MAP OVERLAYS' ? 'MAP LAYERS' : activeNav === 'SETTINGS' ? 'WORKSPACE SETTINGS' : activeNav}
+                <span className="atlas-panel-count">INTERACTIVE CONTROLS</span>
+              </div>
+              {(activeNav === 'ANCIENT SITES' || activeNav === 'HISTORICAL SITES' || activeNav === 'CITIES') && (
+                <div className="atlas-module-results">
+                  {moduleSites.slice(0, 24).map((site) => (
+                    <button key={site.id} className="atlas-result-chip" onClick={() => {
+                      setSelectedGlobeSite(null);
+                      setSelectedSiteId(site.id);
+                      setEarthAreaView('satellite');
+                      setShowSiteList(false);
+                    }}>
+                      <MapPin size={12} /><span>{site.name}</span><small>{site.category ?? (activeNav === 'CITIES' ? 'City reference' : 'Historical site')}</small>
+                    </button>
+                  ))}
+                  {moduleSites.length === 0 && <div className="atlas-no-data">No catalogue entries match this module and search. Clear the search to see available records.</div>}
+                </div>
+              )}
+              {(activeNav === 'FREQUENCY / HZ' || activeNav === 'SOUND PATTERNS') && (
+                <div className="atlas-module-results">
+                  {ACOUSTIC_SITE_EVIDENCE.filter(record => record.measuredFrequenciesHz.some(hz => hz <= frequencyMax)).slice(0, 30).map(record => (
+                    <button key={record.id} className="atlas-result-chip" onClick={() => {
+                      const known = researchSites.find(site => site.name.toLowerCase() === record.name.toLowerCase());
+                      if (known) setSelectedSiteId(known.id);
+                      setSelectedGlobeSite({ ...record, id: record.id, category: 'Acoustic evidence', desc: record.measurementContext || record.status });
+                      setEarthAreaView('satellite');
+                    }}>
+                      <AudioWaveform size={12} /><span>{record.name}</span><small>{record.measuredFrequenciesHz.join(' / ')} Hz</small>
+                    </button>
+                  ))}
+                  <div className="atlas-footnote">Frequency values are shown as recorded in the source catalogue; they are not inferred for sites without measurements.</div>
+                </div>
+              )}
+              {activeNav === 'MAP OVERLAYS' && (
+                <div className="atlas-module-toggles">
+                  <label><input type="checkbox" checked={includeStars} onChange={event => setIncludeStars(event.target.checked)} /> Show star catalogue layer</label>
+                  <label><input type="checkbox" checked={includeAcoustics} onChange={event => setIncludeAcoustics(event.target.checked)} /> Show acoustic evidence layer</label>
+                  <label><input type="checkbox" checked={includeGeometry} onChange={event => setIncludeGeometry(event.target.checked)} /> Show geometry and alignment layer</label>
+                  <button className="atlas-secondary-button" onClick={() => setShowSiteList(value => !value)}>{showSiteList ? 'HIDE SEARCH RESULTS' : 'SHOW FILTERED SITE RESULTS'}</button>
+                </div>
+              )}
+              {activeNav === 'SETTINGS' && (
+                <div className="atlas-module-toggles">
+                  <label><input type="checkbox" checked={includeStars} onChange={event => setIncludeStars(event.target.checked)} /> Star catalogue visible</label>
+                  <label><input type="checkbox" checked={includeAcoustics} onChange={event => setIncludeAcoustics(event.target.checked)} /> Acoustic records visible</label>
+                  <label><input type="checkbox" checked={includeGeometry} onChange={event => setIncludeGeometry(event.target.checked)} /> Geometry comparisons enabled</label>
+                  <label><input type="checkbox" checked={showSiteList} onChange={event => setShowSiteList(event.target.checked)} /> Keep site results panel open</label>
+                  <button className="atlas-secondary-button" onClick={() => {
+                    setIncludeStars(true); setIncludeAcoustics(true); setIncludeGeometry(true);
+                    setShowSiteList(false); setFrequencyMax(20000); setAngleMax(180);
+                    setSearchText(''); setScanRequested(false);
+                  }}>RESET WORKSPACE SETTINGS</button>
+                </div>
+              )}
+            </section>
+          )}
           {true && (
             <section className="atlas-audio-workspace">
               <div className="atlas-audio-menu-header">
