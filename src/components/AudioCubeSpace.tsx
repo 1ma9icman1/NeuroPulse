@@ -581,6 +581,20 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     setShowAlignmentTriangles(true);
   };
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
+  // Keep the Star Search / alignment controls visibly open in the right sidebar when STARS is clicked.
+  useEffect(() => {
+    if (!isStarPanelExpanded) return;
+    setIsStarModeActive(true);
+    setIsCelestialDeckCollapsed(false);
+    const revealStarControls = () => {
+      const sidebar = document.querySelector('.atlas-right') as HTMLElement | null;
+      const panel = sidebar?.querySelector('.atlas-star-alignment-panel') as HTMLElement | null;
+      if (!sidebar || !panel) return;
+      const panelTop = panel.getBoundingClientRect().top - sidebar.getBoundingClientRect().top + sidebar.scrollTop;
+      sidebar.scrollTop = Math.max(0, panelTop - 8);
+    };
+    requestAnimationFrame(revealStarControls);
+  }, [isStarPanelExpanded]);
   const [isCelestialDeckCollapsed, setIsCelestialDeckCollapsed] = useState<boolean>(false);
   const [showDetailedStarInfo, setShowDetailedStarInfo] = useState<boolean>(true);
   const [showAllStars, setShowAllStars] = useState(false);
