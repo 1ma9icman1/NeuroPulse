@@ -534,10 +534,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const sites = visibleEarthSites.filter((site: any) =>
       site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures
     );
-    // Thousands of DOM-backed labels stall initial globe rendering. Keep the
-    // interactive label layer bounded; all locations remain as clickable globe points.
-    const citySites = sites.filter((site: any) => site.isCity).slice(0, 80);
-    const researchSites = sites.filter((site: any) => !site.isCity).slice(0, 100);
+    // Every visible city and research location gets its own HTML tag.
+    // Do not cap these arrays: the user expects all mapped places to be named.
+    const citySites = sites.filter((site: any) => site.isCity);
+    const researchSites = sites.filter((site: any) => !site.isCity);
     const labelledSites = [...citySites, ...researchSites];
     const buckets = new Map<string, number>();
     return labelledSites.map((site: any) => {
