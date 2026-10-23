@@ -145,14 +145,14 @@ export interface PlaceImage {
 export async function fetchPlaceImages(latitude: number, longitude: number, placeName: string): Promise<PlaceImage[]> {
   try {
     const params = new URLSearchParams({
-      action: 'query', generator: 'geosearch', ggscoord: \`\${latitude}|\${longitude}\`,
+      action: 'query', generator: 'geosearch', ggscoord: `${latitude}|${longitude}`,
       ggsradius: '10000', ggsnamespace: '6', ggslimit: '30',
       prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '1000', format: 'json', origin: '*',
     });
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 4500);
     try {
-      const response = await fetch(\`https://commons.wikimedia.org/w/api.php?\${params}\`, { signal: controller.signal });
+      const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, { signal: controller.signal });
       if (!response.ok) throw new Error('Commons unavailable');
       const json = await response.json();
       const pages = Object.values(json.query?.pages || {}) as Array<any>;
@@ -175,11 +175,11 @@ export async function fetchPlaceImages(latitude: number, longitude: number, plac
   } catch { /* Try NASA's public image library when Commons has no geotagged photos. */ }
 
   try {
-    const query = encodeURIComponent(\`\${latitude.toFixed(2)}, \${longitude.toFixed(2)} \${placeName} Earth landscape\`);
+    const query = encodeURIComponent(`${latitude.toFixed(2)}, ${longitude.toFixed(2)} ${placeName} Earth landscape`);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 4000);
     try {
-      const response = await fetch(\`https://images-api.nasa.gov/search?q=\${query}&media_type=image&page_size=12\`, { signal: controller.signal });
+      const response = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image&page_size=12`, { signal: controller.signal });
       if (!response.ok) return [];
       const json = await response.json();
       return (json.collection?.items || []).map((item: any) => {
@@ -187,11 +187,11 @@ export async function fetchPlaceImages(latitude: number, longitude: number, plac
         if (!link?.href || !/^https?:\\/\\//i.test(link.href)) return null;
         const nasaId = item.data?.[0]?.nasa_id;
         return {
-          title: item.data?.[0]?.title || \`Regional imagery near \${latitude.toFixed(2)}, \${longitude.toFixed(2)}\`,
+          title: item.data?.[0]?.title || `Regional imagery near ${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
           url: link.href,
           description: item.data?.[0]?.description || 'NASA library result; may show regional context rather than the exact ground site.',
           source: 'NASA Image and Video Library (regional context)',
-          pageUrl: nasaId ? \`https://images.nasa.gov/details/\${nasaId}\` : undefined,
+          pageUrl: nasaId ? `https://images.nasa.gov/details/${nasaId}` : undefined,
         } as PlaceImage;
       }).filter((image: PlaceImage | null): image is PlaceImage => Boolean(image)).slice(0, 12);
     } finally { window.clearTimeout(timeout); }
