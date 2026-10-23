@@ -2870,9 +2870,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       />
 
       {/* Top 3D Deck Controls */}
-      <div className="absolute bottom-3 top-auto left-3 right-3 z-[70] flex h-11 flex-nowrap items-center gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-slate-800 bg-[#0b1220]/95 px-1 py-1 shadow-xl backdrop-blur-md pointer-events-auto [scrollbar-width:thin]">
+      <div className="absolute bottom-3 top-auto left-3 right-3 z-[70] flex min-h-11 max-h-24 flex-wrap content-center items-center gap-1 overflow-x-hidden overflow-y-auto rounded-lg border border-slate-800 bg-[#0b1220]/95 px-1 py-1 shadow-xl backdrop-blur-md pointer-events-auto [scrollbar-width:thin]">
         {/* Left: View Mode Switches & Orbit Reset */}
-        <div className="flex shrink-0 flex-nowrap items-center gap-1 border-r border-slate-700 pr-1">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1 border-r border-slate-700 pr-1">
           <button
             onClick={() => onUpdateCameraView('perspective')}
             className={`px-2.5 py-1 text-xs font-mono font-bold rounded-md border transition-colors ${
@@ -2993,17 +2993,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             EARTH IMAGERY
           </button>
           <button
-            onClick={() => activateSeaLevelOverlay(!showSeaLevelOverlay)}
-            aria-pressed={showSeaLevelOverlay}
-            className={`ml-1 flex items-center gap-1 rounded border px-2 py-1 text-[10px] font-mono font-bold ${showSeaLevelOverlay ? 'border-cyan-300 bg-cyan-950 text-cyan-100' : 'border-cyan-700/60 text-cyan-300 hover:bg-cyan-950/50'}`}
-            title="Open the DEM-based sea-level inundation model"
+            type="button"
+            onClick={() => { setShowAddEarthSite(true); setEarthSiteSearchMessage(''); setEarthSiteSearchResults([]); }}
+            className="inline-flex shrink-0 items-center gap-1 rounded border border-cyan-400/70 bg-cyan-950 px-2 py-1 text-[10px] font-mono font-bold text-cyan-100 shadow-[0_0_10px_rgba(34,211,238,.16)] hover:bg-cyan-900"
+            title="Search cities, landmarks, ancient sites, and coordinates"
           >
-            <Layers className="w-3.5 h-3.5" /> SEA LEVEL
+            <MapPin className="w-3.5 h-3.5" /> SEARCH
           </button>
         </div>
 
         {/* Center: zoom/fullscreen controls and star alignment controls */}
-        <div className="flex shrink-0 flex-nowrap items-center gap-1">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
           {isEarthModeActive && (
             <div className="flex shrink-0 items-center justify-center gap-2 rounded-md border border-purple-500/50 bg-slate-950/90 px-2 py-1 text-xs font-mono text-slate-300">
               <button onClick={() => onUpdateCameraZoom(Math.max(0.6, +(cameraZoom - 0.1).toFixed(2)))} className="rounded border border-slate-600 p-1 text-slate-300 hover:bg-slate-800 hover:text-white" title="Zoom Out" aria-label="Zoom out Earth view"><ZoomOut className="w-3.5 h-3.5" /></button>
