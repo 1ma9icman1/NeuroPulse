@@ -141,69 +141,64 @@ export interface PlaceImage {
   pageUrl?: string;
 }
 
-/** Fast nearby Commons image search, then NASA's public image library as a fallback. */
-export async function fetchPlaceImage(latitude: number, longitude: number, starName: string): Promise<PlaceImage | null> {
+/** Nearby, geotagged Commons photos first; NASA is a contextual fallback when Commons has none. */
+export async function fetchPlaceImages(latitude: number, longitude: number, placeName: string): Promise<PlaceImage[]> {
   try {
     const params = new URLSearchParams({
-      action: 'query',
-      generator: 'geosearch',
-      ggscoord: `${latitude}|${longitude}`,
-      ggsradius: '10000',
-      ggsnamespace: '6',
-      ggslimit: '10',
-      prop: 'imageinfo',
-      iiprop: 'url|extmetadata',
-      iiurlwidth: '1000',
-      format: 'json',
-      origin: '*',
+      action: 'query', generator: 'geosearch', ggscoord: \`\${latitude}|\${longitude}\`,
+      ggsradius: '10000', ggsnamespace: '6', ggslimit: '30',
+      prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '1000', format: 'json', origin: '*',
     });
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 3500);
+    const timeout = window.setTimeout(() => controller.abort(), 4500);
     try {
-      const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, { signal: controller.signal });
+      const response = await fetch(\`https://commons.wikimedia.org/w/api.php?\${params}\`, { signal: controller.signal });
       if (!response.ok) throw new Error('Commons unavailable');
       const json = await response.json();
       const pages = Object.values(json.query?.pages || {}) as Array<any>;
-      const page = pages.find((item) => item.imageinfo?.[0]?.thumburl || item.imageinfo?.[0]?.url);
-      const info = page?.imageinfo?.[0];
-      if (page && info) {
+      const images = pages.map((page) => {
+        const info = page.imageinfo?.[0];
+        const url = info?.thumburl || info?.url;
+        if (!url || !/^https?:\\/\\//i.test(url)) return null;
         return {
-          title: page.title.replace(/^File:/, ''),
-          url: info.thumburl || info.url,
-          description: info.extmetadata?.ImageDescription?.value?.replace(/<[^>]*>/g, '') || 'Photograph near the calculated Earth location.',
-          source: 'Wikimedia Commons geosearch',
+          title: String(page.title || 'Location photograph').replace(/^File:/, ''),
+          url,
+          description: String(info.extmetadata?.ImageDescription?.value || 'Geotagged photograph near this location.').replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim(),
+          source: 'Wikimedia Commons geotagged photo',
           pageUrl: info.descriptionurl,
-        };
-      }
-    } finally {
-      window.clearTimeout(timeout);
-    }
-  } catch {
-    // Continue to NASA fallback.
-  }
+        } as PlaceImage;
+      }).filter((image): image is PlaceImage => Boolean(image))
+        .filter((image, index, all) => all.findIndex((other) => other.url === image.url) === index)
+        .slice(0, 20);
+      if (images.length) return images;
+    } finally { window.clearTimeout(timeout); }
+  } catch { /* Try NASA's public image library when Commons has no geotagged photos. */ }
 
   try {
-    const query = encodeURIComponent(`${latitude.toFixed(2)}, ${longitude.toFixed(2)} Earth landscape ${starName}`);
+    const query = encodeURIComponent(\`\${latitude.toFixed(2)}, \${longitude.toFixed(2)} \${placeName} Earth landscape\`);
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 3500);
+    const timeout = window.setTimeout(() => controller.abort(), 4000);
     try {
-      const response = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image&page_size=8`, { signal: controller.signal });
-      if (!response.ok) return null;
+      const response = await fetch(\`https://images-api.nasa.gov/search?q=\${query}&media_type=image&page_size=12\`, { signal: controller.signal });
+      if (!response.ok) return [];
       const json = await response.json();
-      const item = json.collection?.items?.find((entry: any) => entry.links?.some((link: any) => link.render === 'image'));
-      const link = item?.links?.find((entry: any) => entry.render === 'image');
-      if (!item || !link) return null;
-      return {
-        title: item.data?.[0]?.title || `Earth imagery near ${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
-        url: link.href,
-        description: item.data?.[0]?.description || 'NASA image library result; imagery may provide regional context rather than an exact ground photograph.',
-        source: 'NASA Image and Video Library fallback',
-        pageUrl: item.data?.[0]?.nasa_id ? `https://images.nasa.gov/details/${item.data[0].nasa_id}` : undefined,
-      };
-    } finally {
-      window.clearTimeout(timeout);
-    }
-  } catch {
-    return null;
-  }
+      return (json.collection?.items || []).map((item: any) => {
+        const link = item.links?.find((entry: any) => entry.render === 'image');
+        if (!link?.href || !/^https?:\\/\\//i.test(link.href)) return null;
+        const nasaId = item.data?.[0]?.nasa_id;
+        return {
+          title: item.data?.[0]?.title || \`Regional imagery near \${latitude.toFixed(2)}, \${longitude.toFixed(2)}\`,
+          url: link.href,
+          description: item.data?.[0]?.description || 'NASA library result; may show regional context rather than the exact ground site.',
+          source: 'NASA Image and Video Library (regional context)',
+          pageUrl: nasaId ? \`https://images.nasa.gov/details/\${nasaId}\` : undefined,
+        } as PlaceImage;
+      }).filter((image: PlaceImage | null): image is PlaceImage => Boolean(image)).slice(0, 12);
+    } finally { window.clearTimeout(timeout); }
+  } catch { return []; }
+}
+
+/** Backward-compatible single-image helper. */
+export async function fetchPlaceImage(latitude: number, longitude: number, placeName: string): Promise<PlaceImage | null> {
+  return (await fetchPlaceImages(latitude, longitude, placeName))[0] || null;
 }
