@@ -915,7 +915,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     (x: number, y: number, z: number, w: number, h: number) => {
       const cx = w / 2;
       const cy = h / 2;
-      const baseScale = Math.min(w, h) * 0.048 * cameraZoom;
+      const baseScale = Math.min(w, h) * 0.075 * cameraZoom;
 
       if (cameraView === 'top') {
         return {
@@ -965,7 +965,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
       const cx = w / 2;
       const cy = h / 2;
-      const baseScale = Math.min(w, h) * 0.048 * cameraZoom;
+      const baseScale = Math.min(w, h) * 0.075 * cameraZoom;
       const radYaw = (cameraYaw * Math.PI) / 180;
       const radPitch = (cameraPitch * Math.PI) / 180;
 
@@ -1023,7 +1023,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     startX: number,
     startZ: number
   ): { x: number; z: number } => {
-    const baseScale = Math.min(width, height) * 0.048 * cameraZoom;
+    const baseScale = Math.min(width, height) * 0.075 * cameraZoom;
     if (cameraView === 'top') {
       return {
         x: Math.max(-8, Math.min(8, (screenX - width / 2) / (baseScale * 1.25))),
@@ -1070,7 +1070,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const height = canvas.height / dpr;
       const cx = width / 2;
       const cy = height / 2;
-      const baseScale = Math.min(width, height) * 0.048 * cameraZoom;
+      const baseScale = Math.min(width, height) * 0.075 * cameraZoom;
       const moonOrbitPhase = is24HourRotationActive
         ? (dailyRotationDegreesRef.current / 27.321661) * Math.PI / 180
         : (performance.now() / 15000) % (Math.PI * 2);
@@ -2190,7 +2190,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const height = rect.height;
     const cx = width / 2;
     const cy = height / 2;
-    const baseScale = Math.min(width, height) * 0.048 * cameraZoom;
+    const baseScale = Math.min(width, height) * 0.075 * cameraZoom;
 
     if (activeDrag === 'camera') {
       const dx = e.clientX - dragStartPos.current.x;
