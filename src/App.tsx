@@ -99,7 +99,7 @@ export default function App() {
     setStreetFallbackNotice(false);
     streetFallbackTimerRef.current = window.setTimeout(() => {
       setStreetFallbackNotice(true);
-      setEarthAreaView('road');
+      setEarthAreaView('satellite');
     }, 3000);
     return () => {
       if (streetFallbackTimerRef.current !== null) window.clearTimeout(streetFallbackTimerRef.current);
