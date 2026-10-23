@@ -159,7 +159,7 @@ export async function fetchPlaceImages(latitude: number, longitude: number, plac
       const images = pages.map((page) => {
         const info = page.imageinfo?.[0];
         const url = info?.thumburl || info?.url;
-        if (!url || !/^https?:\\/\\//i.test(url)) return null;
+        if (!url || !/^https?:\/\/i.test(url)) return null;
         return {
           title: String(page.title || 'Location photograph').replace(/^File:/, ''),
           url,
@@ -184,7 +184,7 @@ export async function fetchPlaceImages(latitude: number, longitude: number, plac
       const json = await response.json();
       return (json.collection?.items || []).map((item: any) => {
         const link = item.links?.find((entry: any) => entry.render === 'image');
-        if (!link?.href || !/^https?:\\/\\//i.test(link.href)) return null;
+        if (!link?.href || !/^https?:\/\/i.test(link.href)) return null;
         const nasaId = item.data?.[0]?.nasa_id;
         return {
           title: item.data?.[0]?.title || `Regional imagery near ${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
