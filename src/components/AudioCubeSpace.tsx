@@ -697,7 +697,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     // Fall back to a close satellite image instead of leaving an empty panel.
     const fallbackTimer = window.setTimeout(() => setEarthStreetViewFallback(true), 10000);
     return () => window.clearTimeout(fallbackTimer);
-  }, [earthLocateTarget?.latitude, earthLocateTarget?.longitude]);
+  }, [earthLocateTarget]);
   const [selectedEarthSite, setSelectedEarthSite] = useState<EarthSiteSelection | null>(null);
   const openEarthSite = (site: EarthSiteSelection) => {
     setSelectedEarthSite(site);
