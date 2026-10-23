@@ -154,6 +154,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // Sea-level mode is DEM-driven, not a fabricated year-to-water-height animation.
   // The panel computes ocean-connected inundation from a real elevation GeoTIFF.
   const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
+  const [seaLevelFloodPolygons, setSeaLevelFloodPolygons] = useState<Array<{ layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } }>>([]);
   const activateSeaLevelOverlay = (enabled: boolean) => setShowSeaLevelOverlay(enabled);
   const builtInEarthSites = [
     { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, year: -9600 },
@@ -2923,7 +2924,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <button onClick={() => activateSeaLevelOverlay(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close sea-level model"><X className="h-3.5 w-3.5" /></button>
           </div>
           <p className="mb-2 text-[10px] leading-relaxed text-slate-400">Uses actual elevations from a GeoTIFF DEM. The model floods only terrain connected to ocean cells at the raster edge; it does not invent future sea levels or pretend a basemap is elevation data.</p>
-          <SeaLevelDemTool />
+          <SeaLevelDemTool onFloodPolygons={setSeaLevelFloodPolygons} />
         </aside>
       )}
 
@@ -3384,10 +3385,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
               arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
               arcColor={() => '#67e8f9'} arcStroke={0.9} arcAltitude={0.014}
-              polygonsData={showAlignmentTriangles ? trianglePolygons : []}
+              polygonsData={[...(showAlignmentTriangles ? trianglePolygons : []), ...(showSeaLevelOverlay ? seaLevelFloodPolygons : [])]}
               polygonGeoJsonGeometry={(d: any) => d.geometry}
-              polygonCapColor={() => 'rgba(34,211,238,0.055)'}
-              polygonSideColor={() => 'rgba(8,145,178,0.22)'} polygonStrokeColor={() => 'rgba(165,243,252,0.92)'} polygonAltitude={0.018}
+              polygonCapColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(56,189,248,0.42)' : 'rgba(34,211,238,0.055)'}
+              polygonSideColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(14,165,233,0.32)' : 'rgba(8,145,178,0.22)'} polygonStrokeColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(125,211,252,0.85)' : 'rgba(165,243,252,0.92)'} polygonAltitude={(d: any) => d.layerType === 'sea-level-flood' ? 0.022 : 0.018}
               labelsData={visibleEarthSites.filter((site: any) => site.isCity && showCities)}
       labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
       labelColor={() => '#f8fafc'} labelSize={0.55} labelAltitude={0.012} labelDotRadius={0.12}
