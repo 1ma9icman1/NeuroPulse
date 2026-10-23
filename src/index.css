@@ -89,6 +89,26 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 .atlas-globe-grid { position: absolute; inset: 0; z-index: -0; pointer-events: none; opacity: .2; background-image: linear-gradient(rgba(0, 112, 180, .11) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 112, 180, .11) 1px, transparent 1px); background-size: 35px 35px; }
 .atlas-globe-stage > div:not(.atlas-globe-grid):not(.atlas-globe-overlay) { height: 100%; min-height: 0; }
 .atlas-globe-stage canvas { outline: none; }
+
+/* Keep the 3D orbit renderer stretched across the full available viewport area. */
+.atlas-globe-stage {
+  position: relative;
+  width: 100% !important;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.atlas-globe-stage > canvas,
+.atlas-globe-stage canvas.absolute.inset-0 {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+}
 .atlas-globe-overlay { position: absolute; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px; pointer-events: none; color: #77cfff; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-shadow: 0 1px 4px #000; }
 .atlas-globe-overlay-top { top: 9px; left: 11px; right: 11px; justify-content: space-between; }
 .atlas-globe-overlay-bottom { left: 11px; bottom: 10px; right: 11px; padding: 8px; border: 1px solid rgba(20, 122, 187, .3); border-radius: 4px; background: rgba(2, 9, 21, .75); }
