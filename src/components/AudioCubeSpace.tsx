@@ -101,6 +101,7 @@ interface AudioCubeSpaceProps {
   onResetCamera: () => void;
   onSiteSelect: (site: EarthSiteSelection) => void;
   siteCatalogue?: Array<{ name: string; lat: number; lon: number; year?: number; category?: string; isCity?: boolean; color?: string; desc?: string; [key: string]: any }>;
+  showChannelElevationControls?: boolean;
 }
 
 export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
@@ -128,6 +129,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   onResetCamera,
   onSiteSelect,
   siteCatalogue = [],
+  showChannelElevationControls = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -3327,7 +3329,30 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               labelsData={[]}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-              pointLabel={(d: any) => selectedEarthSite?.name === d.name ? '' : d.name}
+              pointLabel={(d: any) => {
+                if (!d || d.isChannelTarget) return '';
+                const escapeHtml = (value: unknown) => String(value ?? '')
+                  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                const channels = [
+                  { key: 'a' as const, color: '#22d3ee' },
+                  { key: 'b' as const, color: '#f472b6' },
+                  { key: 'c' as const, color: '#fbbf24' },
+                ];
+                const badges = channels.map(({ key, color }) => {
+                  const target = earthChannelTargets[key];
+                  const checked = !!target &&
+                    Math.abs(target.lat - Number(d.lat)) < 0.02 &&
+                    Math.abs(target.lng - Number(d.lon)) < 0.02;
+                  return `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:4px;padding:2px 5px;border:1px solid ${color}88;border-radius:5px;color:${color};font-weight:700;background:${checked ? color + '22' : 'rgba(15,23,42,.6)'}">${key.toUpperCase()} ${checked ? '☑' : '☐'}</span>`;
+                }).join('');
+                return `<div style="min-width:170px;max-width:250px;padding:7px 8px;border:1px solid rgba(125,211,252,.55);border-radius:9px;background:rgba(3,10,22,.96);color:#f8fafc;box-shadow:0 8px 25px rgba(0,0,0,.4);font:12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif">
+                  <div style="font-weight:700;margin-bottom:5px">${escapeHtml(d.name || 'Location')}</div>
+                  <div style="display:flex;gap:3px;align-items:center;margin-bottom:5px">${badges}</div>
+                  <div style="font-size:10px;color:#94a3b8">${Number(d.lat).toFixed(4)}°, ${Number(d.lon).toFixed(4)}°</div>
+                  <div style="font-size:10px;color:#cbd5e1;margin-top:3px">Click the location, then use ADD TO A/B/C to assign a channel.</div>
+                </div>`;
+              }}
               htmlElementsData={[...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
@@ -3470,7 +3495,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
-      {!isSolarSystemMode && (
+      {showChannelElevationControls && !isSolarSystemMode && (
       <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
         {/* CH-A Elevation */}
         <div className="flex flex-col items-center gap-1">
