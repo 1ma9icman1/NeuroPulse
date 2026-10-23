@@ -35,6 +35,7 @@ export const SeaLevelDemTool: React.FC = () => {
   const [metadata, setMetadata] = useState<GeoMeta | null>(null);
   const [tiffProduct, setTiffProduct] = useState<Product | null>(null);
   const [pngProduct, setPngProduct] = useState<Product | null>(null);
+  const [pngPreviewUrl, setPngPreviewUrl] = useState<string | null>(null);
   const [matchedCount, setMatchedCount] = useState(0);
   const [validCount, setValidCount] = useState(0);
 
@@ -43,6 +44,7 @@ export const SeaLevelDemTool: React.FC = () => {
     setMetadata(null);
     setTiffProduct(null);
     setPngProduct(null);
+    setPngPreviewUrl(null);
     setMatchedCount(0);
     setValidCount(0);
     setProgress(0);
@@ -59,6 +61,7 @@ export const SeaLevelDemTool: React.FC = () => {
     setError('');
     setTiffProduct(null);
     setPngProduct(null);
+    setPngPreviewUrl(null);
     try {
       if (file.size > MAX_INPUT_BYTES) {
         throw new Error('This file is larger than 300 MB. Download a smaller regional DEM/tile first to avoid running out of browser memory.');
@@ -189,6 +192,7 @@ export const SeaLevelDemTool: React.FC = () => {
         const png = await new Promise<Blob>((resolve, reject) =>
           canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Could not create PNG preview.')), 'image/png'));
         setPngProduct({ blob: png, filename: `${stem}-${suffix}-preview.png` });
+        setPngPreviewUrl(URL.createObjectURL(png));
       }
       const geoKeysForLabel = geoKeys as Record<string, unknown>;
       const projectionLabel = geoKeysForLabel.ProjectedCSTypeGeoKey
@@ -274,9 +278,23 @@ export const SeaLevelDemTool: React.FC = () => {
         <div><span className="block text-slate-500">Coordinate bounds</span><strong className="break-all text-slate-200">{metadata.bbox.map(v => Number(v).toFixed(5)).join(', ')}</strong></div>
         <div><span className="block text-slate-500">Projection</span><strong className="break-words text-slate-200">{metadata.projectionLabel}</strong></div>
       </div>}
+      {pngPreviewUrl && metadata && <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/70 p-2">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-[10px] font-mono font-bold text-sky-200">GENERATED ELEVATION LAYER PREVIEW</div>
+          <span className="text-[9px] text-slate-400">Transparent pixels = no match</span>
+        </div>
+        <div className="overflow-hidden rounded border border-slate-800 bg-slate-950">
+          <img src={pngPreviewUrl} alt="Preview of generated elevation mask" className="block max-h-72 w-full object-contain" />
+        </div>
+        <p className="mt-2 text-[9px] leading-relaxed text-slate-400">This is a raster preview of the selected DEM tile. Its GeoTIFF download retains georeferencing for GIS. It is not yet draped onto the live 3D Earth globe.</p>
+      </div>}
       <div className="mt-3 border-t border-slate-800 pt-2 text-[9px] leading-relaxed text-slate-500">
-        <div className="mb-1 font-bold uppercase tracking-wide text-slate-400">Free DEM downloads — no API key</div>
-        <a className="underline decoration-cyan-700 underline-offset-2 hover:text-cyan-200" href="https://coast.noaa.gov/slrdata/" target="_blank" rel="noreferrer">NOAA Sea Level Rise Viewer DEMs and masks</a>
+        <div className="mb-1 font-bold uppercase tracking-wide text-slate-400">Free NOAA / USGS DEM data — no API key</div>
+        <div className="mb-2 flex flex-wrap gap-2">
+          <a className="rounded border border-cyan-800 px-2 py-1 text-cyan-200 hover:bg-cyan-950" href="https://coast.noaa.gov/htdata/raster2/elevation/SLR_viewer_DEM_6230/" target="_blank" rel="noreferrer">NOAA DEM 6230 directory</a>
+          <a className="rounded border border-cyan-800 px-2 py-1 text-cyan-200 hover:bg-cyan-950" href="https://noaa-nos-coastal-lidar-pds.s3.amazonaws.com/dem/SLR_Viewer_DEM_AS_9062/index.html" target="_blank" rel="noreferrer">NOAA American Samoa DEM 9062</a>
+        </div>
+        <a className="underline decoration-cyan-700 underline-offset-2 hover:text-cyan-200" href="https://coast.noaa.gov/slrdata/" target="_blank" rel="noreferrer">NOAA Sea Level Rise Viewer data portal</a>
         <span> · </span>
         <a className="underline decoration-cyan-700 underline-offset-2 hover:text-cyan-200" href="https://apps.nationalmap.gov/downloader/" target="_blank" rel="noreferrer">USGS The National Map</a>
         <p className="mt-1">For the 30 m band, input pixels are compared in the elevation units stored in your DEM (normally metres). The low-terrain mode does not claim that all low pixels are connected to the ocean. Use small local tiles: processing is limited to 300 MB / 45 million pixels per file.</p>
