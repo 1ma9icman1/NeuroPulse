@@ -3344,7 +3344,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   : 'bg-slate-800 text-slate-400'
               }`}
             >
-              {selectedStarPreset.startsWith('constellation-') ? 'CONSTELLATION PRESET' : `7:11 MATCH: ${relation711.matchPercentage}%`}
+              {selectedStarPreset.startsWith('constellation-') ? 'CONSTELLATION PRESET' : '7:11 MATCH: ' + relation711.matchPercentage + '%'}
               </span>
             </div>
           </div>
