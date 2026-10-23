@@ -566,73 +566,131 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // historic places, and acoustic locations. Results are held in state, not recalculated
   // on every render or animation frame.
   const triangulateEarthLocations = () => {
-    const uniqueSites = new Map<string, any>();
+    // Build a real Delaunay triangulation: each unique site is a vertex, and
+    // triangles are the non-overlapping faces of one mesh. The old nearest-3
+    // approach generated many overlapping triples and edges unrelated to faces.
+    const byCoordinate = new Map<string, any>();
     visibleEarthSites.forEach((site: any) => {
-      if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) return;
-      const key = String(site.name || '').trim().toLocaleLowerCase() + ':' + Number(site.lat).toFixed(5) + ':' + Number(site.lon).toFixed(5);
-      if (site.name && !uniqueSites.has(key)) uniqueSites.set(key, site);
+      const lat = Number(site.lat), lon = Number(site.lon);
+      if (!site.name || !Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
+      const coordinateKey = lat.toFixed(5) + ':' + lon.toFixed(5);
+      if (!byCoordinate.has(coordinateKey)) byCoordinate.set(coordinateKey, { ...site, lat, lon });
     });
-    const sites = Array.from(uniqueSites.values());
-    const distance = (a: any, b: any) => {
-      const rad = Math.PI / 180;
-      const dLat = (b.lat - a.lat) * rad;
-      const dLon = (b.lon - a.lon) * rad;
-      const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
-      return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+    const sites = Array.from(byCoordinate.values());
+    if (sites.length < 3) {
+      setTriangulationOverlay({ edges: [], polygons: [], angleLabels: [], siteCount: sites.length });
+      setShowAlignmentTriangles(true);
+      return;
+    }
+
+    // Unwrap longitude around the circular mean so the date line does not create
+    // a 360-degree false gap. Project to a latitude-adjusted local map plane.
+    const sinLon = sites.reduce((sum, p) => sum + Math.sin(p.lon * Math.PI / 180), 0);
+    const cosLon = sites.reduce((sum, p) => sum + Math.cos(p.lon * Math.PI / 180), 0);
+    const lonCenter = Math.atan2(sinLon, cosLon) * 180 / Math.PI;
+    const latCenter = sites.reduce((sum, p) => sum + p.lat, 0) / sites.length;
+    const lonScale = Math.max(0.08, Math.cos(latCenter * Math.PI / 180));
+    const points = sites.map((site, index) => {
+      let deltaLon = site.lon - lonCenter;
+      while (deltaLon > 180) deltaLon -= 360;
+      while (deltaLon < -180) deltaLon += 360;
+      return { index, x: deltaLon * lonScale, y: site.lat };
+    });
+
+    type Tri = { a: number; b: number; c: number };
+    const circumcircleContains = (tri: Tri, p: { x: number; y: number }) => {
+      const A = points[tri.a], B = points[tri.b], C = points[tri.c];
+      const ax = A.x - p.x, ay = A.y - p.y;
+      const bx = B.x - p.x, by = B.y - p.y;
+      const cx = C.x - p.x, cy = C.y - p.y;
+      const det = (ax * ax + ay * ay) * (bx * cy - cx * by)
+        - (bx * bx + by * by) * (ax * cy - cx * ay)
+        + (cx * cx + cy * cy) * (ax * by - bx * ay);
+      const orient = (B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x);
+      return orient > 0 ? det > 1e-10 : det < -1e-10;
     };
-    const siteKey = (site: any) => String(site.name || '') + '|' + Number(site.lat).toFixed(5) + '|' + Number(site.lon).toFixed(5);
+    const orientTriangle = (a: number, b: number, c: number): Tri => {
+      const A = points[a], B = points[b], C = points[c];
+      return (B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x) >= 0
+        ? { a, b, c } : { a, b: c, c: b };
+    };
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    points.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+    const span = Math.max(maxX - minX, maxY - minY, 1);
+    const midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
+    const realCount = points.length;
+    points.push(
+      { index: realCount, x: midX - 32 * span, y: midY - 2 * span },
+      { index: realCount + 1, x: midX, y: midY + 32 * span },
+      { index: realCount + 2, x: midX + 32 * span, y: midY - 2 * span },
+    );
+    let triangles: Tri[] = [orientTriangle(realCount, realCount + 2, realCount + 1)];
+    for (let pIndex = 0; pIndex < realCount; pIndex++) {
+      const p = points[pIndex];
+      const bad: Tri[] = [];
+      triangles.forEach(tri => { if (circumcircleContains(tri, p)) bad.push(tri); });
+      const boundary = new Map<string, { u: number; v: number; count: number }>();
+      bad.forEach(tri => {
+        [[tri.a, tri.b], [tri.b, tri.c], [tri.c, tri.a]].forEach(([u, v]) => {
+          const key = Math.min(u, v) + ':' + Math.max(u, v);
+          const found = boundary.get(key);
+          if (found) found.count++;
+          else boundary.set(key, { u, v, count: 1 });
+        });
+      });
+      const badSet = new Set(bad);
+      triangles = triangles.filter(tri => !badSet.has(tri));
+      boundary.forEach(edge => {
+        if (edge.count !== 1) return;
+        const tri = orientTriangle(edge.u, edge.v, pIndex);
+        const A = points[tri.a], B = points[tri.b], C = points[tri.c];
+        const area2 = Math.abs((B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x));
+        if (area2 > 1e-8) triangles.push(tri);
+      });
+    }
+    triangles = triangles.filter(tri => tri.a < realCount && tri.b < realCount && tri.c < realCount);
+    points.length = realCount;
+
     const edgeMap = new Map<string, { startLat: number; startLng: number; endLat: number; endLng: number }>();
-    const triangleMap = new Map<string, { name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }>();
+    const polygons: Array<{ name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }> = [];
     const angleLabels: Array<{ name: string; lat: number; lon: number; label: string; isTriangleAngleLabel: true }> = [];
-    const nearestBySite = new Map<string, any[]>();
-    sites.forEach((site: any) => {
-      const nearest = sites.filter((other: any) => siteKey(other) !== siteKey(site))
-        .map((other: any) => ({ site: other, distance: distance(site, other) }))
-        .sort((a: any, b: any) => a.distance - b.distance)
-        .slice(0, 3).map((entry: any) => entry.site);
-      nearestBySite.set(siteKey(site), nearest);
-      nearest.forEach((other: any) => {
-        const aKey = siteKey(site), bKey = siteKey(other);
-        const key = [aKey, bKey].sort().join('::');
-        if (!edgeMap.has(key)) edgeMap.set(key, { startLat: site.lat, startLng: site.lon, endLat: other.lat, endLng: other.lon });
+    const edgeKey = (i: number, j: number) => Math.min(i, j) + ':' + Math.max(i, j);
+    triangles.forEach(tri => {
+      const indices = [tri.a, tri.b, tri.c];
+      const [a, b, c] = indices.map(i => sites[i]);
+      const keys = indices.map(i => sites[i].name);
+      polygons.push({
+        name: keys.join(' / '),
+        geometry: { type: 'Polygon', coordinates: [[[a.lon, a.lat], [b.lon, b.lat], [c.lon, c.lat], [a.lon, a.lat]]] },
+      });
+      [[tri.a, tri.b], [tri.b, tri.c], [tri.c, tri.a]].forEach(([i, j]) => {
+        const key = edgeKey(i, j);
+        if (!edgeMap.has(key)) edgeMap.set(key, { startLat: sites[i].lat, startLng: sites[i].lon, endLat: sites[j].lat, endLng: sites[j].lon });
+      });
+      const project = (p: any) => {
+        let dLon = p.lon - lonCenter;
+        while (dLon > 180) dLon -= 360;
+        while (dLon < -180) dLon += 360;
+        return { x: dLon * lonScale, y: p.lat };
+      };
+      const pa = project(a), pb = project(b), pc = project(c);
+      const angleAt = (p: {x:number;y:number}, q: {x:number;y:number}, r: {x:number;y:number}) => {
+        const u = { x: q.x - p.x, y: q.y - p.y }, v = { x: r.x - p.x, y: r.y - p.y };
+        const denom = Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y);
+        if (denom < 1e-12) return 0;
+        return Math.acos(Math.max(-1, Math.min(1, (u.x * v.x + u.y * v.y) / denom))) * 180 / Math.PI;
+      };
+      const angles = [angleAt(pa, pb, pc), angleAt(pb, pa, pc), angleAt(pc, pa, pb)];
+      angleLabels.push({
+        name: keys.join(' / '),
+        lat: (a.lat + b.lat + c.lat) / 3,
+        lon: (a.lon + b.lon + c.lon) / 3,
+        label: angles.map(value => Math.round(value) + '°').join(' · '),
+        isTriangleAngleLabel: true,
       });
     });
-    sites.forEach((site: any) => {
-      const nearest = nearestBySite.get(siteKey(site)) || [];
-      for (let i = 0; i < nearest.length; i++) for (let j = i + 1; j < nearest.length; j++) {
-        const a = site, b = nearest[i], c = nearest[j];
-        const keys = [siteKey(a), siteKey(b), siteKey(c)].sort();
-        const key = keys.join('::');
-        if (triangleMap.has(key)) continue;
-        // Reject nearly-collinear triples so the overlay reads as a clean mesh.
-        const x1 = (b.lon - a.lon) * Math.cos(a.lat * Math.PI / 180), y1 = b.lat - a.lat;
-        const x2 = (c.lon - a.lon) * Math.cos(a.lat * Math.PI / 180), y2 = c.lat - a.lat;
-        if (Math.abs(x1 * y2 - y1 * x2) < 0.00001) continue;
-        triangleMap.set(key, {
-          name: [a.name, b.name, c.name].join(' / '),
-          geometry: { type: 'Polygon', coordinates: [[[a.lon, a.lat], [b.lon, b.lat], [c.lon, c.lat], [a.lon, a.lat]]] },
-        });
-        // Calculate the three interior angles on a local tangent plane and place their
-        // compact readout at the triangle center. These labels are independently toggleable.
-        const project = (p: any) => ({ x: (p.lon - a.lon) * Math.cos(a.lat * Math.PI / 180), y: p.lat - a.lat });
-        const pa = project(a), pb = project(b), pc = project(c);
-        const angleAt = (p: {x:number;y:number}, q: {x:number;y:number}, r: {x:number;y:number}) => {
-          const u = { x: q.x - p.x, y: q.y - p.y }, v = { x: r.x - p.x, y: r.y - p.y };
-          const denom = Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y);
-          if (!denom) return 0;
-          return Math.acos(Math.max(-1, Math.min(1, (u.x * v.x + u.y * v.y) / denom))) * 180 / Math.PI;
-        };
-        const angles = [angleAt(pa, pb, pc), angleAt(pb, pa, pc), angleAt(pc, pa, pb)];
-        angleLabels.push({
-          name: [a.name, b.name, c.name].join(' / '),
-          lat: (a.lat + b.lat + c.lat) / 3,
-          lon: (a.lon + b.lon + c.lon) / 3,
-          label: angles.map((value) => `${Math.round(value)}°`).join(' · '),
-          isTriangleAngleLabel: true,
-        });
-      }
-    });
-    setTriangulationOverlay({ edges: Array.from(edgeMap.values()), polygons: Array.from(triangleMap.values()), angleLabels, siteCount: sites.length });
+    setTriangulationOverlay({ edges: Array.from(edgeMap.values()), polygons, angleLabels, siteCount: sites.length });
     setShowAlignmentTriangles(true);
   };
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
