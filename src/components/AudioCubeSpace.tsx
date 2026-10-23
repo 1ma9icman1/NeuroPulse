@@ -1697,30 +1697,31 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       };
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
       if (showCities) majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
-      // Modern coordinates for archaeological destinations; visibility follows approximate site era.
-      const historicalSites: Array<{ name: string; lat: number; lon: number; era: number }> = earthSites.filter((site: any) => !site.isCity).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, era: site.year }));
-      historicalSites.forEach((site) => {
-        if (showAncientStructures && timelineYear >= site.era) {
-          labelEarthPoint('ANCIENT · ' + site.name, site.lat, site.lon, showAcousticColorSystem ? '#facc15' : '#e2e8f0');
-          if (show110HzResearchComets) {
-            const sitePos = earthPoint(site.lat, site.lon, earthRadius * 1.02);
-            if (cameraFront(sitePos)) {
-              const p = project3D(sitePos.x, sitePos.y, sitePos.z, width, height);
-              const phase = (performance.now() / 420 + Math.abs(site.lat * 11 + site.lon)) % 1;
-              const dx = 14 + phase * 34;
-              const dy = -10 - phase * 24;
-              ctx.save();
-              ctx.globalAlpha = Math.max(0.08, 1 - phase);
-              ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 2; ctx.shadowColor = '#f97316'; ctx.shadowBlur = 9;
-              ctx.beginPath(); ctx.moveTo(p.sx - dx * 0.7, p.sy - dy * 0.7); ctx.lineTo(p.sx + dx * 0.3, p.sy + dy * 0.3); ctx.stroke();
-              ctx.beginPath(); ctx.arc(p.sx, p.sy, 3 + phase * 2, 0, Math.PI * 2); ctx.fillStyle = '#ffedd5'; ctx.fill();
-              ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-              ctx.font = '8px "JetBrains Mono", monospace'; ctx.fillStyle = '#fed7aa'; ctx.fillText('110 Hz candidate*', p.sx + 5, p.sy - 6);
-              ctx.restore();
-            }
-          }
-        }
-      });
+      // WebGL already renders the full archaeological catalogue. Do not walk every
+      // catalogue record and redraw its marker on every animation frame; that duplicated
+      // thousands of points and made the globe feel frozen. Animate a bounded set of
+      // research comets only when that overlay is explicitly enabled.
+      if (showAncientStructures && show110HzResearchComets) {
+        const cometSites = earthSites.filter((site: any) =>
+          !site.isCity && showAncientStructures && timelineYear >= site.year
+        ).slice(0, 100);
+        cometSites.forEach((site: any) => {
+          const sitePos = earthPoint(site.lat, site.lon, earthRadius * 1.02);
+          if (!cameraFront(sitePos)) return;
+          const p = project3D(sitePos.x, sitePos.y, sitePos.z, width, height);
+          const phase = (performance.now() / 420 + Math.abs(site.lat * 11 + site.lon)) % 1;
+          const dx = 14 + phase * 34;
+          const dy = -10 - phase * 24;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0.08, 1 - phase);
+          ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 2; ctx.shadowColor = '#f97316'; ctx.shadowBlur = 9;
+          ctx.beginPath(); ctx.moveTo(p.sx - dx * 0.7, p.sy - dy * 0.7); ctx.lineTo(p.sx + dx * 0.3, p.sy + dy * 0.3); ctx.stroke();
+          ctx.beginPath(); ctx.arc(p.sx, p.sy, 3 + phase * 2, 0, Math.PI * 2); ctx.fillStyle = '#ffedd5'; ctx.fill();
+          ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+          ctx.font = '8px "JetBrains Mono", monospace'; ctx.fillStyle = '#fed7aa'; ctx.fillText('110 Hz candidate*', p.sx + 5, p.sy - 6);
+          ctx.restore();
+        });
+      }
       // Sourced acoustic record: the Hypogeum paper reports 70 Hz and 114 Hz.
       // Preserve 114 Hz exactly; its marker is shown in the 110 Hz investigation band only as a nearby result.
       if (showAncientStructures && timelineYear >= -4000) {
