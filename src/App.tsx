@@ -15,7 +15,7 @@ import { DEFAULT_EARTH_POINTS } from './data/earthData';
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
 import { ACOUSTIC_SITE_EVIDENCE } from './data/acousticSiteEvidence';
 
-const INITIAL_CONFIG: TrinauralConfig = { aFreq:432,aFineTune:0,aWaveform:'sine',aGain:0.85,aMuted:false,aPos:{x:-4.5,y:1.5,z:0}, bFreq:442,bFineTune:0,bWaveform:'sine',bGain:0.85,bMuted:false,bPos:{x:4.5,y:1.5,z:0}, cFreq:452,cFineTune:0,cWaveform:'sine',cGain:0.85,cMuted:false,cPos:{x:0,y:2.5,z:3.5},isDeltaLocked:true,lockedDeltaAB:10,lockedDeltaBC:10,masterVolume:0.8,spatialMode:'trinaural-isolated',cameraView:'top',cameraYaw:30,cameraPitch:22,cameraZoom:4.3 };
+const INITIAL_CONFIG: TrinauralConfig = { aFreq:432,aFineTune:0,aWaveform:'sine',aGain:0.85,aMuted:false,aPos:{x:-4.5,y:1.5,z:0}, bFreq:442,bFineTune:0,bWaveform:'sine',bGain:0.85,bMuted:false,bPos:{x:4.5,y:1.5,z:0}, cFreq:452,cFineTune:0,cWaveform:'sine',cGain:0.85,cMuted:false,cPos:{x:0,y:2.5,z:3.5},isDeltaLocked:true,lockedDeltaAB:10,lockedDeltaBC:10,masterVolume:0.8,spatialMode:'trinaural-isolated',cameraView:'top',cameraYaw:30,cameraPitch:22,cameraZoom:3.0 };
 const CENTER: SpatialPosition = { x: 0, y: 0, z: 0 };
 const NAV_ITEMS = [
   { label: 'GLOBAL SEARCH', icon: Radar },
@@ -32,6 +32,21 @@ const NAV_ITEMS = [
   { label: 'TRINAURAL / SOLFEGGIO', icon: AudioWaveform },
   { label: 'SETTINGS', icon: Settings2 },
 ];
+
+
+function researchModuleForSite(site: (typeof DEFAULT_EARTH_POINTS)[number]): string[] {
+  const name = site.name.toLowerCase();
+  const description = (site.desc ?? '').toLowerCase();
+  const category = (site.category ?? '').toLowerCase();
+  const modules: string[] = ['DATABASE', 'GLOBAL SEARCH', 'MAP OVERLAYS'];
+  if (category === 'ancient' || /pyramid|stonehenge|megalith|temple|ruins|ancient|nazca|göbekli|gobekli|catalh|çatal|newgrange|carnac|moai|teotihuacan|chichen|jericho|neolithic|archaeolog|dolmen|standing stone|petra|machu picchu|angkor|baalbek|persepolis|pompeii/.test(name + ' ' + description)) modules.push('ANCIENT SITES');
+  if (category === 'astronomy' || /observatory|astronom|solstice|equinox|meridian|celestial|star|constellation|sky alignment|sun pyramid/.test(name + ' ' + description)) modules.push('STELLAR ALIGNMENTS', 'ALIGNMENT ANALYSIS', 'ANGLES & DIRECTIONS');
+  if (category === 'acoustic' || /acoustic|sound|resonan|frequency|echo|measured hz|solfeggio/.test(name + ' ' + description)) modules.push('FREQUENCY / HZ', 'SOUND PATTERNS');
+  if (category === 'custom' || /city|hub|reference location|modern reference/.test(name + ' ' + description)) modules.push('GLOBAL SEARCH', 'TRIGONOMETRY');
+  if (!modules.includes('ALIGNMENT ANALYSIS')) modules.push('ALIGNMENT ANALYSIS');
+  if (!modules.includes('TRIGONOMETRY')) modules.push('TRIGONOMETRY');
+  return [...new Set(modules)];
+}
 
 function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
   const rad = Math.PI / 180;
@@ -156,6 +171,42 @@ export default function App() {
             ))}
           </section>
 
+
+          <section className="atlas-panel atlas-site-card atlas-left-selected-site">
+            <div className="atlas-panel-heading"><MapPin size={13} /> SELECTED EARTH LOCATION <span className="atlas-panel-count">LIVE</span></div>
+            {selectedSite ? <>
+              <div className="atlas-site-hero">
+                <div className="atlas-site-glyph"><MapPin size={24} /></div>
+                <div><h2>{selectedSite.name}</h2><div className="atlas-muted">{selectedSite.category ?? 'Reference location'}{selectedGlobeSite ? ' · selected on globe' : ''}</div></div>
+              </div>
+              <div className="atlas-coordinates">
+                <div><span>LATITUDE</span><strong>{formatCoordinate(selectedSite.lat, 'N', 'S')}</strong></div>
+                <div><span>LONGITUDE</span><strong>{formatCoordinate(selectedSite.lon, 'E', 'W')}</strong></div>
+              </div>
+              <p className="atlas-site-description">{selectedSite.desc ?? 'Coordinates are included in the local site catalogue.'}</p>
+              <div className="atlas-data-table">
+                <div><span>Nearest listed site</span><strong>{nearestSites[0]?.name ?? '—'}</strong></div>
+                <div><span>Surface distance</span><strong>{nearestSites[0] ? `${Math.round(nearestSites[0].distance).toLocaleString()} km` : '—'}</strong></div>
+                <div><span>Acoustic records within 100 km</span><strong>{linkedAcousticRecords.length}</strong></div>
+                <div><span>Research modules</span><strong>{researchModuleForSite(selectedSite as (typeof DEFAULT_EARTH_POINTS)[number]).filter(m => m !== 'DATABASE' && m !== 'GLOBAL SEARCH' && m !== 'MAP OVERLAYS').length}</strong></div>
+              </div>
+              <div className="atlas-left-site-actions">
+                <a href={`https://www.openstreetmap.org/?mlat=${selectedSite.lat}&mlon=${selectedSite.lon}#map=9/${selectedSite.lat}/${selectedSite.lon}`} target="_blank" rel="noreferrer">OPEN STREET MAP ↗</a>
+                <a href={`https://www.google.com/maps/search/?api=1&query=${selectedSite.lat},${selectedSite.lon}`} target="_blank" rel="noreferrer">GOOGLE MAPS ↗</a>
+              </div>
+              <div className="atlas-subheading">NEARBY SITES · CLICK TO SELECT</div>
+              {nearestSites.slice(0,3).map(site => <button key={site.id} className="atlas-related-row" onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); }}><span className="atlas-related-marker"><MapPin size={13}/></span><span className="atlas-related-copy"><strong>{site.name}</strong><small>{Math.round(site.distance).toLocaleString()} km away</small></span></button>)}
+            </> : <div className="atlas-no-data">Click a city or site on Earth to load its location data here.</div>}
+          </section>
+          <section className="atlas-panel atlas-module-sites">
+            <div className="atlas-panel-heading"><Database size={13}/> {activeNav === 'GLOBAL SEARCH' ? 'SITE CATALOGUE' : activeNav} <span className="atlas-panel-count">{DEFAULT_EARTH_POINTS.filter(site => activeNav === 'GLOBAL SEARCH' || researchModuleForSite(site).includes(activeNav)).length}</span></div>
+            <div className="atlas-module-site-list">
+              {DEFAULT_EARTH_POINTS.filter(site => activeNav === 'GLOBAL SEARCH' || activeNav === 'DATABASE' || researchModuleForSite(site).includes(activeNav))
+                .filter(site => !searchText.trim() || [site.name, site.category, site.desc].some(value => value?.toLowerCase().includes(searchText.trim().toLowerCase())))
+                .map(site => <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-module-site selected' : 'atlas-module-site'} onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); }}><MapPin size={12}/><span>{site.name}</span><small>{site.category ?? 'reference'}</small></button>)}
+            </div>
+          </section>
+
           <section className="atlas-panel atlas-filter-panel">
             <div className="atlas-panel-heading"><SlidersHorizontal size={13} /> SEARCH FILTERS</div>
             <label className="atlas-searchbox">
@@ -198,7 +249,7 @@ export default function App() {
               onUpdateSpatialMode={(spatialMode) => handleUpdateConfig({ spatialMode })} onUpdateCameraView={(cameraView) => handleUpdateConfig({ cameraView })}
               onUpdateCameraAngles={(cameraYaw, cameraPitch) => handleUpdateConfig({ cameraYaw, cameraPitch })}
               onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
-              onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 4.3, cameraView: 'top' })}
+              onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 3.0, cameraView: 'top' })}
               onSiteSelect={handleGlobeSiteSelect}
             />
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
