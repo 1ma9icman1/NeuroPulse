@@ -20,6 +20,9 @@ const CENTER: SpatialPosition = { x: 0, y: 0, z: 0 };
 const NAV_ITEMS = [
   { label: 'GLOBAL SEARCH', icon: Radar },
   { label: 'ANCIENT SITES', icon: MapPin },
+  { label: 'HISTORICAL SITES', icon: Landmark },
+  { label: 'CITIES', icon: Building2 },
+  { label: 'REFERENCE LOCATIONS', icon: Globe2 },
   { label: 'ALIGNMENT ANALYSIS', icon: Target },
   { label: 'FREQUENCY / HZ', icon: AudioWaveform },
   { label: 'SOUND PATTERNS', icon: Waves },
@@ -39,15 +42,15 @@ function researchModuleForSite(site: (typeof DEFAULT_EARTH_POINTS)[number]): str
   const description = (site.desc ?? '').toLowerCase();
   const category = (site.category ?? '').toLowerCase();
   const modules: string[] = ['DATABASE', 'GLOBAL SEARCH', 'MAP OVERLAYS'];
-  if (category === 'ancient' || /pyramid|stonehenge|megalith|temple|ruins|ancient|nazca|göbekli|gobekli|catalh|çatal|newgrange|carnac|moai|teotihuacan|chichen|jericho|neolithic|archaeolog|dolmen|standing stone|petra|machu picchu|angkor|baalbek|persepolis|pompeii/.test(name + ' ' + description)) modules.push('ANCIENT SITES');
-  if (category === 'astronomy' || /observatory|astronom|solstice|equinox|meridian|celestial|star|constellation|sky alignment|sun pyramid/.test(name + ' ' + description)) modules.push('STELLAR ALIGNMENTS', 'ALIGNMENT ANALYSIS', 'ANGLES & DIRECTIONS');
+  if (category === 'ancient' || /pyramid|stonehenge|megalith|temple|ruins|ancient|nazca|göbekli|gobekli|çatal|newgrange|carnac|moai|teotihuacan|chichen|jericho|neolithic|archaeolog|dolmen|standing stone|petra|machu picchu|angkor|baalbek|persepolis|pompeii|mound|sanctuary|ziggurat|grotto|cliff palace|historical park|passage tomb|stone circle/.test(name + ' ' + description)) modules.push('ANCIENT SITES', 'HISTORICAL SITES');
+  if (category === 'astronomy' || /observatory|astronom|solstice|equinox|meridian|celestial|star|constellation|sky alignment|chankillo/.test(name + ' ' + description)) modules.push('STELLAR ALIGNMENTS', 'ALIGNMENT ANALYSIS', 'ANGLES & DIRECTIONS');
   if (category === 'acoustic' || /acoustic|sound|resonan|frequency|echo|measured hz|solfeggio/.test(name + ' ' + description)) modules.push('FREQUENCY / HZ', 'SOUND PATTERNS');
-  if (category === 'custom' || /city|hub|reference location|modern reference/.test(name + ' ' + description)) modules.push('GLOBAL SEARCH', 'TRIGONOMETRY');
+  if (category === 'city' || /city|tokyo celestial hub/.test(name)) modules.push('CITIES', 'GLOBAL SEARCH', 'TRIGONOMETRY');
+  if (category === 'reference') modules.push('REFERENCE LOCATIONS', 'GLOBAL SEARCH');
   if (!modules.includes('ALIGNMENT ANALYSIS')) modules.push('ALIGNMENT ANALYSIS');
   if (!modules.includes('TRIGONOMETRY')) modules.push('TRIGONOMETRY');
   return [...new Set(modules)];
 }
-
 function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
   const rad = Math.PI / 180;
   const dLat = (b.lat - a.lat) * rad;
@@ -119,7 +122,10 @@ export default function App() {
 
   const navDescription: Record<string, string> = {
     'GLOBAL SEARCH': 'Search and compare documented places, measured evidence, and calculated geometry.',
-    'ANCIENT SITES': 'Browse the existing geographic site catalogue.',
+    'ANCIENT SITES': 'Browse archaeological sites, monuments, and ancient structures.',
+    'HISTORICAL SITES': 'Browse historic settlements, temples, tombs, and cultural landmarks.',
+    'CITIES': 'Browse modern cities and urban reference locations.',
+    'REFERENCE LOCATIONS': 'Browse geographic locations that do not fit a specialist category.',
     'ALIGNMENT ANALYSIS': 'Compare coordinates and test candidate alignments without treating proximity as proof.',
     'FREQUENCY / HZ': 'Explore published acoustic measurements and clearly labelled investigation bands.',
     'SOUND PATTERNS': 'Review source-backed acoustic records and their measurement context.',
