@@ -797,6 +797,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     window.setTimeout(() => setSnapFeedback(null), 3800);
   };
 
+  useEffect(() => {
+    const assign = (event: Event) => {
+      const detail = (event as CustomEvent<{ channel: 'a' | 'b' | 'c'; latitude: number; longitude: number }>).detail;
+      if (detail && ['a', 'b', 'c'].includes(detail.channel)) handlePinChannelToEarth(detail.channel, detail.latitude, detail.longitude);
+    };
+    window.addEventListener('neuro-pulse-assign-earth-site', assign);
+    return () => window.removeEventListener('neuro-pulse-assign-earth-site', assign);
+  }, [timelineYear]);
+
   const handlePinChannelToEarth = (channel: 'a' | 'b' | 'c', latitude: number, longitude: number) => {
     const lat = Math.max(-89.999, Math.min(89.999, latitude));
     const lng = ((longitude + 180) % 360 + 360) % 360 - 180;
