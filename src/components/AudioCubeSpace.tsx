@@ -3436,10 +3436,9 @@ remove old timeline button      {/* Historical Earth / sky timeline is off by de
               labelsData={visibleEarthSites.filter((site: any) => site.isCity && showCities)}
       labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
       labelColor={() => '#f8fafc'} labelSize={0.55} labelAltitude={0.012} labelDotRadius={0.12}
-              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
-              pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-              pointThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); return obj; }} pointThreeObjectExtend={false}
-              pointLabel={(d: any) => {
+              customLayerData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} customLayerLat={(d: any) => d.lat} customLayerLng={(d: any) => d.lon} customLayerAltitude={(d: any) => d.altitude}
+              customThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); return obj; }} customThreeObjectExtend={false}
+              customLayerLabel={(d: any) => {
                 if (!d || d.isChannelTarget) return '';
                 const escapeHtml = (value: unknown) => String(value ?? '')
                   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
