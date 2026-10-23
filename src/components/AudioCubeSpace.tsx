@@ -2830,13 +2830,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <span>{isCelestialDeckCollapsed ? 'STAR MENU' : 'MINIMIZE STAR MENU'}</span>
             </button>
           )}
-          {isEarthModeActive && !isTimelineActive && (
-            <button type="button" onClick={() => setIsTimelineActive(true)}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-amber-500/60 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/60 shadow-md"
-              aria-label="Show historical timeline" title="Show historical Earth / sky timeline">
-              <Layers className="w-3.5 h-3.5" /><span>TIMELINE</span>
-            </button>
-          )}
           {/* Quick Overlay Visibility / Controls Toggle */}
           {overlay.imageUrl && (
             <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800">
@@ -2896,7 +2889,19 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             </button>
           </div>
 
-          {/* Stage Fullscreen Toggle */}
+          {/* Timeline control sits directly beside the stage minimize/fullscreen button. */}
+          {isEarthModeActive && !isTimelineActive && (
+            <button
+              type="button"
+              onClick={() => setIsTimelineActive(true)}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-mono font-bold rounded border border-amber-500/60 text-amber-300 hover:bg-amber-950/60"
+              aria-label="Show historical timeline"
+              title="Show historical Earth / sky timeline"
+            >
+              <Layers className="w-3 h-3" />
+              <span>TIMELINE</span>
+            </button>
+          )}
           <button
             onClick={handleToggleStageFullscreen}
             className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-800 transition-colors ml-1 border-l border-slate-700 pl-2"
@@ -3159,9 +3164,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
-      {/* Floating Celestial Star & 7-11 Astrometric Deck (When Star Mode is active) */}
-      {isStarModeActive && !isCelestialDeckCollapsed && typeof document !== 'undefined' && document.querySelector('.atlas-left') && createPortal(
-        <div className="relative z-30 w-full max-w-full max-h-[55vh] overflow-y-auto overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-2 rounded-lg border border-amber-500/40 shadow-2xl flex flex-col gap-2.5">
+      {/* Floating Celestial Star & 7-11 Astrometric Deck: fixed to the right side of the workspace. */}
+      {isStarModeActive && !isCelestialDeckCollapsed && typeof document !== 'undefined' && createPortal(
+        <div className="fixed right-3 top-20 z-[120] w-[min(360px,calc(100vw-1.5rem))] max-h-[calc(100vh-6rem)] overflow-y-auto overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-2 rounded-lg border border-amber-500/40 shadow-2xl flex flex-col gap-2.5 pointer-events-auto">
           {/* Header & 7-11 Match Badge */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5">
@@ -3387,7 +3392,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             )}
           </div>
         </div>,
-        document.querySelector('.atlas-left') as HTMLElement
+        document.body
       )}
 
 remove old timeline button      {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
@@ -3433,37 +3438,24 @@ remove old timeline button      {/* Historical Earth / sky timeline is off by de
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={() => 'rgba(34,211,238,0.055)'}
               polygonSideColor={() => 'rgba(8,145,178,0.22)'} polygonStrokeColor={() => 'rgba(165,243,252,0.92)'} polygonAltitude={0.018}
-              labelsData={visibleEarthSites.filter((site: any) => site.isCity && showCities)}
-      labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
-      labelColor={() => '#f8fafc'} labelSize={0.55} labelAltitude={0.012} labelDotRadius={0.12}
-              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
-              pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-              customThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; return obj; }} customThreeObjectUpdate={(obj: any, d: any) => { obj.scale.setScalar(1.0); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); }}
-              pointLabel={(d: any) => {
-                if (!d || d.isChannelTarget) return '';
-                const escapeHtml = (value: unknown) => String(value ?? '')
-                  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                const channels = [
-                  { key: 'a' as const, color: '#22d3ee' },
-                  { key: 'b' as const, color: '#f472b6' },
-                  { key: 'c' as const, color: '#fbbf24' },
-                ];
-                const badges = channels.map(({ key, color }) => {
-                  const target = earthChannelTargets[key];
-                  const checked = !!target &&
-                    Math.abs(target.lat - Number(d.lat)) < 0.02 &&
-                    Math.abs(target.lng - Number(d.lon)) < 0.02;
-                  return `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:4px;padding:2px 5px;border:1px solid ${color}88;border-radius:5px;color:${color};font-weight:700;background:${checked ? color + '22' : 'rgba(15,23,42,.6)'}">${key.toUpperCase()} ${checked ? '☑' : '☐'}</span>`;
-                }).join('');
-                return `<div style="min-width:170px;max-width:250px;padding:7px 8px;border:1px solid rgba(125,211,252,.55);border-radius:9px;background:rgba(3,10,22,.96);color:#f8fafc;box-shadow:0 8px 25px rgba(0,0,0,.4);font:12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif">
-                  <div style="font-weight:700;margin-bottom:5px">${escapeHtml(d.name || 'Location')}</div>
-                  <div style="display:flex;gap:3px;align-items:center;margin-bottom:5px">${badges}</div>
-                  <div style="font-size:10px;color:#94a3b8">${Number(d.lat).toFixed(4)}°, ${Number(d.lon).toFixed(4)}°</div>
-                  <div style="font-size:10px;color:#cbd5e1;margin-top:3px">Click the location, then use ADD TO A/B/C to assign a channel.</div>
-                </div>`;
-              }}
-              htmlElementsData={[...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)}
+              pointLat={(d: any) => d.lat}
+              pointLng={(d: any) => d.lon}
+              pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'}
+              pointRadius={(d: any) => d.size}
+              pointAltitude={(d: any) => d.altitude}
+              {...({
+                // These are the points-layer props. customThreeObject belongs to custom layers,
+                // so it leaves the default Earth point dots in place instead of swapping them.
+                pointThreeObject: (d: any) => {
+                  const obj = makeRetroLed(d);
+                  obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay;
+                  return obj;
+                },
+                pointThreeObjectExtend: false,
+              } as any)}
+              labelsData={[]}
+              htmlElementsData={[...earthChannelMarkers, ...visibleEarthSites.filter((site: any) => site.isCity && showCities).map((site: any) => ({ ...site, isEarthSiteLabel: true })), ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
                 if (d.isEarthSiteLabel) {
