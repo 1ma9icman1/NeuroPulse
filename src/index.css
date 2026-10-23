@@ -648,3 +648,19 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 @media (max-width: 560px) {
   .atlas-search-right-button { min-height: 38px; }
 }
+
+
+/* Camera controls now sit with the right-side Cities / Geometry tools. */
+.atlas-right > .atlas-camera-control-panel {
+  order: -85;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+  border-color: rgba(167,139,250,.72);
+  box-shadow: inset 0 0 0 1px rgba(196,181,253,.12), 0 0 12px rgba(139,92,246,.12);
+}
+.atlas-right > .atlas-camera-control-panel button {
+  min-width: 26px;
+  min-height: 26px;
+}
