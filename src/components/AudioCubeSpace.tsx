@@ -397,19 +397,24 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     globeRef.current.pointOfView({ altitude: Math.max(1.35, 2.05 - cameraZoom * 0.18) }, 250);
   }, [cameraZoom, isEarthModeActive]);
 
-  // Poll the globe's actual camera altitude so mouse wheel, trackpad, touch,
-  // zoom buttons, and animated pointOfView calls all update the visible site tier.
+  // Only update React when the actual camera crosses a detail-tier boundary.
+  // Avoiding continuous zoom-state renders keeps Globe.gl's drag/rotation loop smooth.
+  const updateEarthZoomTier = useCallback((altitude: number) => {
+    if (!Number.isFinite(altitude) || altitude <= 0) return;
+    setEarthViewAltitude((current) => {
+      const tier = (value: number) => value > 1.55 ? 0 : value > 0.95 ? 1 : value > 0.58 ? 2 : 3;
+      return tier(current) === tier(altitude) ? current : altitude;
+    });
+  }, []);
   useEffect(() => {
     if (!isEarthModeActive) return;
-    const syncZoomTier = () => {
-      const altitude = Number(globeRef.current?.pointOfView?.()?.altitude);
-      if (!Number.isFinite(altitude) || altitude <= 0) return;
-      const roundedAltitude = Math.round(altitude * 1000) / 1000;
-      setEarthViewAltitude((current) => Math.abs(current - roundedAltitude) >= 0.015 ? roundedAltitude : current);
-    };
-    syncZoomTier();
-    const timer = window.setInterval(syncZoomTier, 180);
-    return () => window.clearInterval(timer);
+    const controls = globeRef.current?.controls?.();
+    if (!controls) return;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.075;
+    controls.rotateSpeed = 0.85;
+    controls.zoomSpeed = 0.9;
+    controls.update?.();
   }, [isEarthModeActive]);
 
   useEffect(() => {
@@ -3800,13 +3805,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               // Globe controls update their POV during the wheel event; sample it
               // shortly afterward so React can reveal the appropriate detail tier.
               window.setTimeout(() => {
-                const altitude = Number(globeRef.current?.pointOfView?.()?.altitude);
-                if (Number.isFinite(altitude) && altitude > 0) setEarthViewAltitude(altitude);
+                updateEarthZoomTier(Number(globeRef.current?.pointOfView?.()?.altitude));
               }, 90);
             }}>
             <Globe3D ref={globeRef} rendererConfig={{ preserveDrawingBuffer: true }} width={Math.max(320, containerRef.current?.clientWidth || 800)}
               height={Math.max(320, containerRef.current?.clientHeight || 600)}
-              onZoom={(pov: any) => { const altitude = Number(pov?.altitude); if (Number.isFinite(altitude) && altitude > 0) setEarthViewAltitude(altitude); }}
+              onZoom={(pov: any) => updateEarthZoomTier(Number(pov?.altitude))}
               globeImageUrl={earthTextureUrl}
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
@@ -3889,20 +3893,21 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   label.style.padding = '3px 6px';
                   label.style.borderRadius = '9px';
                   label.style.border = `1px solid ${d.color || '#facc15'}99`;
-                  label.style.background = 'rgba(4, 13, 27, 0.88)';
+                  label.style.background = 'transparent';
                   label.style.backdropFilter = 'blur(8px)';
                   label.style.color = d.color || (d.isCity ? '#60a5fa' : d.evidenceStatus ? '#fb923c' : '#facc15');
                   label.style.textAlign = 'left';
                   label.style.minHeight = '24px';
                   label.style.maxWidth = '190px';
                   label.style.width = 'max-content';
-                  label.style.font = '600 10px Inter, ui-sans-serif, system-ui, sans-serif';
+                  const labelFontPx = d.isCity ? 20 : (String(d.category || '').toLowerCase() === 'custom' ? 15 : 10);
+                  label.style.font = `600 ${labelFontPx}px Inter, ui-sans-serif, system-ui, sans-serif`;
                   label.style.letterSpacing = '0.01em';
                   label.style.lineHeight = '1.3';
                   label.style.whiteSpace = 'nowrap';
                   label.style.overflow = 'hidden';
                   label.style.textOverflow = 'ellipsis';
-                  label.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.38)';
+                  label.style.boxShadow = 'none';
                   label.style.cursor = 'pointer';
                   label.style.pointerEvents = 'auto';
                   // Anchor the label to the end of a visible leader instead of centering it over the map pin.
