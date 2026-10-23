@@ -75,7 +75,7 @@ export default function App() {
   const [activeNav, setActiveNav] = useState('GLOBAL SEARCH');
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
-  const [selectedSiteId, setSelectedSiteId] = useState(DEFAULT_EARTH_POINTS[0]?.id ?? '');
+  const [selectedSiteId, setSelectedSiteId] = useState('');
   const [selectedGlobeSite, setSelectedGlobeSite] = useState<any>(null);
   const [favoriteSites, setFavoriteSites] = useState<any[]>(() => {
     try { return JSON.parse(localStorage.getItem('neuropulse-favorite-sites') || '[]'); } catch { return []; }
@@ -182,7 +182,7 @@ export default function App() {
     });
     return [...core, ...legacy, ...uniqueAdditions];
   }, []);
-  const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? researchSites[0];
+  const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? null;
   const moduleSites = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase();
     return researchSites.filter((site) =>
@@ -383,7 +383,7 @@ export default function App() {
           </div>
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
-            {earthAreaView === 'globe' ? <AudioCubeSpace
+            {earthAreaView === 'globe' || !selectedSite ? <AudioCubeSpace
               aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
               spatialMode={config.spatialMode} cameraView={config.cameraView}
               cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
@@ -621,7 +621,7 @@ export default function App() {
           <div className="atlas-progress-status"><span className="status-dot" /> {scanRequested ? 'CATALOGUE SEARCH COMPLETE' : 'READY FOR QUERY'}</div>
           <div className="atlas-progress-track"><span style={{ width: scanRequested ? '100%' : '8%' }} /></div>
           <div className="atlas-progress-copy">{scanRequested ? `${filteredSites.length} local site records match the current query.` : 'Run a search to filter the local site catalogue.'}</div>
-          <button className="atlas-secondary-button" onClick={() => { setSearchText(''); setShowSiteList(false); setScanRequested(false); setCategoryFilter('ALL'); setSelectedSiteId(DEFAULT_EARTH_POINTS[0]?.id ?? ''); setEarthAreaView('street'); }}>RESET SEARCH</button>
+          <button className="atlas-secondary-button" onClick={() => { setSearchText(''); setShowSiteList(false); setScanRequested(false); setCategoryFilter('ALL'); setSelectedSiteId(''); setSelectedGlobeSite(null); setEarthAreaView('globe'); }}>RESET SEARCH</button>
         </section>
       </footer>
       <div className="atlas-tagline">THE PAST LEAVES SIGNALS — WE FIND THEM <span>· EVIDENCE FIRST · HYPOTHESES LABELLED</span></div>
