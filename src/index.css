@@ -583,3 +583,33 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
   .atlas-topnav { position: static; transform: none; width: auto; margin-left: auto !important; }
   .atlas-search-top-button { min-width: 112px; padding-left: 12px; padding-right: 12px; }
 }
+
+
+/* STARS is a persistent toolbar control; scroll the entire right dock as one panel. */
+.atlas-right {
+  min-height: 0;
+  height: 100%;
+  max-height: calc(100dvh - 84px);
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  scrollbar-width: auto;
+  scrollbar-gutter: stable;
+  align-content: flex-start;
+}
+.atlas-right > .atlas-star-alignment-panel,
+.atlas-right > .atlas-celestial-star-deck {
+  flex: 0 0 auto;
+  max-height: none !important;
+  overflow: visible !important;
+  overscroll-behavior: auto;
+}
+@media (max-width: 900px) {
+  .atlas-right {
+    height: auto;
+    max-height: none;
+    bottom: 8px;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
