@@ -25,9 +25,9 @@ const delay = () => new Promise<void>((resolve) => window.setTimeout(resolve, 0)
 export const SeaLevelDemTool: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [target, setTarget] = useState(30);
+  const [target, setTarget] = useState(0);
   const [tolerance, setTolerance] = useState(1);
-  const [mode, setMode] = useState<MaskMode>('band');
+  const [mode, setMode] = useState<MaskMode>('below');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('Choose a coastal elevation/bathymetry GeoTIFF containing ocean cells along at least one raster edge.');
@@ -51,7 +51,7 @@ export const SeaLevelDemTool: React.FC = () => {
     setError('');
     setStatus(next
       ? `Selected ${next.name}. Choose the elevation band or ocean-connected flood model, then build the layer.`
-      : 'Choose a local elevation GeoTIFF to create a map-ready 30 m layer.');
+      : 'Choose a coastal elevation/bathymetry GeoTIFF containing ocean cells along at least one raster edge.');
   };
 
   const buildMask = async () => {
@@ -266,7 +266,7 @@ export const SeaLevelDemTool: React.FC = () => {
       setProgress(100);
       setStatus(mode === 'band'
         ? `Finished. Kept ${matched.toLocaleString()} pixels between ${lower.toFixed(1)} m and ${upper.toFixed(1)} m.`
-        : `Finished. Marked ${matched.toLocaleString()} of ${valid.toLocaleString()} valid pixels at or below ${target} m. This is low terrain, not an ocean-connected flood simulation.`);
+        : `Flood simulation complete: ${matched.toLocaleString()} ocean-connected pixels inundated at ${target} m relative to the DEM's vertical datum, out of ${valid.toLocaleString()} valid pixels. This static bathtub model excludes tides, storm surge, defenses, subsidence, and hydrodynamics.`);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Could not process the selected GeoTIFF.';
       setError(message);
