@@ -3345,14 +3345,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         document.querySelector('.atlas-left') as HTMLElement
       )}
 
-remove old timeline button      {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
+      {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
       {isTimelineActive ? (
         <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-2xl rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
             <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300">Historical Earth / Sky Timeline</div>
             <div className="flex items-center gap-2">
               <div className="text-xs font-mono text-white">{timelineYear < 0 ? Math.abs(timelineYear).toLocaleString() + ' BCE' : timelineYear + ' CE'}</div>
-              <button onClick={() => setIsTimelineActive(false)} className="rounded px-2 py-0.5 text-[10px] font-mono text-amber-300 border border-amber-500/40 hover:bg-amber-950/50" aria-label="Hide historical timeline">TIMELINE</button>
+              <button onClick={() => setIsTimelineActive(false)} className="rounded px-2 py-0.5 text-[10px] font-mono text-amber-300 border border-amber-500/40 hover:bg-amber-950/50" aria-label="Close historical timeline">TIMELINE</button>
             </div>
           </div>
           <input aria-label="Historical year from 10,000 BCE to present" type="range" min="-10000" max={new Date().getUTCFullYear()} step="10" value={timelineYear} onChange={(e) => setTimelineYear(Number(e.target.value))} className="w-full accent-amber-400 cursor-pointer" />
