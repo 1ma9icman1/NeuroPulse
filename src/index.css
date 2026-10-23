@@ -331,7 +331,7 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 .atlas-site-assign-actions{align-items:center}.atlas-site-assign-actions span{width:100%;font:8px ui-monospace,monospace;color:#7d9fb8}
 .atlas-site-assign-actions .assign-a{border-color:#06b6d4;color:#67e8f9}.atlas-site-assign-actions .assign-b{border-color:#ec4899;color:#f9a8d4}.atlas-site-assign-actions .assign-c{border-color:#f59e0b;color:#fcd34d}
 .atlas-embedded-earth-map{position:absolute;inset:0;display:flex;flex-direction:column;background:#050b14;z-index:20}.atlas-embedded-earth-map iframe{width:100%;height:100%;flex:1;border:0;min-height:0}
-.atlas-map-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:#071426;border-bottom:1px solid #16415c;color:#a5e7ff;font:10px ui-monospace,monospace}.atlas-map-toolbar button{border:1px solid #1e789a;border-radius:3px;padding:5px 8px;color:#a5e7ff;background:#0b2539;font:9px ui-monospace,monospace;cursor:pointer}
+.atlas-map-toolbar{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;padding:8px 12px;background:#071426;border-bottom:1px solid #16415c;color:#a5e7ff;font:10px ui-monospace,monospace}.atlas-map-toolbar>strong{width:100%;text-align:center}.atlas-map-toolbar-actions{display:flex;align-items:center;justify-content:center;flex:1 1 100%;flex-wrap:wrap;gap:8px;width:100%}.atlas-map-toolbar-actions>[role=status]{flex:1 1 100%;text-align:center}.atlas-map-toolbar button{border:1px solid #1e789a;border-radius:3px;padding:5px 8px;color:#a5e7ff;background:#0b2539;font:9px ui-monospace,monospace;cursor:pointer}
 
 
 /* Scrollable nearest-site catalogue: keep the right panel usable while exposing more records. */
