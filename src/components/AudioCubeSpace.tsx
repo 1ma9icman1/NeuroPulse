@@ -343,7 +343,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const merged: any[] = [];
     const seen = new Set<string>();
     const normalizeName = (value: string) => value.toLocaleLowerCase().normalize('NFD')
-      .replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+      .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
     for (const raw of [...siteCatalogue, ...builtInEarthSites]) {
       if (!raw || typeof raw.name !== 'string' ||
           !Number.isFinite(Number(raw.lat)) || !Number.isFinite(Number(raw.lon)) ||
@@ -358,7 +358,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const year = Number.isFinite(Number(raw.year)) ? Number(raw.year) : 0;
       merged.push({
         ...raw,
-        id: raw.id ?? 'earth-' + key.replace(/\\s+/g, '-'),
+        id: raw.id ?? 'earth-' + key.replace(/\s+/g, '-'),
         name,
         lat: Number(raw.lat),
         lon: Number(raw.lon),
@@ -2491,7 +2491,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               try {
                 const pov = globe?.pointOfView?.() || {};
                 const spot = selectedEarthSite?.name || `Earth-${Number(pov.lat ?? 0).toFixed(2)}-${Number(pov.lng ?? 0).toFixed(2)}`;
-                const safeName = String(spot).normalize('NFKD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90) || 'Earth-Screenshot';
+                const safeName = String(spot).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90) || 'Earth-Screenshot';
                 // Composite a screenshot overlay on top of the WebGL globe. The WebGL canvas
                 // contains dots but intentionally no text; draw readable names into the PNG.
                 const capture = document.createElement('canvas');
