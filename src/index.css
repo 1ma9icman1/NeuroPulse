@@ -668,3 +668,29 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 /* Transparent control surfaces across the app; keep borders and labels readable. */
 button { background-color: transparent !important; background-image: none !important; box-shadow: none !important; }
 button:hover, button:focus-visible { background-color: transparent !important; border-color: rgba(148,163,184,0.8); }
+
+/* GLOBAL COMPACT DISPLAY: keep the complete workspace inside the viewport. */
+:root {
+  --atlas-ui-scale: 0.65;
+}
+.atlas-app {
+  zoom: var(--atlas-ui-scale);
+  width: calc(100vw / var(--atlas-ui-scale));
+  height: calc(100dvh / var(--atlas-ui-scale));
+  min-height: 0;
+}
+@supports not (zoom: 0.65) {
+  .atlas-app {
+    width: 100vw;
+    height: 100dvh;
+    transform: scale(var(--atlas-ui-scale));
+    transform-origin: top left;
+  }
+}
+@media (max-width: 700px) {
+  .atlas-app {
+    zoom: 0.8;
+    width: 125vw;
+    height: 125dvh;
+  }
+}
