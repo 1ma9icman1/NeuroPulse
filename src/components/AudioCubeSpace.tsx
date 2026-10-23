@@ -103,6 +103,7 @@ interface AudioCubeSpaceProps {
   onSiteSelect: (site: EarthSiteSelection) => void;
   siteCatalogue?: Array<{ name: string; lat: number; lon: number; year?: number; category?: string; isCity?: boolean; color?: string; desc?: string; [key: string]: any }>;
   showChannelElevationControls?: boolean;
+  openWaterElevationRequest?: number;
 }
 
 export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
@@ -131,6 +132,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   onSiteSelect,
   siteCatalogue = [],
   showChannelElevationControls = false,
+  openWaterElevationRequest = 0,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -155,6 +157,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
   const [seaLevelFloodPolygons, setSeaLevelFloodPolygons] = useState<Array<{ layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } }>>([]);
   const activateSeaLevelOverlay = (enabled: boolean) => setShowSeaLevelOverlay(enabled);
+  useEffect(() => {
+    if (openWaterElevationRequest > 0) {
+      setShowSeaLevelOverlay(true);
+      setEarthImageryPanelOpen(false);
+    }
+  }, [openWaterElevationRequest]);
   // When enabled, bring the tool to the top of the right dock so the button
   // visibly opens the panel instead of silently appending it below other tools.
   useEffect(() => {
