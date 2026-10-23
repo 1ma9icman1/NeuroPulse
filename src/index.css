@@ -247,3 +247,17 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
   .atlas-metric-grid span { font-size: 7px; }
   .atlas-tagline { letter-spacing: .08em; font-size: 6px; }
 }
+
+/* Restored full audio controls inside the ATLAS workspace */
+.atlas-audio-workspace { margin: 8px 0; padding: 10px; border: 1px solid var(--atlas-border); border-radius: 7px; background: linear-gradient(145deg, rgba(4,17,35,.98), rgba(2,8,19,.98)); display: flex; flex-direction: column; gap: 10px; max-height: min(54vh, 620px); overflow: auto; }
+.atlas-audio-menu-header, .atlas-master-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.atlas-audio-menu-header > div { display:flex; flex-direction:column; gap:4px; }
+.atlas-audio-menu-header strong { display:flex; align-items:center; gap:7px; color:#70d8ff; font:700 11px ui-monospace,monospace; letter-spacing:.08em; }
+.atlas-audio-menu-header span { color:var(--atlas-muted); font-size:10px; }
+.atlas-master-controls label { display:flex; align-items:center; gap:8px; color:#9bb6ce; font-size:10px; }
+.atlas-master-controls label strong { color:#e6f5ff; min-width:32px; }
+.atlas-master-controls input[type=range] { width:130px; accent-color:#29bfff; }
+.atlas-oscillator-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.atlas-oscillator-grid > * { min-width:0; }
+.atlas-audio-workspace .bg-\\[\\#0b101c\\], .atlas-audio-workspace .bg-\\[\\#0c121e\\] { color:#e6f5ff; }
+@media (max-width: 900px) { .atlas-oscillator-grid { grid-template-columns:1fr; } .atlas-audio-workspace { max-height:60vh; } }
