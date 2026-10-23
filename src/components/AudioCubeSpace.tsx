@@ -2646,7 +2646,11 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           <div className="flex items-start gap-1">
             {!isStarPanelExpanded ? (
               <button
-                onClick={() => setIsStarPanelExpanded(true)}
+                onClick={() => {
+                  setIsStarPanelExpanded(true);
+                  setIsStarModeActive(true);
+                  setIsCelestialDeckCollapsed(false);
+                }}
                 className="flex items-center gap-1 px-2 py-1 text-xs font-mono rounded-lg border border-amber-500/40 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/50 shadow-md"
                 title="Expand Star Alignment controls"
                 aria-label="Expand Star Alignment controls"
@@ -2655,7 +2659,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 <span>STARS</span>
               </button>
             ) : typeof document !== 'undefined' && document.querySelector('.atlas-right') ? createPortal((
-              <div className="atlas-panel atlas-star-alignment-panel max-h-[65vh] overflow-y-auto pointer-events-auto">
+              <div className="atlas-panel atlas-star-alignment-panel max-h-[65vh] overflow-y-auto overscroll-contain pointer-events-auto" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto' }}>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] uppercase tracking-wider text-amber-300">Star Alignment</span>
                   <button onClick={() => setIsStarPanelExpanded(false)} className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-700" title="Minimize Star Alignment">
@@ -2916,8 +2920,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
-      {showSeaLevelOverlay && isEarthModeActive && typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
-        <section className="atlas-panel atlas-sea-level-panel max-h-[65vh] overflow-y-auto">
+      {showSeaLevelOverlay && typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
+        <section className="atlas-panel atlas-sea-level-panel max-h-[65vh] overflow-y-auto overscroll-contain" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto' }}>
           <div className="atlas-panel-heading">
             <span className="flex items-center gap-2 text-cyan-200"><Layers className="h-4 w-4" /> SEA-LEVEL INUNDATION MODEL</span>
             <button onClick={() => activateSeaLevelOverlay(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close sea-level model"><X className="h-3.5 w-3.5" /></button>
@@ -3116,8 +3120,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
 
       {/* Floating Celestial Star & 7-11 Astrometric Deck (When Star Mode is active) */}
-      {isStarModeActive && !isCelestialDeckCollapsed && typeof document !== 'undefined' && document.querySelector('.atlas-left') && createPortal(
-        <div className="relative z-30 w-full max-w-full max-h-[55vh] overflow-y-auto overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-2 rounded-lg border border-amber-500/40 shadow-2xl flex flex-col gap-2.5">
+      {isStarModeActive && !isCelestialDeckCollapsed && typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
+        <div className="atlas-panel relative z-30 w-full max-w-full max-h-[65vh] overflow-y-auto overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-2 rounded-lg border border-amber-500/40 shadow-2xl flex flex-col gap-2.5" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto' }}>
           {/* Header & 7-11 Match Badge */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5">
@@ -3343,7 +3347,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             )}
           </div>
         </div>,
-        document.querySelector('.atlas-left') as HTMLElement
+        document.querySelector('.atlas-right') as HTMLElement
       )}
 
       {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
