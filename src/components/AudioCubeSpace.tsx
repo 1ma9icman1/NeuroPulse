@@ -464,17 +464,20 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
     // Use a camera-facing sprite, not a flat plane that can turn edge-on to the globe camera.
     // Each marker gets a cloned texture view so its UV crop cannot change other markers.
-    // The image's second column repeats the first; sample only column one and the chosen color row.
+    // Ten vertical states: OFF/ON for red, yellow, blue, green, purple.
+    // The right-hand column duplicates the artwork; deliberately use column one only.
     const tileTexture = retroLedAtlas.clone();
-    tileTexture.repeat.set(0.5, 0.2);
-    tileTexture.offset.set(0, (4 - row) * 0.2);
+    tileTexture.repeat.set(0.5, 0.1);
+    tileTexture.offset.set(0, (9 - row * 2) * 0.1);
     tileTexture.needsUpdate = true;
-    const material = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.06, depthWrite: false });
+    const material = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.04, depthWrite: false });
     const sprite = new THREE.Sprite(material);
     sprite.userData.isRetroLedSprite = true;
+    sprite.userData.ledTexture = tileTexture;
     sprite.scale.set(1, 1, 1);
     group.add(sprite);
-    group.scale.setScalar(0.12 + Math.min(0.045, Number(site.size || 0.1) * 0.12));
+    group.scale.setScalar(0.85);
+    group.userData.ledColorIndex = row;
     const beamColor = new THREE.Color(row === 0 ? '#ff302b' : row === 1 ? '#ffd52a' : row === 2 ? '#168dff' : row === 3 ? '#20ff58' : '#e13cff');
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.045, 75, 5, 1, true), new THREE.MeshBasicMaterial({ color: beamColor, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }));
     beam.position.y = 38;
@@ -494,10 +497,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       if (!scene) return;
       const now = performance.now() * 0.001;
       scene.traverse((object: any) => {
-        if (!object.userData?.isLaserSpaceBeam) return;
         const parent = object.parent;
+        const phase = now * 2.2 + Number(parent?.userData?.ledPhase || 0);
+        const isOn = Math.sin(phase) > -0.05;
+        if (object.userData?.isRetroLedSprite) {
+          const colorIndex = Number(parent?.userData?.ledColorIndex ?? 1);
+          const texture = object.userData.ledTexture as THREE.Texture | undefined;
+          if (texture) texture.offset.y = (9 - (colorIndex * 2 + (isOn ? 1 : 0))) * 0.1;
+          const material = object.material as THREE.SpriteMaterial | undefined;
+          if (material) {
+            material.opacity = isOn ? 1 : 0.38;
+            material.color.set(isOn ? '#ffffff' : '#9ca3af');
+          }
+          return;
+        }
+        if (!object.userData?.isLaserSpaceBeam) return;
         object.visible = !!parent?.userData?.showLaserSpaceOverlay;
-        if (object.material) object.material.opacity = 0.2 + ((Math.sin(now * 1.8 + Number(parent?.userData?.ledPhase || 0)) + 1) * 0.5) * 0.5;
+        if (object.material) object.material.opacity = 0.2 + ((Math.sin(phase) + 1) * 0.5) * 0.5;
       });
     }, 80);
     return () => window.clearInterval(timer);
@@ -1621,7 +1637,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         { name: 'Moscow', lat: 55.7558, lon: 37.6173 }, { name: 'Reykjavik', lat: 64.1466, lon: -21.9426 },
         { name: 'Honolulu', lat: 21.3099, lon: -157.8581 }, { name: 'Anchorage', lat: 61.2181, lon: -149.9003 },
       ];
-      const labelEarthPoint = (_name: string, lat: number, lon: number, color: string, isCity = false) => {
+      const labelEarthPoint = (name: string, lat: number, lon: number, color: string, isCity = false) => {
         const v = earthPoint(lat, lon, earthRadius * 1.002);
         if (!cameraFront(v)) return;
         const p = project3D(v.x, v.y, v.z, width, height);
@@ -1632,7 +1648,21 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.shadowBlur = isCity ? 3 : 7;
         ctx.fill();
         ctx.shadowBlur = 0;
-        // Site markers remain small dots at every zoom level; no text labels on the globe.
+        // Paint city names on the same Earth projection so the WebGL label layer
+        // cannot disappear behind the custom canvas overlay.
+        if (isCity) {
+          const fontSize = Math.max(9, Math.min(12, earthScreenRadius * 0.035));
+          ctx.save();
+          ctx.font = `600 ${fontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = 'rgba(2, 8, 23, 0.96)';
+          ctx.fillStyle = '#f8fafc';
+          ctx.strokeText(name, p.sx + 5, p.sy - 3);
+          ctx.fillText(name, p.sx + 5, p.sy - 3);
+          ctx.restore();
+        }
       };
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
       if (showCities) majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
@@ -2800,6 +2830,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <span>{isCelestialDeckCollapsed ? 'STAR MENU' : 'MINIMIZE STAR MENU'}</span>
             </button>
           )}
+          {isEarthModeActive && !isTimelineActive && (
+            <button type="button" onClick={() => setIsTimelineActive(true)}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-bold rounded-lg border border-amber-500/60 bg-[#0b1220]/90 text-amber-300 hover:bg-amber-950/60 shadow-md"
+              aria-label="Show historical timeline" title="Show historical Earth / sky timeline">
+              <Layers className="w-3.5 h-3.5" /><span>TIMELINE</span>
+            </button>
+          )}
           {/* Quick Overlay Visibility / Controls Toggle */}
           {overlay.imageUrl && (
             <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800">
@@ -3353,19 +3390,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         document.querySelector('.atlas-left') as HTMLElement
       )}
 
-      {/* Keep the timeline launcher in the main view, not inside the collapsible Star Menu portal. */}
-      {isEarthModeActive && !isTimelineActive && (
-        <button
-          onClick={() => setIsTimelineActive(true)}
-          className="absolute top-3 left-3 z-[70] flex items-center gap-1 rounded-lg border border-amber-500/60 bg-[#07101d]/95 px-3 py-2 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/70"
-          aria-label="Show historical timeline"
-          title="Show historical Earth / sky timeline"
-        >
-          TIMELINE OFF · SHOW
-        </button>
-      )}
-
-      {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
+remove old timeline button      {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
       {isTimelineActive ? (
         <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-2xl rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
@@ -3413,7 +3438,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       labelColor={() => '#f8fafc'} labelSize={0.55} labelAltitude={0.012} labelDotRadius={0.12}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-              customThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; return obj; }} customThreeObjectUpdate={(obj: any, d: any) => { obj.scale.setScalar(0.12 + Math.min(0.045, Number(d.size || 0.1) * 0.12)); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); }}
+              customThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; return obj; }} customThreeObjectUpdate={(obj: any, d: any) => { obj.scale.setScalar(0.85); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); }}
               pointLabel={(d: any) => {
                 if (!d || d.isChannelTarget) return '';
                 const escapeHtml = (value: unknown) => String(value ?? '')
