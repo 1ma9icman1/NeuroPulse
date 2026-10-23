@@ -101,7 +101,7 @@ export default function App() {
       setEarthAreaView('road');
     }, 8000);
     return () => window.clearTimeout(fallbackTimer);
-  }, [earthAreaView, selectedSite?.lat, selectedSite?.lon]);
+  }, [earthAreaView, selectedSiteId, selectedGlobeSite?.lat, selectedGlobeSite?.lon]);
 
   const handleGlobeSiteSelect = useCallback((site: any) => {
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === site.name.toLowerCase());
