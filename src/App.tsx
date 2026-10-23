@@ -98,8 +98,15 @@ export default function App() {
       ...site,
       modules: researchModuleForSite(site),
       sourceUrl: /chankillo/i.test(site.name) ? 'https://whc.unesco.org/en/list/1624/' :
-        /stonehenge/i.test(site.name) ? 'https://whc.unesco.org/en/list/373/' :
-        /göbekli|gobekli/i.test(site.name) ? 'https://whc.unesco.org/en/list/1572/' : undefined,
+        /stonehenge|avebury/i.test(site.name) ? 'https://whc.unesco.org/en/list/373/' :
+        /göbekli|gobekli/i.test(site.name) ? 'https://whc.unesco.org/en/list/1572/' :
+        /nazca/i.test(site.name) ? 'https://whc.unesco.org/en/list/700/' :
+        /teotihuacan/i.test(site.name) ? 'https://whc.unesco.org/en/list/414/' :
+        /machu picchu/i.test(site.name) ? 'https://whc.unesco.org/en/list/274/' :
+        /easter island|rapa nui|moai/i.test(site.name) ? 'https://whc.unesco.org/en/list/715/' :
+        /great pyramid|giza/i.test(site.name) ? 'https://whc.unesco.org/en/list/86/' :
+        /petra/i.test(site.name) ? 'https://whc.unesco.org/en/list/326/' :
+        /caral/i.test(site.name) ? 'https://whc.unesco.org/en/list/1269/' : undefined,
     }));
     const known = new Set(core.map((site) => site.name.toLowerCase()));
     const legacy = LEGACY_HISTORICAL_SITES
@@ -126,6 +133,12 @@ export default function App() {
           /chankillo/i.test(site.name) ? 'https://whc.unesco.org/en/list/1624/' :
           /stonehenge|avebury/i.test(site.name) ? 'https://whc.unesco.org/en/list/373/' :
           /göbekli|gobekli/i.test(site.name) ? 'https://whc.unesco.org/en/list/1572/' :
+          /nazca/i.test(site.name) ? 'https://whc.unesco.org/en/list/700/' :
+          /teotihuacan/i.test(site.name) ? 'https://whc.unesco.org/en/list/414/' :
+          /machu picchu/i.test(site.name) ? 'https://whc.unesco.org/en/list/274/' :
+          /easter island|rapa nui|moai/i.test(site.name) ? 'https://whc.unesco.org/en/list/715/' :
+          /great pyramid|giza/i.test(site.name) ? 'https://whc.unesco.org/en/list/86/' :
+          /petra/i.test(site.name) ? 'https://whc.unesco.org/en/list/326/' :
           /caral/i.test(site.name) ? 'https://whc.unesco.org/en/list/1269/' : undefined };
       });
     return [...core, ...legacy];
