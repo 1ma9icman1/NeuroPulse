@@ -299,10 +299,11 @@ export default function App() {
               onSiteSelect={handleGlobeSiteSelect}
             /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{streetFallbackNotice && <span role="status">Street View unavailable — showing road map</span>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street' && streetFallbackTimerRef.current !== null) { window.clearTimeout(streetFallbackTimerRef.current); streetFallbackTimerRef.current = null; } }} onError={() => { if (earthAreaView === 'street') setEarthAreaView('road'); }} src={earthAreaView === 'street' ? 'https://maps.google.com/maps?q=&layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,0,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
-            <div className="atlas-globe-overlay atlas-globe-overlay-bottom">
-              <span><i className="legend-dot cyan" /> SITE DATABASE</span>
-              <span><i className="legend-dot gold" /> STAR CATALOGUE {includeStars ? 'ON' : 'OFF'}</span>
-              <span><i className="legend-dot green" /> ACOUSTIC RECORDS {includeAcoustics ? 'ON' : 'OFF'}</span>
+            <div className="atlas-globe-overlay atlas-globe-overlay-bottom" aria-label="Earth map legend">
+              <span><i className="legend-dot" style={{background:'#60a5fa'}} /> CITIES</span>
+              <span><i className="legend-dot" style={{background:'#facc15'}} /> ANCIENT / HISTORICAL SITES</span>
+              <span><i className="legend-dot" style={{background:'#fb923c'}} /> ACOUSTIC RECORDS {includeAcoustics ? 'ON' : 'OFF'}</span>
+              <span><i className="legend-dot" style={{background:'#c084fc'}} /> STAR CATALOGUE {includeStars ? 'ON' : 'OFF'}</span>
               <span><i className="legend-line" /> GEOMETRY {includeGeometry ? 'ON' : 'OFF'}</span>
             </div>
           </div>
