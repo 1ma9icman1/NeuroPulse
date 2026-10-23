@@ -809,7 +809,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
   // Star click tracking: tracks number of stars clicked (activates interior triangle angles after 3 stars)
   const [clickedStarCount, setClickedStarCount] = useState<number>(3); // Initialized with 3 default celestial stars
-  const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(false);
 
   // Compute 7-11 real-world astrometric relation on angles
   const relation711: Relation711Result = compute711Relation(aPos, bPos, cPos);
