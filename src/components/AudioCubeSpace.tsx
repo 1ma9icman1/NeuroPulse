@@ -3650,9 +3650,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       </div>
       )}
 
-
-      </div>
-
     </div>
   );
 };
