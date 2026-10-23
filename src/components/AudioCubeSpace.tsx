@@ -2635,7 +2635,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             onClick={() => activateSeaLevelOverlay(!showSeaLevelOverlay)}
             aria-pressed={showSeaLevelOverlay}
             className={`ml-1 flex items-center gap-1 rounded border px-2 py-1 text-[10px] font-mono font-bold ${showSeaLevelOverlay ? 'border-cyan-300 bg-cyan-950 text-cyan-100' : 'border-cyan-700/60 text-cyan-300 hover:bg-cyan-950/50'}`}
-            title="Switch Earth to topographic relief and open the sea-level timeline"
+            title="Open the DEM-based sea-level inundation model"
           >
             <Layers className="w-3.5 h-3.5" /> SEA LEVEL
           </button>
@@ -2773,7 +2773,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             title="Display interior triangle vertex angles (∠A, ∠B, ∠C) inside the 3D triangle (Sum: 180°)"
           >
             <Triangle className={`w-3.5 h-3.5 ${showTriangleAngles ? 'fill-current' : ''}`} />
-            <span>{showTriangleAngles ? 'ANGLES' : 'ANGLES'}</span>
+            <span>ANGLES</span>
             {clickedStarCount >= 3 && (
               <span className="text-[9px] bg-black/25 px-1 rounded ml-0.5">3/3</span>
             )}
