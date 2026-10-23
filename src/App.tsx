@@ -107,8 +107,20 @@ export default function App() {
       .map((site, index) => {
         const category = site.isCity ? 'city' : 'ancient';
         const normalized = { ...site, id: 'legacy-' + index + '-' + site.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), category,
-          desc: site.isCity ? 'City reference point for geographic comparison. Urban coordinates are representative and do not imply an archaeological or astronomical alignment.' :
-          'Historical/archaeological reference entry. Its inclusion supports geographic and chronology research; any specific astronomical alignment or acoustic property requires site-specific evidence.',
+          desc: /chankillo/i.test(site.name)
+            ? 'UNESCO documents Chankillo as a solar observatory and ceremonial center used around 250–200 BCE. Its thirteen towers and two observation points track the annual sunrise and sunset range; this is a strong documented archaeoastronomy case. Source: UNESCO World Heritage Centre.'
+            : /stonehenge/i.test(site.name)
+            ? 'UNESCO identifies Stonehenge and Avebury as a major prehistoric monument landscape. Solstitial orientation is widely studied; interpretations beyond documented monument phases should be assessed against archaeological evidence.'
+            : /göbekli|gobekli/i.test(site.name)
+            ? 'UNESCO describes monumental round-oval and rectangular enclosures built in the Pre-Pottery Neolithic, approximately 9600–8200 BCE, with carved T-shaped limestone pillars. Ritual interpretations remain archaeological interpretations, not proof of a specific astronomical function.'
+            : /nazca/i.test(site.name)
+            ? 'The Nazca and Palpa geoglyph landscape is a major archaeological research subject. Individual line functions vary and should be assessed from published surveys rather than assuming every line is an astronomical alignment.'
+            : /great pyramid|giza/i.test(site.name)
+            ? 'The Giza pyramid field is an archaeological complex of the Old Kingdom. Coordinate and orientation studies should use surveyed monument axes and dated sky calculations; proposed star correlations are hypotheses unless independently demonstrated.'
+            : /caral/i.test(site.name)
+            ? 'Caral-Supe is an early urban and ceremonial center in Peru, dated to the third millennium BCE. It is relevant to comparative studies of early urban planning and monumental architecture; any specific sky alignment needs its own evidence.'
+            : site.isCity ? 'City reference point for geographic comparison. Urban coordinates are representative and do not imply an archaeological or astronomical alignment.'
+            : 'Historical/archaeological reference entry. Its inclusion supports geographic, chronology, and comparative monument research; any specific astronomical alignment or acoustic property requires site-specific evidence.',
         };
         return { ...normalized, modules: researchModuleForSite(normalized), sourceUrl:
           /chankillo/i.test(site.name) ? 'https://whc.unesco.org/en/list/1624/' :
@@ -295,7 +307,7 @@ export default function App() {
             <div className="atlas-results-strip">
               <div className="atlas-results-title"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></div>
               <div className="atlas-results-list">
-                {filteredSites.slice(0, 8).map((site) => (
+                {filteredSites.slice(0, 80).map((site) => (
                   <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-result-chip chosen' : 'atlas-result-chip'} onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); setEarthAreaView('street'); }}>
                     <MapPin size={12} /><span>{site.name}</span>
                   </button>
