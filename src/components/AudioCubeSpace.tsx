@@ -301,9 +301,18 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     { name: 'Lisbon', lat: 38.7223, lon: -9.1393, year: 2026, isCity: true },
     { name: 'Kyoto', lat: 35.0116, lon: 135.7681, year: 2026, isCity: true },
   ];
-  // Start Top Plane with Earth filling most of the viewport; larger cameraZoom values move closer.
-  // Keep the initial Earth nearly full-height without clipping the globe at the screen edges.
-  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(0.72, 1.55 - cameraZoom * 0.25) }, 350); }, [isEarthModeActive, cameraZoom]);
+  // Start the Earth view centered on Poverty Point, Louisiana, in the southern United States.
+  // Keep the camera at a regional scale so the US remains visible on startup.
+  useEffect(() => {
+    if (!isEarthModeActive || !globeRef.current) return;
+    globeRef.current.pointOfView({ lat: 32.6364, lng: -91.4062, altitude: Math.max(1.35, 2.05 - cameraZoom * 0.18) }, 650);
+  }, [isEarthModeActive]);
+
+  // Zoom changes adjust distance without moving the selected geographic center.
+  useEffect(() => {
+    if (!isEarthModeActive || !globeRef.current) return;
+    globeRef.current.pointOfView({ altitude: Math.max(1.35, 2.05 - cameraZoom * 0.18) }, 250);
+  }, [cameraZoom, isEarthModeActive]);
 
   useEffect(() => {
     setEarthTextureLoaded(false);
