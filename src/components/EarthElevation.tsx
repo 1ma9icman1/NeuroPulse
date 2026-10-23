@@ -136,9 +136,13 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           for (let x = 0; x < gridWidth; x++) {
             const lon = ((x / (gridWidth - 1)) * 360 - 180) * Math.PI / 180;
             const elevation = heights[y * gridWidth + x];
-            const radius = BASE_RADIUS + elevation * HEIGHT_SCALE * terrainScale;
+            // Flood any terrain below the selected water datum: those vertices sit at
+            // the water surface and turn ocean blue, so the slider changes the globe itself.
+            const submerged = elevation < seaLevel;
+            const visibleHeight = submerged ? seaLevel : elevation;
+            const radius = BASE_RADIUS + visibleHeight * HEIGHT_SCALE * terrainScale;
             positions.push(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
-            const color = elevationColor(elevation);
+            const color = submerged ? new THREE.Color('#168bd2') : elevationColor(elevation);
             colors.push(color.r, color.g, color.b);
           }
         }
@@ -283,18 +287,25 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     const state = sceneRef.current;
     if (!state) return;
     const positionAttribute = state.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const colorAttribute = state.geometry.getAttribute('color') as THREE.BufferAttribute;
     for (let y = 0; y < state.height; y++) {
       const lat = (90 - (y / (state.height - 1)) * 180) * Math.PI / 180;
       for (let x = 0; x < state.width; x++) {
         const lon = ((x / (state.width - 1)) * 360 - 180) * Math.PI / 180;
-        const elevation = state.heights[y * state.width + x];
-        const radius = BASE_RADIUS + elevation * HEIGHT_SCALE * terrainScale;
-        positionAttribute.setXYZ(y * state.width + x, radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+        const index = y * state.width + x;
+        const elevation = state.heights[index];
+        const submerged = elevation < seaLevel;
+        const visibleHeight = submerged ? seaLevel : elevation;
+        const radius = BASE_RADIUS + visibleHeight * HEIGHT_SCALE * terrainScale;
+        positionAttribute.setXYZ(index, radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+        const color = submerged ? new THREE.Color('#168bd2') : elevationColor(elevation);
+        colorAttribute.setXYZ(index, color.r, color.g, color.b);
       }
     }
     positionAttribute.needsUpdate = true;
+    colorAttribute.needsUpdate = true;
     state.geometry.computeVertexNormals();
-  }, [terrainScale]);
+  }, [terrainScale, seaLevel]);
 
   useEffect(() => {
     const state = sceneRef.current;
