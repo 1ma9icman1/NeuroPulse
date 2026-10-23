@@ -2652,10 +2652,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 aria-label="Expand Star Alignment controls"
               >
                 <Star className="w-3.5 h-3.5" />
-                <Minimize className="w-3 h-3" />
+                <span>STARS</span>
               </button>
-            ) : (
-              <div className="relative z-[80] flex flex-col gap-1 p-2 rounded-lg border border-amber-500/40 bg-[#0b1220]/95 backdrop-blur-md shadow-xl pointer-events-auto">
+            ) : typeof document !== 'undefined' && document.querySelector('.atlas-right') ? createPortal((
+              <div className="atlas-panel atlas-star-alignment-panel max-h-[65vh] overflow-y-auto pointer-events-auto">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] uppercase tracking-wider text-amber-300">Star Alignment</span>
                   <button onClick={() => setIsStarPanelExpanded(false)} className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-700" title="Minimize Star Alignment">
@@ -2758,7 +2758,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   </div>
                 )}
               </div>
-            )}
+            ), document.querySelector('.atlas-right') as HTMLElement) : null}
           </div>
 
           {/* SHOW TRIANGLE INTERIOR ANGLES TOGGLE */}
@@ -3347,8 +3347,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
 
       {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
-      {isTimelineActive ? (
-        <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-2xl rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
+      {isTimelineActive ? createPortal((
+        <section className="atlas-panel atlas-timeline-panel max-h-[65vh] overflow-y-auto">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
             <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300">Historical Earth / Sky Timeline</div>
             <div className="flex items-center gap-2">
@@ -3368,8 +3369,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             {showLaserSpaceOverlay && <div className="mt-1 text-[9px] text-cyan-300">{visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures).length.toLocaleString()} visible origins · rays rendered to 75 globe units</div>}
           </div>
           <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. With STAR MODE on, Sun and planets move with this year using a local Stardroid-derived ephemeris. {planetEphemerisYearIsPreferred ? 'Orbital elements are within their preferred 1800–2050 CE range.' : 'Planet positions outside 1800–2050 CE are illustrative, not precision historical ephemerides.'} Sky precession is first-order (~50.29″/yr); year-only rotation phase is not an exact historical time-of-day.</div>
-        </div>
-      ) : null}
+        </section>
+      ), document.querySelector('.atlas-right') as HTMLElement) : null}
 
       {/* Large interactive Earth fills the Top Plane viewport; Globe controls retain drag-to-rotate and wheel zoom. */}
       {isEarthModeActive && !isSolarSystemMode && (
