@@ -302,7 +302,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   ];
   // Start Top Plane with Earth filling most of the viewport; larger cameraZoom values move closer.
   // Keep the initial Earth nearly full-height without clipping the globe at the screen edges.
-  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(0.48, 1.55 - cameraZoom * 0.25) }, 350); }, [isEarthModeActive, cameraZoom]);
+  useEffect(() => { if (isEarthModeActive && globeRef.current) globeRef.current.pointOfView({ altitude: Math.max(0.72, 1.55 - cameraZoom * 0.25) }, 350); }, [isEarthModeActive, cameraZoom]);
 
   useEffect(() => {
     setEarthTextureLoaded(false);
