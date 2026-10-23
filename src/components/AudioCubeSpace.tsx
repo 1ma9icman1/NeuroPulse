@@ -506,7 +506,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
   const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(false);
-  const [triangulationOverlay, setTriangulationOverlay] = useState<{ edges: Array<{ startLat: number; startLng: number; endLat: number; endLng: number }>; polygons: Array<{ name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }>; angleLabels: Array<{ name: string; lat: number; lon: number; label: string; isTriangleAngleLabel: true }>; siteCount: number }>({ edges: [], polygons: [], angleLabels: [], siteCount: 0 });
+  const [triangleAngleSearch, setTriangleAngleSearch] = useState<string>('');
+  const [triangulationOverlay, setTriangulationOverlay] = useState<{ edges: Array<{ startLat: number; startLng: number; endLat: number; endLng: number; triangleNames: string[] }>; polygons: Array<{ name: string; angles: number[]; geometry: { type: 'Polygon'; coordinates: number[][][] } }>; angleLabels: Array<{ name: string; lat: number; lon: number; label: string; isTriangleAngleLabel: true }>; siteCount: number }>({ edges: [], polygons: [], angleLabels: [], siteCount: 0 });
   const [showCosmicBeam, setShowCosmicBeam] = useState<boolean>(false);
   const [showLaserSpaceOverlay, setShowLaserSpaceOverlay] = useState<boolean>(false);
   const [showLaserStarIntersections, setShowLaserStarIntersections] = useState<boolean>(true);
@@ -558,8 +559,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       };
     });
   })();
-  const triangleEdges = showAlignmentTriangles ? triangulationOverlay.edges : [];
-  const trianglePolygons = showAlignmentTriangles ? triangulationOverlay.polygons : [];
+  const parsedTriangleAngle = triangleAngleSearch.trim() === '' ? null : Number(triangleAngleSearch);
+  const validTriangleAngleSearch = parsedTriangleAngle !== null && Number.isFinite(parsedTriangleAngle) && parsedTriangleAngle >= 0 && parsedTriangleAngle <= 180;
+  const filteredTrianglePolygons = !validTriangleAngleSearch ? triangulationOverlay.polygons : triangulationOverlay.polygons.filter((triangle) => triangle.angles.some((angle) => Math.round(angle) === Math.round(parsedTriangleAngle as number)));
+  const visibleTriangleNames = new Set(filteredTrianglePolygons.map((triangle) => triangle.name));
+  const triangleEdges = showAlignmentTriangles ? (validTriangleAngleSearch ? triangulationOverlay.edges.filter((edge) => edge.triangleNames.some((name) => visibleTriangleNames.has(name))) : triangulationOverlay.edges) : [];
+  const trianglePolygons = showAlignmentTriangles ? filteredTrianglePolygons : [];
   const repeatedTriangleAngles: Array<[string, number]> = [];
 
   // One-shot geographic triangulation: nearest-neighbour mesh across cities, monuments,
@@ -652,21 +657,26 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     triangles = triangles.filter(tri => tri.a < realCount && tri.b < realCount && tri.c < realCount);
     points.length = realCount;
 
-    const edgeMap = new Map<string, { startLat: number; startLng: number; endLat: number; endLng: number }>();
-    const polygons: Array<{ name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }> = [];
+    const edgeMap = new Map<string, { startLat: number; startLng: number; endLat: number; endLng: number; triangleNames: string[] }>();
+    const polygons: Array<{ name: string; angles: number[]; geometry: { type: 'Polygon'; coordinates: number[][][] } }> = [];
     const angleLabels: Array<{ name: string; lat: number; lon: number; label: string; isTriangleAngleLabel: true }> = [];
     const edgeKey = (i: number, j: number) => Math.min(i, j) + ':' + Math.max(i, j);
     triangles.forEach(tri => {
       const indices = [tri.a, tri.b, tri.c];
       const [a, b, c] = indices.map(i => sites[i]);
       const keys = indices.map(i => sites[i].name);
+      const triangleName = keys.join(' / ');
+      const triangleEdgesForFace: Array<[number, number]> = [[tri.a, tri.b], [tri.b, tri.c], [tri.c, tri.a]];
       polygons.push({
-        name: keys.join(' / '),
+        name: triangleName,
+        angles: [],
         geometry: { type: 'Polygon', coordinates: [[[a.lon, a.lat], [b.lon, b.lat], [c.lon, c.lat], [a.lon, a.lat]]] },
       });
-      [[tri.a, tri.b], [tri.b, tri.c], [tri.c, tri.a]].forEach(([i, j]) => {
+      triangleEdgesForFace.forEach(([i, j]) => {
         const key = edgeKey(i, j);
-        if (!edgeMap.has(key)) edgeMap.set(key, { startLat: sites[i].lat, startLng: sites[i].lon, endLat: sites[j].lat, endLng: sites[j].lon });
+        const existing = edgeMap.get(key);
+        if (existing) { if (!existing.triangleNames.includes(triangleName)) existing.triangleNames.push(triangleName); }
+        else edgeMap.set(key, { startLat: sites[i].lat, startLng: sites[i].lon, endLat: sites[j].lat, endLng: sites[j].lon, triangleNames: [triangleName] });
       });
       const project = (p: any) => {
         let dLon = p.lon - lonCenter;
@@ -682,8 +692,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         return Math.acos(Math.max(-1, Math.min(1, (u.x * v.x + u.y * v.y) / denom))) * 180 / Math.PI;
       };
       const angles = [angleAt(pa, pb, pc), angleAt(pb, pa, pc), angleAt(pc, pa, pb)];
+      polygons[polygons.length - 1].angles = angles;
       angleLabels.push({
-        name: keys.join(' / '),
+        name: triangleName,
         lat: (a.lat + b.lat + c.lat) / 3,
         lon: (a.lon + b.lon + c.lon) / 3,
         label: angles.map(value => Math.round(value) + '°').join(' · '),
@@ -3263,7 +3274,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               })}</div>}
               <div className="text-[9px] leading-relaxed text-slate-500">All 88 constellation stick figures use sourced J2000 right-ascension/declination line paths. These are traditional sky-chart connections, not the IAU constellation boundary outlines. Data source: d3-celestial.</div>
             </div>
-            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowLocationMenu((open) => !open)} className="rounded-lg border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-sky-100 hover:bg-sky-900"><MapPin className="mr-1 inline h-3.5 w-3.5" />{showLocationMenu ? 'CLOSE LOCATION LAYERS' : 'CITY / LOCATION LAYERS'} · {showCities || showAncientStructures || showMeasuredSoundSites ? 'ON' : 'OFF'}</button><div className="flex flex-col items-stretch gap-1"><button type="button" onClick={triangulateEarthLocations} className="rounded-lg border border-cyan-300/50 bg-gradient-to-r from-cyan-950/90 to-slate-900 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)] hover:border-cyan-200 hover:bg-cyan-900">△ TRIANGULATE CITIES / LOCATIONS</button><button type="button" disabled={!showAlignmentTriangles} onClick={() => setShowTriangleAngles((v) => !v)} className="rounded-lg border border-violet-400/50 bg-slate-950/90 px-3 py-1.5 text-[9px] font-mono font-bold tracking-wider text-violet-100 hover:bg-violet-950 disabled:cursor-not-allowed disabled:opacity-40" title="Toggle the three interior-angle labels for each triangle">△ {showTriangleAngles ? 'HIDE TRIANGLE ANGLES' : 'SHOW TRIANGLE ANGLES'}</button></div>{showAlignmentTriangles && <><button type="button" onClick={() => setShowAlignmentTriangles(false)} className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-[10px] font-mono text-slate-300 hover:text-white">HIDE MESH</button><span className="self-center text-[9px] font-mono text-cyan-200">{triangulationOverlay.polygons.length.toLocaleString()} TRIANGLES · {triangulationOverlay.siteCount.toLocaleString()} LOCATIONS</span></>}<label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCosmicBeam} onChange={(e) => setShowCosmicBeam(e.target.checked)} className="accent-orange-400" /><span><strong>Cosmic beam</strong></span></label></div>
+            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowLocationMenu((open) => !open)} className="rounded-lg border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-sky-100 hover:bg-sky-900"><MapPin className="mr-1 inline h-3.5 w-3.5" />{showLocationMenu ? 'CLOSE LOCATION LAYERS' : 'CITY / LOCATION LAYERS'} · {showCities || showAncientStructures || showMeasuredSoundSites ? 'ON' : 'OFF'}</button><div className="flex flex-col items-stretch gap-1"><button type="button" onClick={triangulateEarthLocations} className="rounded-lg border border-cyan-300/50 bg-gradient-to-r from-cyan-950/90 to-slate-900 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)] hover:border-cyan-200 hover:bg-cyan-900">△ TRIANGULATE CITIES / LOCATIONS</button>{showAlignmentTriangles && <div className="rounded-lg border border-violet-400/40 bg-slate-950/80 p-2"><label htmlFor="triangle-angle-search" className="mb-1 block text-[9px] font-mono font-bold tracking-wider text-violet-200">SEARCH TRIANGLE ANGLE (°)</label><div className="flex gap-1"><input id="triangle-angle-search" type="number" min="0" max="180" step="1" inputMode="numeric" value={triangleAngleSearch} onChange={(e) => setTriangleAngleSearch(e.target.value)} placeholder="Enter angle, e.g. 90" className="min-w-0 w-full rounded-md border border-violet-400/40 bg-slate-900 px-2 py-1.5 text-[11px] font-mono text-white placeholder:text-slate-500 focus:border-violet-300 focus:outline-none" /><button type="button" onClick={() => setTriangleAngleSearch('')} className="rounded-md border border-slate-600 px-2 text-[9px] font-mono text-slate-300 hover:bg-slate-800" title="Clear angle filter">CLEAR</button></div><div className="mt-1 text-[9px] text-slate-400">{triangleAngleSearch.trim() === '' ? 'Shows all triangles' : validTriangleAngleSearch ? `${filteredTrianglePolygons.length} matching triangles · matches rounded whole-degree angles` : 'Enter an angle from 0 to 180°'}</div></div>}<button type="button" disabled={!showAlignmentTriangles} onClick={() => setShowTriangleAngles((v) => !v)} className="rounded-lg border border-violet-400/50 bg-slate-950/90 px-3 py-1.5 text-[9px] font-mono font-bold tracking-wider text-violet-100 hover:bg-violet-950 disabled:cursor-not-allowed disabled:opacity-40" title="Toggle the three interior-angle labels for each triangle">△ {showTriangleAngles ? 'HIDE TRIANGLE ANGLES' : 'SHOW TRIANGLE ANGLES'}</button></div>{showAlignmentTriangles && <><button type="button" onClick={() => setShowAlignmentTriangles(false)} className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-[10px] font-mono text-slate-300 hover:text-white">HIDE MESH</button><span className="self-center text-[9px] font-mono text-cyan-200">{triangulationOverlay.polygons.length.toLocaleString()} TRIANGLES · {triangulationOverlay.siteCount.toLocaleString()} LOCATIONS</span></>}<label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCosmicBeam} onChange={(e) => setShowCosmicBeam(e.target.checked)} className="accent-orange-400" /><span><strong>Cosmic beam</strong></span></label></div>
             {showLocationMenu && <div className="mt-2 rounded-xl border border-sky-500/30 bg-slate-950/90 p-3"><div className="mb-2 text-[10px] font-mono font-bold tracking-widest text-sky-200">LOCATION LAYERS · ON / OFF</div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label className="flex items-center gap-2 rounded-lg border border-sky-400/30 px-2 py-2 text-xs text-slate-100 cursor-pointer"><input type="checkbox" checked={showCities} onChange={(e) => setShowCities(e.target.checked)} className="accent-sky-400" /><span><strong className="text-sky-200">CITIES</strong><span className="block text-[9px] text-slate-400">Blue dots · city locations</span></span></label>
             <label className="flex items-center gap-2 rounded-lg border border-yellow-400/30 px-2 py-2 text-xs text-slate-100 cursor-pointer"><input type="checkbox" checked={showAncientStructures} onChange={(e) => setShowAncientStructures(e.target.checked)} className="accent-yellow-400" /><span><strong className="text-yellow-200">ANCIENT SITES / MONUMENTS</strong><span className="block text-[9px] text-slate-400">Yellow dots · monuments and structures</span></span></label>
