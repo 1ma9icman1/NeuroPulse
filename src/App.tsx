@@ -55,6 +55,7 @@ export default function App() {
   const [activeNav, setActiveNav] = useState('GLOBAL SEARCH');
   const [searchText, setSearchText] = useState('');
   const [selectedSiteId, setSelectedSiteId] = useState(DEFAULT_EARTH_POINTS[0]?.id ?? '');
+  const [selectedGlobeSite, setSelectedGlobeSite] = useState<any>(null);
   const [frequencyMax, setFrequencyMax] = useState(20000);
   const [angleMax, setAngleMax] = useState(180);
   const [includeStars, setIncludeStars] = useState(true);
@@ -62,10 +63,16 @@ export default function App() {
   const [includeGeometry, setIncludeGeometry] = useState(true);
   const [showSiteList, setShowSiteList] = useState(false);
   const [scanRequested, setScanRequested] = useState(false);
-  const [audioMenuOpen, setAudioMenuOpen] = useState(true);
+  const [audioMenuOpen, setAudioMenuOpen] = useState(false);
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
 
-  const selectedSite = DEFAULT_EARTH_POINTS.find((site) => site.id === selectedSiteId) ?? DEFAULT_EARTH_POINTS[0];
+  const selectedSite = selectedGlobeSite ?? DEFAULT_EARTH_POINTS.find((site) => site.id === selectedSiteId) ?? DEFAULT_EARTH_POINTS[0];
+  const handleGlobeSiteSelect = useCallback((site: any) => {
+    const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === site.name.toLowerCase());
+    setSelectedSiteId(known?.id ?? site.name);
+    setSelectedGlobeSite({ id: known?.id ?? site.name, name: site.name, lat: site.lat, lon: site.lon, category: site.layerCategory ?? (site.evidenceStatus ? 'Acoustic evidence' : 'Globe site'), desc: known?.desc ?? [site.measurementSummary, site.heightNote, site.orientationNote, site.ritualContext].filter(Boolean).join(' · ') || 'Selected from the live Earth globe. Coordinates and available catalogue details are shown here.', layerCategory: site.layerCategory, year: site.year, evidenceStatus: site.evidenceStatus, measuredFrequenciesHz: site.measuredFrequenciesHz });
+    setShowSiteList(false);
+  }, []);
   const filteredSites = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase();
     return DEFAULT_EARTH_POINTS.filter((site) =>
@@ -190,6 +197,7 @@ export default function App() {
               onUpdateCameraAngles={(cameraYaw, cameraPitch) => handleUpdateConfig({ cameraYaw, cameraPitch })}
               onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
               onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 1, cameraView: 'top' })}
+              onSiteSelect={handleGlobeSiteSelect}
             />
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
             <div className="atlas-globe-overlay atlas-globe-overlay-bottom">
@@ -199,7 +207,7 @@ export default function App() {
               <span><i className="legend-line" /> GEOMETRY {includeGeometry ? 'ON' : 'OFF'}</span>
             </div>
           </div>
-          {(activeNav === 'A/B/C AUDIO CONTROLS' || audioMenuOpen) && (
+          {true && (
             <section className="atlas-audio-workspace">
               <div className="atlas-audio-menu-header">
                 <div><strong><AudioLines size={15} /> A / B / C SPATIAL AUDIO ENGINE</strong><span>Independent oscillator controls · changes update the live audio engine</span></div>
@@ -235,7 +243,7 @@ export default function App() {
               <div className="atlas-results-title"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></div>
               <div className="atlas-results-list">
                 {filteredSites.slice(0, 8).map((site) => (
-                  <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-result-chip chosen' : 'atlas-result-chip'} onClick={() => setSelectedSiteId(site.id)}>
+                  <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-result-chip chosen' : 'atlas-result-chip'} onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); }}>
                     <MapPin size={12} /><span>{site.name}</span>
                   </button>
                 ))}
@@ -278,7 +286,7 @@ export default function App() {
           <section className="atlas-panel atlas-related-panel">
             <div className="atlas-panel-heading"><Orbit size={13} /> NEAREST LISTED SITES</div>
             {includeGeometry && nearestSites.map((site) => (
-              <button key={site.id} className="atlas-related-row" onClick={() => { setSelectedSiteId(site.id); setShowSiteList(false); }}>
+              <button key={site.id} className="atlas-related-row" onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); setShowSiteList(false); }}>
                 <span className="atlas-related-marker"><MapPin size={14} /></span>
                 <span className="atlas-related-copy"><strong>{site.name}</strong><small>{formatCoordinate(site.lat, 'N', 'S')} · {formatCoordinate(site.lon, 'E', 'W')}</small></span>
                 <b>{Math.round(site.distance).toLocaleString()} km</b>
