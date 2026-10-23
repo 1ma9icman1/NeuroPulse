@@ -2832,7 +2832,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
-      {/* Real-time Snap Feedback Banner */
+      {/* Real-time Snap Feedback Banner */}
       {snapFeedback && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-amber-400 text-slate-950 font-mono font-bold text-xs px-4 py-1.5 rounded-full shadow-[0_0_20px_rgba(250,204,21,0.6)] animate-bounce pointer-events-none">
           {snapFeedback}
