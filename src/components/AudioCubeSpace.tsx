@@ -2631,9 +2631,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       />
 
       {/* Top 3D Deck Controls */}
-      <div className="absolute top-3 left-3 right-3 z-[70] flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
+      <div className="absolute top-3 left-3 right-3 z-[70] grid grid-cols-1 items-start gap-2 pointer-events-auto xl:grid-cols-[1fr_auto_1fr]">
         {/* Left: View Mode Switches & Orbit Reset */}
-        <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg">
+        <div className="flex flex-wrap items-center justify-start gap-2 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg xl:justify-self-start">
           <button
             onClick={() => onUpdateCameraView('perspective')}
             className={`px-2.5 py-1 text-xs font-mono font-bold rounded-md border transition-colors ${
@@ -2761,8 +2761,18 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </button>
         </div>
 
-        {/* Center: Star Celestial Alignment Button + Snap Channel Selector + Top Plane Overlay Button */}
-        <div className="flex flex-wrap items-center justify-evenly gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg">
+        {/* Center: zoom/fullscreen controls and star alignment controls */}
+        <div className="flex flex-wrap items-center justify-center gap-2 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg xl:justify-self-center">
+          {isEarthModeActive && (
+            <div className="flex shrink-0 items-center justify-center gap-2 rounded-md border border-purple-500/50 bg-slate-950/90 px-2 py-1 text-xs font-mono text-slate-300">
+              <button onClick={() => onUpdateCameraZoom(Math.max(0.6, +(cameraZoom - 0.1).toFixed(2)))} className="rounded border border-slate-600 p-1 text-slate-300 hover:bg-slate-800 hover:text-white" title="Zoom Out" aria-label="Zoom out Earth view"><ZoomOut className="w-3.5 h-3.5" /></button>
+              <span className="min-w-10 text-center text-[10px] tabular-nums">{Math.round(cameraZoom * 100)}%</span>
+              <button onClick={() => onUpdateCameraZoom(Math.min(5, +(cameraZoom + 0.1).toFixed(2)))} className="rounded border border-slate-600 p-1 text-slate-300 hover:bg-slate-800 hover:text-white" title="Zoom In" aria-label="Zoom in Earth view"><ZoomIn className="w-3.5 h-3.5" /></button>
+              <button onClick={handleToggleStageFullscreen} className="rounded border border-slate-600 p-1 text-slate-300 transition-colors hover:bg-slate-800 hover:text-cyan-300" title={isStageFullscreen ? 'Exit Earth window fullscreen' : 'Expand Earth window fullscreen'} aria-label={isStageFullscreen ? 'Exit Earth fullscreen' : 'Enter Earth fullscreen'}>
+                {isStageFullscreen ? <Minimize className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          )}
           {/* One persistent STARS button controls both star panels in the right sidebar. */}
           <div className="flex items-start gap-1">
             <button
@@ -2954,38 +2964,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           )}
         </div>
 
-        {/* Earth camera controls belong in the Earth window's bottom bar, not beneath Search in the sidebar. */}
-        {isEarthModeActive && (
-          <div className="absolute bottom-3 right-3 z-[70] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-end gap-2 rounded-lg border border-purple-500/50 bg-[#0b1220]/95 px-3 py-2 text-xs font-mono text-slate-300 shadow-lg backdrop-blur-md pointer-events-auto">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => onUpdateCameraZoom(Math.max(0.6, +(cameraZoom - 0.1).toFixed(2)))}
-                className="rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-white"
-                title="Zoom Out"
-                aria-label="Zoom out Earth view"
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-              <span className="w-8 text-center text-[10px] text-slate-300">{Math.round(cameraZoom * 100)}%</span>
-              <button
-                onClick={() => onUpdateCameraZoom(Math.min(5, +(cameraZoom + 0.1).toFixed(2)))}
-                className="rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-white"
-                title="Zoom In"
-                aria-label="Zoom in Earth view"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <button
-              onClick={handleToggleStageFullscreen}
-              className="ml-1 rounded border-l border-slate-700 pl-2 p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-cyan-300"
-              title={isStageFullscreen ? 'Exit Earth window fullscreen' : 'Expand Earth window fullscreen'}
-              aria-label={isStageFullscreen ? 'Exit Earth fullscreen' : 'Enter Earth fullscreen'}
-            >
-              {isStageFullscreen ? <Minimize className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        )}
+
       </div>
 
       {earthImageryPanelOpen && (
