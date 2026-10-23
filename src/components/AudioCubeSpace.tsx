@@ -3327,7 +3327,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               polygonCapColor={() => 'rgba(34,211,238,0.055)'}
               polygonSideColor={() => 'rgba(8,145,178,0.22)'} polygonStrokeColor={() => 'rgba(165,243,252,0.92)'} polygonAltitude={0.018}
               labelsData={[]}
-              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointsData={[]} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => {
                 if (!d || d.isChannelTarget) return '';
@@ -3353,9 +3353,32 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   <div style="font-size:10px;color:#cbd5e1;margin-top:3px">Click the location, then use ADD TO A/B/C to assign a channel.</div>
                 </div>`;
               }}
-              htmlElementsData={[...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              htmlElementsData={[...visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures).map((site: any) => ({ ...site, isLedSite: true })), ...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
+                if (d.isLedSite) {
+                  const led = document.createElement('div');
+                  const raw = String(d.color || '#22d3ee').toLowerCase();
+                  const palette = [
+                    { test: /orange|fb923c|f97316/, color: '#ff342e' },
+                    { test: /yellow|gold|facc15|fbbf24/, color: '#ffd21f' },
+                    { test: /blue|sky|60a5fa|38bdf8/, color: '#168dff' },
+                    { test: /green|34d399|10b981|22c55e/, color: '#23ff55' },
+                    { test: /purple|violet|a78bfa|f472b6|fuchsia/, color: '#dc35ff' },
+                  ];
+                  const chosen = palette.find((entry) => entry.test.test(raw));
+                  const color = chosen?.color || raw;
+                  led.title = `${d.name || 'Map location'} · LED marker`;
+                  led.setAttribute('aria-label', led.title);
+                  led.style.cssText = `width:10px;height:10px;border-radius:50%;position:relative;pointer-events:none;transform:translate(-50%,-50%);background:radial-gradient(circle at 32% 25%,#fff 0%,${color} 22%,${color} 48%,#111827 100%);border:1px solid ${color};box-shadow:0 0 2px ${color};animation:np-led-pulse ${(2.1 + (Math.abs(Number(d.lat) * 13 + Number(d.lon) * 7) % 22) / 10).toFixed(2)}s ease-in-out infinite alternate;opacity:.88;`;
+                  if (!document.getElementById('np-led-globe-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'np-led-globe-style';
+                    style.textContent = `@keyframes np-led-pulse{0%{filter:brightness(.58);opacity:.62;box-shadow:0 0 1px currentColor}45%{filter:brightness(1.2);opacity:1}100%{filter:brightness(1.75);opacity:1;box-shadow:0 0 5px currentColor,0 0 12px currentColor}}`;
+                    document.head.appendChild(style);
+                  }
+                  return led;
+                }
                 if (d.isEarthSiteLabel) {
                   const label = document.createElement('button');
                   label.type = 'button';
