@@ -1,0 +1,286 @@
+import React, { useRef, useState } from 'react';
+import { fromBlob, writeArrayBuffer } from 'geotiff';
+import { Download, FileImage, FileUp, Waves } from 'lucide-react';
+
+type MaskMode = 'band' | 'below';
+type GeoMeta = {
+  width: number;
+  height: number;
+  origin: number[];
+  resolution: number[];
+  bbox: number[];
+  projectionLabel: string;
+  noData: number | null;
+};
+type Product = { blob: Blob; filename: string };
+
+const MAX_INPUT_BYTES = 300 * 1024 * 1024;
+const NODATA = -9999;
+const delay = () => new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+
+/**
+ * Entirely local DEM processing. The selected TIFF is read in the browser; no
+ * raster is uploaded to NeuroPulse or sent to an external service.
+ */
+export const SeaLevelDemTool: React.FC = () => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [target, setTarget] = useState(30);
+  const [tolerance, setTolerance] = useState(1);
+  const [mode, setMode] = useState<MaskMode>('band');
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState('Choose a local elevation GeoTIFF to create a map-ready 30 m layer.');
+  const [error, setError] = useState('');
+  const [metadata, setMetadata] = useState<GeoMeta | null>(null);
+  const [tiffProduct, setTiffProduct] = useState<Product | null>(null);
+  const [pngProduct, setPngProduct] = useState<Product | null>(null);
+  const [matchedCount, setMatchedCount] = useState(0);
+  const [validCount, setValidCount] = useState(0);
+
+  const chooseFile = (next: File | null) => {
+    setFile(next);
+    setMetadata(null);
+    setTiffProduct(null);
+    setPngProduct(null);
+    setMatchedCount(0);
+    setValidCount(0);
+    setProgress(0);
+    setError('');
+    setStatus(next
+      ? `Selected ${next.name}. Choose the 30 m band or terrain below the threshold, then build the layer.`
+      : 'Choose a local elevation GeoTIFF to create a map-ready 30 m layer.');
+  };
+
+  const buildMask = async () => {
+    if (!file || busy) return;
+    setBusy(true);
+    setProgress(0);
+    setError('');
+    setTiffProduct(null);
+    setPngProduct(null);
+    try {
+      if (file.size > MAX_INPUT_BYTES) {
+        throw new Error('This file is larger than 300 MB. Download a smaller regional DEM/tile first to avoid running out of browser memory.');
+      }
+      setStatus('Reading the local elevation raster…');
+      const tiff = await fromBlob(file);
+      const image = await tiff.getImage();
+      const width = image.getWidth();
+      const height = image.getHeight();
+      const total = width * height;
+      if (!Number.isSafeInteger(total) || total < 1) throw new Error('The selected file has invalid raster dimensions.');
+      if (total > 45_000_000) throw new Error('This raster contains more than 45 million pixels. Use a smaller tile or clip it before processing.');
+
+      const origin = image.getOrigin();
+      const resolution = image.getResolution();
+      const bbox = image.getBoundingBox();
+      if (!origin || !resolution || !bbox || ![...origin, ...resolution, ...bbox].every(Number.isFinite)) {
+        throw new Error('The TIFF does not contain a usable georeferenced extent. Choose a GeoTIFF DEM rather than a plain image.');
+      }
+
+      setStatus('Reading elevation values…');
+      const rasterSet = await image.readRasters({ interleave: false });
+      const input = rasterSet[0] as ArrayLike<number>;
+      if (!input || input.length !== total) throw new Error('Could not read the first elevation band from this GeoTIFF.');
+      const noDataValue = image.getGDALNoData();
+      const noData = Number.isFinite(noDataValue) ? noDataValue : null;
+      const mask = new Float32Array(total);
+      let matched = 0;
+      let valid = 0;
+      const lower = target - tolerance;
+      const upper = target + tolerance;
+      const chunk = 500_000;
+      for (let start = 0; start < total; start += chunk) {
+        const stop = Math.min(total, start + chunk);
+        for (let i = start; i < stop; i++) {
+          const elevation = Number(input[i]);
+          const isValid = Number.isFinite(elevation) && !(noData !== null && elevation === noData);
+          if (isValid) valid++;
+          const include = isValid && (mode === 'band'
+            ? elevation >= lower && elevation <= upper
+            : elevation <= target);
+          if (include) {
+            mask[i] = mode === 'band' ? elevation : 1;
+            matched++;
+          } else {
+            mask[i] = NODATA;
+          }
+        }
+        setProgress(Math.round((stop / total) * 65));
+        await delay();
+      }
+      if (!matched) throw new Error('No raster pixels matched that elevation. Try a wider tolerance or a different target value.');
+
+      const rawImage = image as any;
+      const fileDirectory = rawImage.getFileDirectory?.() ?? rawImage.fileDirectory ?? {};
+      const getTag = (key: string) => fileDirectory.getValue?.(key) ?? fileDirectory[key];
+      const geoKeys = rawImage.getGeoKeys?.() ?? rawImage.geoKeys ?? {};
+      const pixelScaleTag = getTag('ModelPixelScale');
+      const tiePointTag = getTag('ModelTiepoint');
+      const transformTag = getTag('ModelTransformation');
+      const writerMeta: Record<string, unknown> = {
+        width,
+        height,
+        BitsPerSample: [32],
+        SamplesPerPixel: 1,
+        SampleFormat: [3],
+        PhotometricInterpretation: 1,
+        Compression: 1,
+        GDAL_NODATA: String(NODATA),
+      };
+      // Preserve projection/coordinate metadata so the output layers line up in GIS.
+      if (pixelScaleTag && tiePointTag) {
+        writerMeta.ModelPixelScale = Array.from(pixelScaleTag as ArrayLike<number>);
+        writerMeta.ModelTiepoint = Array.from(tiePointTag as ArrayLike<number>);
+      } else if (transformTag) {
+        writerMeta.ModelTransformation = Array.from(transformTag as ArrayLike<number>);
+      } else {
+        writerMeta.ModelPixelScale = [Math.abs(resolution[0]), Math.abs(resolution[1]), 0];
+        writerMeta.ModelTiepoint = [0, 0, 0, origin[0], origin[1], origin[2] ?? 0];
+      }
+      for (const key of [
+        'GTModelTypeGeoKey', 'GTRasterTypeGeoKey', 'GeographicTypeGeoKey',
+        'GeogGeodeticDatumGeoKey', 'GeogAngularUnitsGeoKey',
+        'ProjectedCSTypeGeoKey', 'ProjectionGeoKey', 'ProjCoordTransGeoKey',
+        'ProjLinearUnitsGeoKey', 'VerticalCSTypeGeoKey',
+      ]) {
+        const value = geoKeys[key];
+        if (value !== undefined && value !== null) writerMeta[key] = value;
+      }
+
+      setStatus('Writing georeferenced mask GeoTIFF…');
+      setProgress(70);
+      await delay();
+      const outputArrayBuffer = await writeArrayBuffer(mask, writerMeta as any);
+      const stem = file.name.replace(/\.(tif|tiff)$/i, '').replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 72) || 'elevation';
+      const suffix = mode === 'band'
+        ? `elevation-${target}m-plusminus-${tolerance}m`
+        : `below-${target}m-mask`;
+      const nextTiff = new Blob([outputArrayBuffer], { type: 'image/tiff' });
+      setTiffProduct({ blob: nextTiff, filename: `${stem}-${suffix}.tif` });
+
+      // A quick transparent PNG preview/downloader is useful for visual checking.
+      // The GeoTIFF remains the authoritative georeferenced output for GIS/maps.
+      const scale = Math.max(1, Math.ceil(Math.max(width / 1100, height / 800)));
+      const previewWidth = Math.ceil(width / scale);
+      const previewHeight = Math.ceil(height / scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = previewWidth;
+      canvas.height = previewHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const imageData = ctx.createImageData(previewWidth, previewHeight);
+        for (let y = 0; y < previewHeight; y++) {
+          const srcY = Math.min(height - 1, y * scale);
+          for (let x = 0; x < previewWidth; x++) {
+            const srcX = Math.min(width - 1, x * scale);
+            const i = srcY * width + srcX;
+            const out = (y * previewWidth + x) * 4;
+            if (mask[i] !== NODATA) {
+              imageData.data[out] = mode === 'band' ? 250 : 40;
+              imageData.data[out + 1] = mode === 'band' ? 204 : 190;
+              imageData.data[out + 2] = mode === 'band' ? 21 : 255;
+              imageData.data[out + 3] = 215;
+            }
+          }
+        }
+        ctx.putImageData(imageData, 0, 0);
+        const png = await new Promise<Blob>((resolve, reject) =>
+          canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Could not create PNG preview.')), 'image/png'));
+        setPngProduct({ blob: png, filename: `${stem}-${suffix}-preview.png` });
+      }
+      const geoKeysForLabel = geoKeys as Record<string, unknown>;
+      const projectionLabel = geoKeysForLabel.ProjectedCSTypeGeoKey
+        ? `Projected CRS ${String(geoKeysForLabel.ProjectedCSTypeGeoKey)}`
+        : geoKeysForLabel.GeographicTypeGeoKey
+          ? `Geographic CRS ${String(geoKeysForLabel.GeographicTypeGeoKey)}`
+          : 'Source projection metadata preserved where available';
+      setMetadata({ width, height, origin, resolution, bbox, projectionLabel, noData });
+      setMatchedCount(matched);
+      setValidCount(valid);
+      setProgress(100);
+      setStatus(mode === 'band'
+        ? `Finished. Kept ${matched.toLocaleString()} pixels between ${lower.toFixed(1)} m and ${upper.toFixed(1)} m.`
+        : `Finished. Marked ${matched.toLocaleString()} of ${valid.toLocaleString()} valid pixels at or below ${target} m. This is low terrain, not an ocean-connected flood simulation.`);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not process the selected GeoTIFF.';
+      setError(message);
+      setStatus('Processing stopped.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const download = (product: Product | null) => {
+    if (!product) return;
+    const url = URL.createObjectURL(product.blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = product.filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 2500);
+  };
+
+  return (
+    <section className="mt-3 rounded-xl border border-cyan-800/70 bg-slate-950/80 p-3">
+      <div className="flex items-center gap-2 text-xs font-mono font-bold text-cyan-200">
+        <Waves className="h-4 w-4" /> LOCAL DEM / 30 m ELEVATION EXTRACTOR
+      </div>
+      <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+        Process a downloaded elevation GeoTIFF on this computer. No API key, server upload, or paid service. The GeoTIFF output keeps the source grid and coordinate metadata for GIS/map use.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <input ref={fileInputRef} type="file" accept=".tif,.tiff,image/tiff" className="hidden" onChange={event => chooseFile(event.target.files?.[0] ?? null)} />
+        <button type="button" disabled={busy} onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1 rounded border border-cyan-700 px-3 py-2 text-[10px] font-mono text-cyan-200 hover:bg-cyan-950 disabled:opacity-50">
+          <FileUp className="h-3.5 w-3.5" /> CHOOSE DEM TIFF
+        </button>
+        {file && <span className="self-center max-w-full break-all text-[10px] text-slate-300">{file.name} · {(file.size / 1048576).toFixed(1)} MB</span>}
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <div className="flex justify-between text-[10px] text-slate-300"><label htmlFor="dem-target">Target elevation</label><strong className="font-mono text-cyan-200">{target} m</strong></div>
+          <input id="dem-target" aria-label="Target elevation in meters" type="range" min="-500" max="9000" step="1" value={target} disabled={busy} onChange={event => setTarget(Number(event.target.value))} className="w-full accent-cyan-400" />
+          <div className="flex justify-between text-[9px] text-slate-500"><span>-500 m</span><span>9,000 m</span></div>
+        </div>
+        <div>
+          <div className="flex justify-between text-[10px] text-slate-300"><label htmlFor="dem-tolerance">Band tolerance</label><strong className="font-mono text-cyan-200">±{tolerance.toFixed(1)} m</strong></div>
+          <input id="dem-tolerance" aria-label="Elevation band tolerance" type="range" min="0.1" max="10" step="0.1" value={tolerance} disabled={busy || mode === 'below'} onChange={event => setTolerance(Number(event.target.value))} className="w-full accent-cyan-400" />
+          <div className="flex justify-between text-[9px] text-slate-500"><span>±0.1 m</span><span>±10 m</span></div>
+        </div>
+      </div>
+
+      <label htmlFor="dem-mode" className="mt-3 mb-1 block text-[10px] text-slate-300">Extract mode</label>
+      <select id="dem-mode" value={mode} disabled={busy} onChange={event => setMode(event.target.value as MaskMode)} className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-[11px] text-slate-100">
+        <option value="band">Isolate elevation contour band (default: 29–31 m)</option>
+        <option value="below">Mark all terrain at or below the target level (low-terrain mask)</option>
+      </select>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="button" disabled={!file || busy} onClick={buildMask} className="inline-flex items-center gap-1 rounded bg-cyan-500 px-3 py-2 text-[10px] font-mono font-bold text-slate-950 hover:bg-cyan-400 disabled:opacity-50">
+          <FileImage className="h-3.5 w-3.5" /> {busy ? `PROCESSING ${progress}%` : 'BUILD MAP LAYER'}
+        </button>
+        <button type="button" disabled={!tiffProduct || busy} onClick={() => download(tiffProduct)} className="inline-flex items-center gap-1 rounded border border-emerald-700 px-3 py-2 text-[10px] font-mono text-emerald-200 hover:bg-emerald-950 disabled:opacity-50"><Download className="h-3.5 w-3.5" /> DOWNLOAD GEOTIFF</button>
+        <button type="button" disabled={!pngProduct || busy} onClick={() => download(pngProduct)} className="inline-flex items-center gap-1 rounded border border-sky-700 px-3 py-2 text-[10px] font-mono text-sky-200 hover:bg-sky-950 disabled:opacity-50"><Download className="h-3.5 w-3.5" /> PNG PREVIEW</button>
+      </div>
+      {busy && <div className="mt-3 h-1.5 overflow-hidden rounded bg-slate-800"><div className="h-full bg-cyan-400 transition-all" style={{ width: `${progress}%` }} /></div>}
+      <p role="status" className={`mt-2 text-[10px] leading-relaxed ${error ? 'text-rose-300' : 'text-slate-300'}`}>{error || status}</p>
+      {metadata && <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-black/20 p-2 text-[10px]">
+        <div><span className="block text-slate-500">Raster dimensions</span><strong className="text-slate-200">{metadata.width.toLocaleString()} × {metadata.height.toLocaleString()}</strong></div>
+        <div><span className="block text-slate-500">Pixels matched</span><strong className="text-cyan-200">{matchedCount.toLocaleString()}</strong></div>
+        <div><span className="block text-slate-500">Coordinate bounds</span><strong className="break-all text-slate-200">{metadata.bbox.map(v => Number(v).toFixed(5)).join(', ')}</strong></div>
+        <div><span className="block text-slate-500">Projection</span><strong className="break-words text-slate-200">{metadata.projectionLabel}</strong></div>
+      </div>}
+      <div className="mt-3 border-t border-slate-800 pt-2 text-[9px] leading-relaxed text-slate-500">
+        <div className="mb-1 font-bold uppercase tracking-wide text-slate-400">Free DEM downloads — no API key</div>
+        <a className="underline decoration-cyan-700 underline-offset-2 hover:text-cyan-200" href="https://coast.noaa.gov/slrdata/" target="_blank" rel="noreferrer">NOAA Sea Level Rise Viewer DEMs and masks</a>
+        <span> · </span>
+        <a className="underline decoration-cyan-700 underline-offset-2 hover:text-cyan-200" href="https://apps.nationalmap.gov/downloader/" target="_blank" rel="noreferrer">USGS The National Map</a>
+        <p className="mt-1">For the 30 m band, input pixels are compared in the elevation units stored in your DEM (normally metres). The low-terrain mode does not claim that all low pixels are connected to the ocean. Use small local tiles: processing is limited to 300 MB / 45 million pixels per file.</p>
+      </div>
+    </section>
+  );
+};
