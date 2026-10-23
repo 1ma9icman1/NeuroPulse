@@ -7,6 +7,7 @@ import {
   Signal, SlidersHorizontal, Star, Target, Waves, X, Zap, Volume2, ChevronUp
 } from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
+import { EarthElevation } from './components/EarthElevation';
 import { OscillatorDeck } from './components/OscillatorDeck';
 import { DeltaHUD } from './components/DeltaHUD';
 import { FrequencyMatrix } from './components/FrequencyMatrix';
@@ -100,7 +101,7 @@ export default function App() {
   const [scanRequested, setScanRequested] = useState(false);
   const [audioMenuOpen, setAudioMenuOpen] = useState(false);
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
-  const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street'>('globe');
+  const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street' | 'elevation'>('globe');
   const [streetFallbackNotice, setStreetFallbackNotice] = useState(false);
   const [streetFrameLoaded, setStreetFrameLoaded] = useState(false);
   const [mapSnapshotNotice, setMapSnapshotNotice] = useState('');
@@ -379,7 +380,8 @@ export default function App() {
         <section className="atlas-center">
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
-            {earthAreaView === 'globe' || !selectedSite ? <AudioCubeSpace
+            {earthAreaView !== 'elevation' && <button type="button" onClick={() => setEarthAreaView('elevation')} className="absolute right-3 top-12 z-[80] rounded-lg border border-emerald-400/60 bg-slate-950/90 px-3 py-2 text-[10px] font-mono font-bold tracking-wide text-emerald-200 shadow-lg hover:bg-emerald-950/90 hover:text-white">EARTH · ELEVATION</button>}
+            {earthAreaView === 'elevation' ? <EarthElevation selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null} onBack={() => setEarthAreaView('globe')} /> : (earthAreaView === 'globe' || !selectedSite) ? <AudioCubeSpace
               aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
               spatialMode={config.spatialMode} cameraView={config.cameraView}
               cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
@@ -554,7 +556,7 @@ export default function App() {
                 <div className="atlas-site-glyph"><MapPin size={26} /></div>
                 <div><h2>{selectedSite.name}</h2><div className="atlas-muted">{selectedSite.category ?? 'Recorded location'}</div></div>
               </div>
-              <div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('road')}>ROAD MAP IN EARTH VIEW</button><button onClick={() => setEarthAreaView('satellite')}>SATELLITE IN EARTH VIEW</button><button onClick={() => setEarthAreaView('street')}>STREET VIEW IN EARTH VIEW</button></div><div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('satellite')} title="Open Google Maps satellite view inside the Earth workspace">OPEN IN MAPS</button></div>
+              <div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('road')}>ROAD MAP IN EARTH VIEW</button><button onClick={() => setEarthAreaView('satellite')}>SATELLITE IN EARTH VIEW</button><button onClick={() => setEarthAreaView('street')}>STREET VIEW IN EARTH VIEW</button><button onClick={() => setEarthAreaView('elevation')}>EARTH · ELEVATION</button></div><div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('satellite')} title="Open Google Maps satellite view inside the Earth workspace">OPEN IN MAPS</button></div>
               <div className="atlas-site-map-actions"><button onClick={() => toggleFavorite(selectedSite)} aria-pressed={isFavorite(selectedSite)}><Star size={14} fill={isFavorite(selectedSite) ? 'currentColor' : 'none'} /> {isFavorite(selectedSite) ? 'SAVED TO FAVORITES' : 'SAVE TO FAVORITES'}</button></div>
               <div className="atlas-site-assign-actions"><span>ASSIGN THIS LOCATION TO SPATIAL CHANNEL</span>{(['a','b','c'] as const).map(channel => <button key={channel} className={'assign-' + channel} onClick={() => window.dispatchEvent(new CustomEvent('neuro-pulse-assign-earth-site', { detail: { channel, latitude: selectedSite.lat, longitude: selectedSite.lon } }))}>ADD TO {channel.toUpperCase()}</button>)}</div>
               <div className="atlas-coordinates">
