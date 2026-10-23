@@ -493,15 +493,30 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     return () => window.clearInterval(timer);
   }, [is24HourRotationActive]);
 
-  // Globe.gl exposes its OrbitControls object; its negative, very slow autorotation
-  // makes Earth visibly turn eastward once per 24 hours while the globe is in view.
+  // Globe.gl can mount after React's first effect pass, so retry while the 24-hour
+  // simulation is enabled. Three.js OrbitControls interprets autoRotateSpeed per frame;
+  // this value yields one full turn per 24 hours at 60fps.
   useEffect(() => {
-    const controls = globeRef.current?.controls?.();
-    if (!controls) return;
-    controls.autoRotate = is24HourRotationActive && isEarthModeActive;
-    controls.autoRotateSpeed = -0.0006944444444444445;
-    controls.update?.();
-    return () => { controls.autoRotate = false; };
+    if (!is24HourRotationActive || !isEarthModeActive) {
+      const controls = globeRef.current?.controls?.();
+      if (controls) { controls.autoRotate = false; controls.update?.(); }
+      return;
+    }
+    const syncControls = () => {
+      const controls = globeRef.current?.controls?.();
+      if (!controls) return false;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = -0.0006944444444444445;
+      controls.update?.();
+      return true;
+    };
+    syncControls();
+    const timer = window.setInterval(syncControls, 500);
+    return () => {
+      window.clearInterval(timer);
+      const controls = globeRef.current?.controls?.();
+      if (controls) controls.autoRotate = false;
+    };
   }, [is24HourRotationActive, isEarthModeActive]);
   const [earthLocateTarget, setEarthLocateTarget] = useState<EarthTarget | null>(null);
   const [earthLocateImage, setEarthLocateImage] = useState<PlaceImage | null>(null);
@@ -2410,9 +2425,47 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 const pov = globe?.pointOfView?.() || {};
                 const spot = selectedEarthSite?.name || `Earth-${Number(pov.lat ?? 0).toFixed(2)}-${Number(pov.lng ?? 0).toFixed(2)}`;
                 const safeName = String(spot).normalize('NFKD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90) || 'Earth-Screenshot';
+                // Composite a screenshot overlay on top of the WebGL globe. The WebGL canvas
+                // contains dots but intentionally no text; draw readable names into the PNG.
+                const capture = document.createElement('canvas');
+                capture.width = canvas.width;
+                capture.height = canvas.height;
+                const ctx = capture.getContext('2d');
+                if (!ctx) throw new Error('Could not create screenshot canvas');
+                ctx.drawImage(canvas, 0, 0);
+                const scale = canvas.width / Math.max(1, canvas.clientWidth);
+                const drawLabel = (name: string, lat: number, lng: number, selected = false) => {
+                  const screen = (globe as any)?.getScreenCoords?.(lat, lng, 0.015);
+                  if (!screen || !Number.isFinite(screen.x) || !Number.isFinite(screen.y)) return;
+                  const x = screen.x * scale, y = screen.y * scale;
+                  if (x < 4 || y < 4 || x > capture.width - 4 || y > capture.height - 4) return;
+                  ctx!.font = `${selected ? 'bold ' : ''}${Math.max(11, Math.round(11 * scale))}px Arial, sans-serif`;
+                  const textWidth = ctx!.measureText(name).width;
+                  const pad = 4 * scale;
+                  ctx!.fillStyle = selected ? 'rgba(8,47,73,0.94)' : 'rgba(2,6,23,0.82)';
+                  ctx!.strokeStyle = selected ? '#38bdf8' : 'rgba(148,163,184,0.65)';
+                  ctx!.lineWidth = Math.max(1, scale);
+                  ctx!.beginPath();
+                  ctx!.roundRect(x + 7 * scale, y - 9 * scale, textWidth + pad * 2, 17 * scale, 3 * scale);
+                  ctx!.fill(); ctx!.stroke();
+                  ctx!.fillStyle = selected ? '#e0f2fe' : '#f8fafc';
+                  ctx!.fillText(name, x + 7 * scale + pad, y + 3 * scale);
+                };
+                DEFAULT_EARTH_POINTS.forEach((point) => drawLabel(point.name, point.lat, point.lon));
+                if (selectedEarthSite) drawLabel(selectedEarthSite.name, selectedEarthSite.lat, selectedEarthSite.lng, true);
+                // Keep the selected city/site name visible in a title overlay even if it is on the far side.
+                const title = selectedEarthSite?.name || spot;
+                ctx.fillStyle = 'rgba(2,6,23,0.88)';
+                ctx.fillRect(0, 0, capture.width, Math.max(34 * scale, 34));
+                ctx.fillStyle = '#e0f2fe';
+                ctx.font = `bold ${Math.max(13, Math.round(13 * scale))}px Arial, sans-serif`;
+                ctx.fillText(`NEUROPULSE EARTH · ${title}`, 12 * scale, 22 * scale);
+                ctx.fillStyle = '#cbd5e1';
+                ctx.font = `${Math.max(10, Math.round(10 * scale))}px Arial, sans-serif`;
+                ctx.fillText(`${Number(pov.lat ?? selectedEarthSite?.lat ?? 0).toFixed(4)}° lat  ·  ${Number(pov.lng ?? selectedEarthSite?.lng ?? 0).toFixed(4)}° lon  ·  ${new Date().toLocaleString()}`, 12 * scale, 34 * scale);
                 const link = document.createElement('a');
-                link.download = `${safeName}-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
-                link.href = canvas.toDataURL('image/png');
+                link.download = `${safeName}-labeled-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+                link.href = capture.toDataURL('image/png');
                 link.click();
               } catch (error) {
                 console.error('Earth screenshot failed:', error);
@@ -2486,7 +2539,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                     ✦ {showAllStars ? 'ALL STARS ON' : 'ALL STARS'}
                   </button>
                   <button
-                    onClick={(event) => { event.stopPropagation(); setShowConstellationLines((value) => !value); }}
+                    onClick={(event) => { event.stopPropagation(); setIsStarModeActive(true); setShowConstellationLines((value) => !value); }}
                     aria-pressed={showConstellationLines}
                     className={`px-2 py-1 rounded text-[10px] font-mono font-bold border ${showConstellationLines ? 'bg-sky-400 text-slate-950 border-sky-300' : 'bg-slate-900 text-slate-300 border-slate-700'}`}
                     title="Toggle constellation connecting lines independently from star visibility"
@@ -2949,14 +3002,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-1">
                 <span className="text-[10px] font-mono font-bold text-sky-200">IAU CONSTELLATIONS · 88</span>
                 <div className="flex gap-1">
-                  <button onClick={() => setAllConstellations(true)} className="rounded border border-sky-700 px-2 py-1 text-[9px] font-mono text-sky-200 hover:bg-sky-950">ALL ON</button>
+                  <button onClick={() => { setIsStarModeActive(true); setShowConstellationLines(true); setAllConstellations(true); }} className="rounded border border-sky-700 px-2 py-1 text-[9px] font-mono text-sky-200 hover:bg-sky-950">ALL ON</button>
                   <button onClick={() => setAllConstellations(false)} className="rounded border border-slate-700 px-2 py-1 text-[9px] font-mono text-slate-300 hover:bg-slate-800">ALL OFF</button>
                   <button onClick={() => setShowConstellationControls((v) => !v)} className="rounded border border-slate-700 px-2 py-1 text-[9px] font-mono text-slate-300">{showConstellationControls ? 'HIDE' : 'SELECT'}</button>
                 </div>
               </div>
               {showConstellationControls && <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto pr-1">{IAU_CONSTELLATIONS.map((name) => {
                 const available = hasConstellationGeometry(name);
-                return <label key={name} className={'flex items-center gap-1.5 rounded px-1.5 py-1 text-[9px] font-mono ' + (available ? 'text-slate-200' : 'text-slate-500')} title={available ? 'Stars in current local catalog can be shown/hidden' : 'Name listed; star-coordinate and line data are not yet in the app catalog'}><input type="checkbox" checked={isConstellationEnabled(name)} onChange={(e) => setConstellationsEnabled((prev) => ({ ...prev, [name]: e.target.checked }))} className="accent-sky-400" />{name}{!available && <span className="ml-auto text-[8px] opacity-70">DATA NEEDED</span>}</label>;
+                return <label key={name} className={'flex items-center gap-1.5 rounded px-1.5 py-1 text-[9px] font-mono ' + (available ? 'text-slate-200' : 'text-slate-500')} title={available ? 'Stars in current local catalog can be shown/hidden' : 'Name listed; star-coordinate and line data are not yet in the app catalog'}><input type="checkbox" checked={isConstellationEnabled(name)} onChange={(e) => { setConstellationsEnabled((prev) => ({ ...prev, [name]: e.target.checked })); if (hasConstellationGeometry(name) && e.target.checked) { setIsStarModeActive(true); setShowConstellationLines(true); } }} className="accent-sky-400" />{name}{!available && <span className="ml-auto text-[8px] opacity-70">DATA NEEDED</span>}</label>;
               })}</div>}
               <div className="text-[9px] leading-relaxed text-slate-500">All 88 constellation stick figures use sourced J2000 right-ascension/declination line paths. These are traditional sky-chart connections, not the IAU constellation boundary outlines. Data source: d3-celestial.</div>
             </div>
