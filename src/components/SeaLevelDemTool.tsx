@@ -22,7 +22,7 @@ const delay = () => new Promise<void>((resolve) => window.setTimeout(resolve, 0)
  * Entirely local DEM processing. The selected TIFF is read in the browser; no
  * raster is uploaded to NeuroPulse or sent to an external service.
  */
-export const SeaLevelDemTool: React.FC = () => {
+type FloodPolygon = { layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } };\ninterface SeaLevelDemToolProps { onFloodPolygons?: (polygons: FloodPolygon[]) => void }\n\nexport const SeaLevelDemTool: React.FC<SeaLevelDemToolProps> = ({ onFloodPolygons }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [target, setTarget] = useState(0);
@@ -179,6 +179,47 @@ export const SeaLevelDemTool: React.FC = () => {
       const fileDirectory = rawImage.getFileDirectory?.() ?? rawImage.fileDirectory ?? {};
       const getTag = (key: string) => fileDirectory.getValue?.(key) ?? fileDirectory[key];
       const geoKeys = rawImage.getGeoKeys?.() ?? rawImage.geoKeys ?? {};
+
+      // Prepare a lightweight globe overlay only for true WGS84 geographic rasters.
+      // Each coarse cell is included only when it contains a pixel reached by the ocean flood fill.
+      let floodOverlayCellCount = 0;
+      if (mode === 'below' && Number(geoKeys.GTModelTypeGeoKey) === 2 && Number(geoKeys.GeographicTypeGeoKey) === 4326) {
+        const maxCellsX = 160;
+        const maxCellsY = 80;
+        const stepX = Math.max(1, Math.ceil(width / maxCellsX));
+        const stepY = Math.max(1, Math.ceil(height / maxCellsY));
+        const [minLon, minLat, maxLon, maxLat] = bbox;
+        const polygons: FloodPolygon[] = [];
+        for (let y = 0; y < height; y += stepY) {
+          const yEnd = Math.min(height, y + stepY);
+          let latTop = maxLat - (y / height) * (maxLat - minLat);
+          let latBottom = maxLat - (yEnd / height) * (maxLat - minLat);
+          if (latTop < latBottom) [latTop, latBottom] = [latBottom, latTop];
+          for (let x = 0; x < width; x += stepX) {
+            const xEnd = Math.min(width, x + stepX);
+            let flooded = false;
+            for (let py = y; py < yEnd && !flooded; py++) {
+              for (let px = x; px < xEnd; px++) {
+                if (mask[py * width + px] !== NODATA) { flooded = true; break; }
+              }
+            }
+            if (!flooded) continue;
+            const left = minLon + (x / width) * (maxLon - minLon);
+            const right = minLon + (xEnd / width) * (maxLon - minLon);
+            polygons.push({
+              layerType: 'sea-level-flood',
+              geometry: { type: 'Polygon', coordinates: [[[left, latBottom], [right, latBottom], [right, latTop], [left, latTop], [left, latBottom]]] },
+            });
+          }
+        }
+        floodOverlayCellCount = polygons.length;
+        onFloodPolygons?.(polygons);
+      } else if (mode === 'below') {
+        onFloodPolygons?.([]);
+      } else {
+        onFloodPolygons?.([]);
+      }
+
       const pixelScaleTag = getTag('ModelPixelScale');
       const tiePointTag = getTag('ModelTiepoint');
       const transformTag = getTag('ModelTransformation');
@@ -266,7 +307,7 @@ export const SeaLevelDemTool: React.FC = () => {
       setProgress(100);
       setStatus(mode === 'band'
         ? `Finished. Kept ${matched.toLocaleString()} pixels between ${lower.toFixed(1)} m and ${upper.toFixed(1)} m.`
-        : `Flood simulation complete: ${matched.toLocaleString()} ocean-connected pixels inundated at ${target} m relative to the DEM's vertical datum, out of ${valid.toLocaleString()} valid pixels. This static bathtub model excludes tides, storm surge, defenses, subsidence, and hydrodynamics.`);
+        : `Flood simulation complete: ${matched.toLocaleString()} ocean-connected pixels inundated at ${target} m relative to the DEM's vertical datum, out of ${valid.toLocaleString()} valid pixels. ${floodOverlayCellCount ? `Draped ${floodOverlayCellCount.toLocaleString()} coarse flood cells onto the live globe.` : 'Live globe draping requires a WGS84 geographic (EPSG:4326) DEM.'} Static bathtub model: no tides, storm surge, defenses, subsidence, or hydrodynamics.`);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Could not process the selected GeoTIFF.';
       setError(message);
