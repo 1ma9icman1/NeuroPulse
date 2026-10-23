@@ -526,6 +526,29 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
   const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.color ?? (site.isCity ? '#60a5fa' : String(site.category ?? '').toLowerCase() === 'astronomy' ? '#a78bfa' : String(site.category ?? '').toLowerCase() === 'acoustic' ? '#fb923c' : '#facc15'), size: site.isCity ? 0.10 : 0.12, altitude: 0.0015, layerCategory: site.isCity ? 'CITY' : String(site.category ?? 'ANCIENT / HISTORICAL SITE').toUpperCase() })), ...(showAncientStructures ? ANCIENT_STRUCTURE_DIMENSIONS.filter((structure) => !earthSites.some((site: any) => !site.isCity && Math.abs(site.lat - structure.lat) < 0.08 && Math.abs(site.lon - structure.lon) < 0.08)).map((structure) => ({ name: structure.name, lat: structure.lat, lon: structure.lon, year: -3500, color: '#facc15', size: 0.12, altitude: 0.0015, layerCategory: 'ANCIENT STRUCTURE HEIGHT', structuralHeightFt: structure.approximateHeightFt, heightBasis: structure.heightBasis, heightNote: structure.evidenceNote, numberSystem: structure.numberSystem, numberSystemNote: structure.numberSystemNote, orientationNote: structure.orientationNote, ritualContext: structure.ritualContext, isDimensionRecord: true })) : []), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.14, altitude: 0.0015, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : []), ...(showAncientStructures ? LEGACY_HISTORICAL_SITES.filter((legacy) => !earthSites.some((site: any) => !site.isCity && site.name.toLowerCase() === legacy.name.toLowerCase()) && !ANCIENT_STRUCTURE_DIMENSIONS.some((structure) => structure.name.toLowerCase() === legacy.name.toLowerCase()) && !DEFAULT_EARTH_POINTS.some((point) => point.name.toLowerCase() === legacy.name.toLowerCase()) && timelineYear >= legacy.year).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: site.year, color: '#34d399', size: 0.115, altitude: 0.0015, layerCategory: 'HISTORICAL & ARCHAEOLOGICAL', historicalRecord: true, researchReason: 'Historical or archaeological reference location included for research context. Its presence on the globe is not evidence of a specific resonance or frequency; that requires site-specific measurements.' })) : [])];
+
+  // Render locations as clickable HTML tags rather than the Globe library's
+  // plain text labels. Group nearby coordinates and stagger their tag positions
+  // so neighboring names have their own space, with a colored leader back to each pin.
+  const earthSiteLabelData = (() => {
+    const sites = visibleEarthSites.filter((site: any) =>
+      site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures
+    );
+    const buckets = new Map<string, number>();
+    return sites.map((site: any) => {
+      const bucket = `${Math.round(Number(site.lat) / 3)}:${Math.round(Number(site.lon) / 3)}`;
+      const slot = buckets.get(bucket) ?? 0;
+      buckets.set(bucket, slot + 1);
+      const column = slot % 2;
+      const row = Math.floor(slot / 2);
+      return {
+        ...site,
+        isEarthSiteLabel: true,
+        labelOffsetX: 14 + column * 124,
+        labelOffsetY: (row % 2 === 0 ? 1 : -1) * (18 + Math.ceil(row / 2) * 22),
+      };
+    });
+  })();
   const triangleEdges = showAlignmentTriangles ? triangulationOverlay.edges : [];
   const trianglePolygons = showAlignmentTriangles ? triangulationOverlay.polygons : [];
   const repeatedTriangleAngles: Array<[string, number]> = [];
@@ -3426,7 +3449,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(56,189,248,0.42)' : 'rgba(34,211,238,0.055)'}
               polygonSideColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(14,165,233,0.32)' : 'rgba(8,145,178,0.22)'} polygonStrokeColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(125,211,252,0.85)' : 'rgba(165,243,252,0.92)'} polygonAltitude={(d: any) => d.layerType === 'sea-level-flood' ? 0.022 : 0.018}
-              labelsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)}
+              labelsData={[]}
               labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
               labelColor={(d: any) => d.isCity ? '#e2e8f0' : d.evidenceStatus ? '#fdba74' : '#fde68a'}
               labelSize={(d: any) => d.isCity ? 0.40 : 0.31} labelAltitude={0.016} labelDotRadius={(d: any) => d.isCity ? 0.065 : 0.045}
@@ -3465,7 +3488,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   <div style="font-size:10px;color:#cbd5e1;margin-top:3px">Click the location, then use ADD TO A/B/C to assign a channel.</div>
                 </div>`;
               }}
-              htmlElementsData={[...earthChannelMarkers, ...(showTriangleAngles && showAlignmentTriangles ? triangulationOverlay.angleLabels : []), ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              htmlElementsData={[...earthChannelMarkers, ...(showTriangleAngles && showAlignmentTriangles ? triangulationOverlay.angleLabels : []), ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : []), ...earthSiteLabelData]}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
                 if (d.isTriangleAngleLabel) {
@@ -3498,6 +3521,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   label.style.background = 'rgba(4, 13, 27, 0.88)';
                   label.style.backdropFilter = 'blur(8px)';
                   label.style.color = d.color || (d.isCity ? '#60a5fa' : d.evidenceStatus ? '#fb923c' : '#facc15');
+                  label.style.textAlign = 'left';
+                  label.style.minHeight = '24px';
+                  label.style.maxWidth = '190px';
+                  label.style.width = 'max-content';
                   label.style.font = '600 10px Inter, ui-sans-serif, system-ui, sans-serif';
                   label.style.letterSpacing = '0.01em';
                   label.style.lineHeight = '1.3';
@@ -3508,7 +3535,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   label.style.cursor = 'pointer';
                   label.style.pointerEvents = 'auto';
                   // Anchor the label to the end of a visible leader instead of centering it over the map pin.
-                  label.style.transform = 'translate(13px, -50%)';
+                  label.style.transform = `translate(${Number(d.labelOffsetX ?? 14)}px, calc(-50% + ${Number(d.labelOffsetY ?? 0)}px))`;
                   label.style.position = 'relative';
                   label.style.marginLeft = '13px';
                   label.onclick = (event) => {
