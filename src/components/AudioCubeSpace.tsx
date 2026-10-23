@@ -356,10 +356,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     return merged;
   })();
   // Start the Earth view centered on Poverty Point, Louisiana, in the southern United States.
-  // Keep the camera at a regional scale so the US remains visible on startup.
+  // Start each Earth session centered on Rome, Italy.
   useEffect(() => {
-    if (!isEarthModeActive || !globeRef.current) return;
-    globeRef.current.pointOfView({ lat: 32.6364, lng: -91.4062, altitude: Math.max(1.35, 2.05 - cameraZoom * 0.18) }, 650);
+    if (!isEarthModeActive) return;
+    const centerTimer = window.setTimeout(() => {
+      globeRef.current?.pointOfView({ lat: 41.9028, lng: 12.4964, altitude: Math.max(1.35, 2.05 - cameraZoom * 0.18) }, 700);
+    }, 120);
+    return () => window.clearTimeout(centerTimer);
   }, [isEarthModeActive]);
 
   // Zoom changes adjust distance without moving the selected geographic center.
@@ -3423,9 +3426,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(56,189,248,0.42)' : 'rgba(34,211,238,0.055)'}
               polygonSideColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(14,165,233,0.32)' : 'rgba(8,145,178,0.22)'} polygonStrokeColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(125,211,252,0.85)' : 'rgba(165,243,252,0.92)'} polygonAltitude={(d: any) => d.layerType === 'sea-level-flood' ? 0.022 : 0.018}
-              labelsData={visibleEarthSites.filter((site: any) => site.isCity && showCities)}
-      labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
-      labelColor={() => '#f8fafc'} labelSize={0.55} labelAltitude={0.012} labelDotRadius={0.12}
+              labelsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)}
+              labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
+              labelColor={(d: any) => d.isCity ? '#e2e8f0' : d.evidenceStatus ? '#fdba74' : '#fde68a'}
+              labelSize={(d: any) => d.isCity ? 0.40 : 0.31} labelAltitude={0.016} labelDotRadius={(d: any) => d.isCity ? 0.065 : 0.045}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               {...({
