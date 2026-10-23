@@ -866,6 +866,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [earthLocateImageLoading, setEarthLocateImageLoading] = useState(false);
   const [earthMapView, setEarthMapView] = useState<'map' | 'terrain' | 'satellite'>('map');
   const [selectedEarthSite, setSelectedEarthSite] = useState<EarthSiteSelection | null>(null);
+  // Keep the Google location panel populated with selectable, geotagged photos when available.
   const loadEarthPhotoGallery = async (latitude: number, longitude: number, placeName: string) => {
     setEarthLocateImage(null);
     setEarthLocateImages([]);
