@@ -3350,7 +3350,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       {isTimelineActive ? createPortal((
         <section className="atlas-panel atlas-timeline-panel max-h-[65vh] overflow-y-auto">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
             <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300">Historical Earth / Sky Timeline</div>
             <div className="flex items-center gap-2">
               <div className="text-xs font-mono text-white">{timelineYear < 0 ? Math.abs(timelineYear).toLocaleString() + ' BCE' : timelineYear + ' CE'}</div>
