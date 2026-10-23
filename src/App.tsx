@@ -93,7 +93,7 @@ export default function App() {
   const isFavorite = (site: any) => !!site && favoriteSites.some(item => String(item.name || item.id || '') === String(site.name || site.id || ''));
   const [frequencyMax, setFrequencyMax] = useState(20000);
   const [angleMax, setAngleMax] = useState(180);
-  const [includeStars, setIncludeStars] = useState(true);
+  const [includeStars, setIncludeStars] = useState(false);
   const [includeAcoustics, setIncludeAcoustics] = useState(true);
   const [includeGeometry, setIncludeGeometry] = useState(true);
   const [showSiteList, setShowSiteList] = useState(false);
@@ -121,7 +121,7 @@ export default function App() {
   const handleGlobeSiteSelect = useCallback((site: any) => {
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === site.name.toLowerCase());
     setSelectedSiteId(known?.id ?? site.name);
-    setEarthAreaView('street');
+    setEarthAreaView('satellite');
     setSelectedGlobeSite({ id: known?.id ?? site.name, name: site.name, lat: site.lat, lon: site.lon, category: site.layerCategory ?? (site.evidenceStatus ? 'Acoustic evidence' : 'Globe site'), desc: known?.desc ?? ([site.measurementSummary, site.heightNote, site.orientationNote, site.ritualContext].filter(Boolean).join(' · ') || 'Selected from the live Earth globe. Coordinates and available catalogue details are shown here.'), layerCategory: site.layerCategory, year: site.year, evidenceStatus: site.evidenceStatus, measuredFrequenciesHz: site.measuredFrequenciesHz, structuralHeightFt: site.structuralHeightFt, numberSystem: site.numberSystem, numberSystemNote: site.numberSystemNote, researchReason: site.researchReason, heightBasis: site.heightBasis, ritualContext: site.ritualContext, orientationNote: site.orientationNote, measurementContext: site.measurementContext });
     setShowSiteList(false);
   }, []);
@@ -192,17 +192,9 @@ export default function App() {
   }, []);
   const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? null;
 
-  // Google can return a valid iframe document even when no panorama exists at the
-  // exact pin. Give Street View time to find nearby imagery, then leave the user on
-  // satellite imagery instead of a permanently blank panorama.
-  useEffect(() => {
-    if (earthAreaView !== 'street' || !selectedSite || streetFrameLoaded) return;
-    const fallbackTimer = window.setTimeout(() => {
-      setStreetFallbackNotice(true);
-      setEarthAreaView((current) => current === 'street' ? 'satellite' : current);
-    }, 12000);
-    return () => window.clearTimeout(fallbackTimer);
-  }, [earthAreaView, selectedSite?.id, selectedSite?.lat, selectedSite?.lon, streetFrameLoaded]);
+  // Keep Street View as an explicit in-app choice. Its cross-origin iframe cannot
+  // reliably report whether a panorama exists, so use aerial imagery as the default
+  // and provide a one-way, in-app aerial fallback instead of bouncing between views.
   const moduleSites = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase();
     return researchSites.filter((site) =>
@@ -377,12 +369,27 @@ export default function App() {
         <div className="atlas-panel-heading"><Star size={14} fill="currentColor"/> FAVORITE SITES <button className="atlas-secondary-button" onClick={() => setShowFavorites(false)}>CLOSE</button></div>
         {favoriteSites.length ? favoriteSites.map((site: any) => <div key={site.id} className="atlas-favorite-row" style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',padding:'6px 0'}}><button className="atlas-result-chip" onClick={() => { setSelectedGlobeSite(site); setSelectedSiteId(site.id); setEarthAreaView('satellite'); setShowFavorites(false); }}><MapPin size={12}/><span>{site.name}</span></button><button aria-label={'Remove '+site.name+' from favorites'} onClick={() => toggleFavorite(site)}><Star size={14} fill="currentColor"/></button></div>) : <p className="atlas-no-data">No favorites saved yet. Select a site and use Save to Favorites.</p>}
       </section>}
-      {earthAreaView === 'elevation' && <section aria-label="Water elevation Earth workspace" style={{ position: 'absolute', zIndex: 80, top: 58, left: 8, right: 8, bottom: 24, minWidth: 0, minHeight: 0, background: '#030814', border: '1px solid rgba(0, 128, 223, .56)', borderRadius: 7, overflow: 'hidden' }}><EarthElevation key="water-elevation-earth" selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null} siteCatalogue={researchSites} onBack={() => setEarthAreaView('globe')} /></section>}
       <div className="atlas-workspace">
         <section className="atlas-center">
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
-            {earthAreaView === 'elevation' ? null : (earthAreaView === 'globe' || !selectedSite) ? <AudioCubeSpace
+            {earthAreaView === 'elevation' ? <EarthElevation
+              key="water-elevation-earth"
+              selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
+              siteCatalogue={researchSites}
+              onBack={() => setEarthAreaView('globe')}
+              onAssignChannel={(channel, latitude, longitude) => {
+                const lat = latitude * Math.PI / 180;
+                const lon = longitude * Math.PI / 180;
+                const radius = 3.42;
+                updatePosition(channel, { x: radius * Math.cos(lat) * Math.sin(lon), y: radius * Math.sin(lat), z: radius * Math.cos(lat) * Math.cos(lon) });
+              }}
+              onSelectSite={(site) => {
+                const known = researchSites.find((item: any) => item.name === site.name) as any;
+                setSelectedSiteId(known?.id ?? site.name);
+                setSelectedGlobeSite(known ?? { ...site, id: site.name, category: site.category ?? 'Mapped site' });
+              }}
+            /> : (earthAreaView === 'globe' || !selectedSite) ? <AudioCubeSpace
               aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
               spatialMode={config.spatialMode} cameraView={config.cameraView}
               cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
@@ -399,7 +406,7 @@ export default function App() {
               openWaterElevationRequest={waterElevationRequest}
               onOpenWaterElevation={() => setEarthAreaView('elevation')}
               showChannelElevationControls={audioMenuOpen && ['A/B/C AUDIO CONTROLS', 'TRINAURAL / SOLFEGGIO'].includes(activeNav)}
-            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => { setStreetFallbackNotice(false); setStreetFrameLoaded(false); setEarthAreaView('street'); }}>OPEN STREET VIEW IN APP</button><button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street') setStreetFrameLoaded(true); }} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} loading="eager" src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
+            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => { setStreetFallbackNotice(false); setStreetFrameLoaded(false); setEarthAreaView('street'); }}>TRY STREET VIEW IN APP</button>{earthAreaView === 'street' && <button onClick={() => { setStreetFallbackNotice(true); setEarthAreaView('satellite'); }}>AERIAL FALLBACK IN APP</button>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street') setStreetFrameLoaded(true); }} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} loading="eager" src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
             {earthAreaView !== 'elevation' && <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>}
 
           </div>
@@ -501,7 +508,7 @@ export default function App() {
           <section className="atlas-panel atlas-navigation">
             <div className="atlas-panel-heading">RESEARCH MODULES</div>
             {NAV_ITEMS.map(({ label, icon: Icon }) => (
-              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
+              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'STELLAR ALIGNMENTS') setIncludeStars(true); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
                 <Icon size={15} strokeWidth={1.8} /><span>{label}</span><span className="nav-chevron">›</span>
               </button>
             ))}
@@ -553,7 +560,7 @@ export default function App() {
                 <div className="atlas-site-glyph"><MapPin size={26} /></div>
                 <div><h2>{selectedSite.name}</h2><div className="atlas-muted">{selectedSite.category ?? 'Recorded location'}</div></div>
               </div>
-              <div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('road')}>ROAD MAP IN EARTH VIEW</button><button onClick={() => setEarthAreaView('satellite')}>SATELLITE IN EARTH VIEW</button><button onClick={() => setEarthAreaView('street')}>STREET VIEW IN EARTH VIEW</button><button onClick={() => setEarthAreaView('elevation')} title="Open the third Earth workspace with NOAA terrain, bathymetry, and adjustable sea level">WATER ELEVATION · 3D EARTH</button></div><div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('satellite')} title="Open Google Maps satellite view inside the Earth workspace">OPEN IN MAPS</button></div>
+              <div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('road')}>ROAD MAP IN EARTH VIEW</button><button onClick={() => setEarthAreaView('satellite')}>SATELLITE IN EARTH VIEW</button><button onClick={() => setEarthAreaView('street')}>STREET VIEW IN EARTH VIEW</button><button onClick={() => setEarthAreaView('elevation')} title="Open the third Earth workspace with NOAA terrain, bathymetry, and adjustable sea level">WATER ELEVATION · 3D EARTH</button></div><div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('satellite')} title="Show this location's aerial imagery inside NeuroPulse">OPEN AERIAL MAP IN APP</button></div>
               <div className="atlas-site-map-actions"><button onClick={() => toggleFavorite(selectedSite)} aria-pressed={isFavorite(selectedSite)}><Star size={14} fill={isFavorite(selectedSite) ? 'currentColor' : 'none'} /> {isFavorite(selectedSite) ? 'SAVED TO FAVORITES' : 'SAVE TO FAVORITES'}</button></div>
               <div className="atlas-site-assign-actions"><span>ASSIGN THIS LOCATION TO SPATIAL CHANNEL</span>{(['a','b','c'] as const).map(channel => <button key={channel} className={'assign-' + channel} onClick={() => window.dispatchEvent(new CustomEvent('neuro-pulse-assign-earth-site', { detail: { channel, latitude: selectedSite.lat, longitude: selectedSite.lon } }))}>ADD TO {channel.toUpperCase()}</button>)}</div>
               <div className="atlas-coordinates">
@@ -589,13 +596,13 @@ export default function App() {
             ))}</div>}
           </section>
 
-          <section className="atlas-panel atlas-star-panel">
+          {activeNav === 'STELLAR ALIGNMENTS' && <section className="atlas-panel atlas-star-panel">
             <div className="atlas-panel-heading"><Star size={13} /> STAR CATALOGUE <span className="atlas-panel-count">{REAL_CELESTIAL_STARS.length} RECORDS</span></div>
-            {includeStars ? REAL_CELESTIAL_STARS.slice(0, 4).map((star) => (
+            {includeStars && REAL_CELESTIAL_STARS.slice(0, 4).map((star) => (
               <div className="atlas-star-row" key={star.id}><span className="star-spark">✦</span><span><strong>{star.name}</strong><small>{star.constellation}</small></span><b>{star.distLy.toLocaleString()} ly</b></div>
-            )) : <div className="atlas-no-data">Star catalogue is excluded by the current search filters.</div>}
+            ))}
             <div className="atlas-footnote">Star catalogue coordinates and distances are reference data; a site alignment requires a dated sky calculation and verified architectural axis.</div>
-          </section>
+          </section>}
         </aside>
       </div>
 

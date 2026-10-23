@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowUpRight, MapPin, X } from 'lucide-react';
+import { MapPin, X } from 'lucide-react';
 
 export interface EarthSiteSelection {
   name: string;
@@ -90,12 +90,12 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description,
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.08] px-4 py-3 md:px-5">
             <span className="text-[10px] text-slate-500">Map imagery and coverage vary by location.</span>
             <div className="flex flex-wrap gap-2">
-              <a className={`${buttonBase} ${buttonIdle}`} href={`https://www.google.com/maps/search/?api=1&query=${site.lat},${site.lon}`} target="_blank" rel="noreferrer">
-                Open map <ArrowUpRight className="h-3.5 w-3.5" />
-              </a>
-              <a className={`${buttonBase} ${buttonIdle}`} href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${site.lat},${site.lon}`} target="_blank" rel="noreferrer">
-                Street View <ArrowUpRight className="h-3.5 w-3.5" />
-              </a>
+              <button type="button" className={`${buttonBase} ${buttonIdle}`} onClick={() => setMapView('satellite')} title="Show the aerial view inside NeuroPulse">
+                OPEN AERIAL MAP IN APP
+              </button>
+              <button type="button" className={`${buttonBase} ${buttonIdle}`} onClick={() => setMapView('map')} title="Return to the in-app street map; no new browser window opens">
+                IN-APP ROAD MAP
+              </button>
             </div>
           </div>
         </section>

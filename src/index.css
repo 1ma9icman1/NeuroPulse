@@ -722,3 +722,37 @@ button:hover, button:focus-visible {
     height: 125dvh;
   }
 }
+
+
+/* Keep the research dock full-height; portal panels should not shorten its scroll lane. */
+@media (min-width: 901px) {
+  .atlas-workspace { align-items: stretch; }
+  .atlas-right {
+    height: 100%;
+    max-height: none !important;
+    min-height: 0;
+    align-self: stretch;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding-bottom: 12px;
+  }
+}
+@media (max-width: 900px) {
+  .atlas-right {
+    top: 62px !important;
+    bottom: 8px !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+  }
+}
+.atlas-globe-stage:has(.earth-elevation-workspace) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.atlas-globe-stage .earth-elevation-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
