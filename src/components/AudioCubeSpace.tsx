@@ -3233,7 +3233,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               </div>
             </div>
             <div className="min-h-[260px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
-              <div className="px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-emerald-200">LOCATION PHOTOGRAPH / SATELLITE CONTEXT</div>
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <div className="text-[10px] font-mono font-bold tracking-wider text-emerald-200">SITE PHOTOS · {earthLocateImages.length ? `${Math.min(earthLocateImageIndex + 1, earthLocateImages.length)} / ${earthLocateImages.length}` : 'SEARCHING'}</div>
+                <button type="button" disabled={earthLocateImages.length < 2} onClick={() => { const next = (earthLocateImageIndex + 1) % earthLocateImages.length; setEarthLocateImageIndex(next); setEarthLocateImage(earthLocateImages[next]); }} className="rounded border border-emerald-700 bg-emerald-950 px-2 py-1 text-[10px] font-mono font-bold text-emerald-200 enabled:hover:bg-emerald-900 disabled:opacity-40">NEXT IMAGE ›</button>
+              </div>
               {earthLocateImage?.url ? (
                 <>
                   <img src={earthLocateImage.url} alt={earthLocateImage.title} className="w-full h-[240px] md:h-[330px] object-cover bg-slate-900" loading="lazy" />
@@ -3241,11 +3244,20 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                     <div className="text-xs font-semibold text-slate-100">{earthLocateImage.title}</div>
                     <div className="mt-1 text-[10px] text-slate-400 line-clamp-3">{earthLocateImage.description}</div>
                     <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-500"><span>Source: {earthLocateImage.source}</span>{earthLocateImage.pageUrl && <a href={earthLocateImage.pageUrl} target="_blank" rel="noreferrer" className="text-sky-300 hover:text-sky-100">Image source ↗</a>}</div>
+                    {earthLocateImages.length > 1 && (
+                      <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Location photo thumbnails">
+                        {earthLocateImages.map((image, index) => (
+                          <button key={image.url} type="button" onClick={() => { setEarthLocateImageIndex(index); setEarthLocateImage(image); }} aria-label={`Show photo ${index + 1}: ${image.title}`} aria-pressed={index === earthLocateImageIndex} className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-md border-2 ${index === earthLocateImageIndex ? 'border-emerald-300' : 'border-slate-700 opacity-75 hover:opacity-100'}`}>
+                            <img src={image.url} alt={image.title} loading="lazy" className="h-full w-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
                 <div className="flex min-h-[240px] md:min-h-[330px] items-center justify-center p-6 text-center text-xs font-mono text-slate-400">
-                  {earthLocateImageLoading ? 'Searching nearby open-license photographs, then NASA imagery…' : 'No suitable photo was returned. The map remains available; try opening the full map for this location.'}
+                  {earthLocateImageLoading ? 'Searching geotagged site photos, then NASA regional images…' : 'No photos were found for this location. The map is still available; try another nearby site.'}
                 </div>
               )}
             </div>
