@@ -444,7 +444,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
 
-  // Real LED artwork: sample only the first column of the five color rows.
+  // Load the repository's LED sheet once. Each sprite shares the live texture so it
+  // still appears when the browser finishes loading the PNG after markers are created.
   const retroLedAtlas = useMemo(() => {
     const texture = new THREE.TextureLoader().load(new URL('../../Retro LED Tilesheet and Neon Earth Globe.png', import.meta.url).href);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -461,12 +462,20 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       : /blue|sky|60a5fa|38bdf8/.test(raw) ? 2
       : /green|34d399|10b981|22c55e/.test(raw) ? 3
       : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
-    const tile = retroLedAtlas.clone();
-    tile.repeat.set(0.5, 0.2);
-    tile.offset.set(0, (4 - row) * 0.2);
-    tile.needsUpdate = true;
-    const material = new THREE.MeshBasicMaterial({ map: tile, transparent: true, alphaTest: 0.06, side: THREE.DoubleSide, depthWrite: false });
-    const sprite = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    // Crop UVs to the first column only (the second column repeats the same art).
+    // The atlas has five horizontal rows: red, yellow, blue, green, purple.
+    const geometry = new THREE.PlaneGeometry(1, 1);
+    const uv = geometry.getAttribute('uv') as THREE.BufferAttribute;
+    const vLow = row * 0.2;
+    const vHigh = vLow + 0.2;
+    for (let i = 0; i < uv.count; i++) {
+      const u = uv.getX(i);
+      const v = uv.getY(i);
+      uv.setXY(i, u * 0.5, vLow + v * 0.2);
+    }
+    uv.needsUpdate = true;
+    const material = new THREE.MeshBasicMaterial({ map: retroLedAtlas, transparent: true, alphaTest: 0.06, side: THREE.DoubleSide, depthWrite: false });
+    const sprite = new THREE.Mesh(geometry, material);
     sprite.userData.isRetroLedSprite = true;
     group.add(sprite);
     group.scale.setScalar(0.12 + Math.min(0.045, Number(site.size || 0.1) * 0.12));
@@ -3397,7 +3406,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={() => 'rgba(34,211,238,0.055)'}
               polygonSideColor={() => 'rgba(8,145,178,0.22)'} polygonStrokeColor={() => 'rgba(165,243,252,0.92)'} polygonAltitude={0.018}
-              labelsData={[]}
+              labelsData={visibleEarthSites.filter((site: any) => site.isCity && showCities)}
+      labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
+      labelColor={() => '#f8fafc'} labelSize={0.55} labelAltitude={0.012} labelDotRadius={0.12}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               customThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; return obj; }} customThreeObjectUpdate={(obj: any, d: any) => { obj.scale.setScalar(0.12 + Math.min(0.045, Number(d.size || 0.1) * 0.12)); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); }}
@@ -3425,7 +3436,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   <div style="font-size:10px;color:#cbd5e1;margin-top:3px">Click the location, then use ADD TO A/B/C to assign a channel.</div>
                 </div>`;
               }}
-              htmlElementsData={[...earthChannelMarkers, ...visibleEarthSites.filter((site: any) => site.isCity).map((site: any) => ({ ...site, isEarthSiteLabel: true })), ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              htmlElementsData={[...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
                 if (d.isEarthSiteLabel) {
