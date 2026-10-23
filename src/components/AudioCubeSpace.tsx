@@ -3125,7 +3125,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       {isEarthModeActive && !isSolarSystemMode && (
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
           <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto flex items-center justify-center">
-            <Globe3D ref={globeRef} width={Math.max(320, containerRef.current?.clientWidth || 800)}
+            <Globe3D ref={globeRef} rendererConfig={{ preserveDrawingBuffer: true }} width={Math.max(320, containerRef.current?.clientWidth || 800)}
               height={Math.max(320, containerRef.current?.clientHeight || 600)}
               globeImageUrl={earthTextureUrl}
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
