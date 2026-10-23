@@ -185,7 +185,7 @@ export default function App() {
     const query = searchText.trim().toLocaleLowerCase();
     return researchSites.filter((site) =>
       (activeNav === 'GLOBAL SEARCH' || ['EARTH','SOLAR SYSTEM','GALAXY','UNIVERSAL ARCHIVE'].includes(activeNav) || site.modules.includes(activeNav)) &&
-      (!query || [site.name, site.category, site.desc].some((value) => value?.toLocaleLowerCase().includes(query)))
+      (!query || [site.name, site.category, site.desc, site.sourceUrl, ...(site.modules ?? []), ...(site.tags ?? [])].some((value) => value?.toLocaleLowerCase().includes(query)))
     );
   }, [researchSites, searchText, activeNav]);
   const filteredSites = moduleSites;
