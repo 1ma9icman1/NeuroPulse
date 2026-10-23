@@ -102,13 +102,21 @@ export default function App() {
   const [streetFallbackNotice, setStreetFallbackNotice] = useState(false);
   const streetFallbackTimerRef = useRef<number | null>(null);
 
-  // Street View is cross-origin, so its iframe load event cannot tell us whether a panorama exists.
-  // Keep the requested Street View visible instead of forcibly replacing valid panoramas with aerial imagery.
-  // If Street View is unavailable, the user can switch to satellite or road map using the visible map controls.
+  // Street View may load its iframe successfully while having no panorama for the selected coordinates.
+  // Give it a short chance to appear, then fall back to satellite imagery rather than a road map.
   useEffect(() => {
     if (streetFallbackTimerRef.current !== null) window.clearTimeout(streetFallbackTimerRef.current);
     streetFallbackTimerRef.current = null;
     setStreetFallbackNotice(false);
+    if (earthAreaView === 'street') {
+      streetFallbackTimerRef.current = window.setTimeout(() => {
+        setEarthAreaView(current => {
+          if (current !== 'street') return current;
+          setStreetFallbackNotice(true);
+          return 'satellite';
+        });
+      }, 7000);
+    }
     return () => {
       if (streetFallbackTimerRef.current !== null) window.clearTimeout(streetFallbackTimerRef.current);
       streetFallbackTimerRef.current = null;
@@ -318,7 +326,7 @@ export default function App() {
               onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
               onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 4.6, cameraView: 'top' })}
               onSiteSelect={handleGlobeSiteSelect}
-            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onError={() => { if (earthAreaView === 'street') setEarthAreaView('road'); }} src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,0,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
+            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,0,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
             <div className="atlas-globe-overlay atlas-globe-overlay-bottom" aria-label="Earth map legend">
               <span><i className="legend-dot" style={{background:'#60a5fa'}} /> CITIES</span>
