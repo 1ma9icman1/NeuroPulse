@@ -206,7 +206,25 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
   .atlas-status-sub { display: none; }
   .atlas-workspace { grid-template-columns: 175px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); overflow: hidden; }
   .atlas-left { overflow: auto; }
-  .atlas-right { display: none; }
+  .atlas-right {
+    display: flex;
+    position: fixed;
+    z-index: 80;
+    top: 66px;
+    right: 8px;
+    bottom: 220px;
+    width: min(360px, calc(100vw - 16px));
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: auto;
+    pointer-events: auto;
+    background: rgba(3, 10, 22, .94);
+    border: 1px solid rgba(59, 130, 246, .35);
+    border-radius: 8px;
+    padding: 6px;
+  }
   .atlas-center { min-width: 0; }
   .atlas-bottom { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; overflow: auto; max-height: 210px; }
   .atlas-bottom-panel { min-height: 105px; }
