@@ -155,6 +155,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
   const [seaLevelFloodPolygons, setSeaLevelFloodPolygons] = useState<Array<{ layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } }>>([]);
   const activateSeaLevelOverlay = (enabled: boolean) => setShowSeaLevelOverlay(enabled);
+  // When enabled, bring the tool to the top of the right dock so the button
+  // visibly opens the panel instead of silently appending it below other tools.
+  useEffect(() => {
+    if (!showSeaLevelOverlay) return;
+    const sidebar = document.querySelector('.atlas-right') as HTMLElement | null;
+    const panel = sidebar?.querySelector('.atlas-sea-level-panel') as HTMLElement | null;
+    if (!sidebar || !panel) return;
+    sidebar.scrollTop = Math.max(0, panel.offsetTop - sidebar.offsetTop);
+  }, [showSeaLevelOverlay]);
   const builtInEarthSites = [
     { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, year: -9600 },
     { name: 'Jericho', lat: 31.871, lon: 35.444, year: -9000 },
