@@ -14,6 +14,7 @@ import type { CameraView, SpatialPosition, SpatialRoutingMode } from './types';
 import { DEFAULT_EARTH_POINTS, LEGACY_HISTORICAL_SITES } from './data/earthData';
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
 import { ACOUSTIC_SITE_EVIDENCE } from './data/acousticSiteEvidence';
+import { RESEARCH_CATALOG_SITES } from './data/researchSiteCatalog';
 
 const INITIAL_CONFIG: TrinauralConfig = { aFreq:432,aFineTune:0,aWaveform:'sine',aGain:0.85,aMuted:false,aPos:{x:-4.5,y:1.5,z:0}, bFreq:442,bFineTune:0,bWaveform:'sine',bGain:0.85,bMuted:false,bPos:{x:4.5,y:1.5,z:0}, cFreq:452,cFineTune:0,cWaveform:'sine',cGain:0.85,cMuted:false,cPos:{x:0,y:2.5,z:3.5},isDeltaLocked:true,lockedDeltaAB:10,lockedDeltaBC:10,masterVolume:0.8,spatialMode:'trinaural-isolated',cameraView:'top',cameraYaw:30,cameraPitch:22,cameraZoom:4.6 };
 const CENTER: SpatialPosition = { x: 0, y: 0, z: 0 };
@@ -162,7 +163,22 @@ export default function App() {
           /petra/i.test(site.name) ? 'https://whc.unesco.org/en/list/326/' :
           /caral/i.test(site.name) ? 'https://whc.unesco.org/en/list/1269/' : undefined };
       });
-    return [...core, ...legacy];
+    const additions = RESEARCH_CATALOG_SITES.map((site, index) => ({
+      ...site,
+      id: 'catalog-' + index + '-' + site.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      color: site.category === 'astronomy' ? '#a78bfa' : site.category === 'acoustic' ? '#fb923c' : site.isCity ? '#60a5fa' : '#facc15',
+      modules: [...new Set(['DATABASE', 'GLOBAL SEARCH', 'MAP OVERLAYS', ...(site.tags ?? []), ...researchModuleForSite(site as any)])],
+      sourceUrl: site.sourceUrl,
+    }));
+    const normalizeName = (value: string) => value.toLocaleLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const seen = new Set([...core, ...legacy].map((site) => normalizeName(site.name)));
+    const uniqueAdditions = additions.filter((site) => {
+      const key = normalizeName(site.name);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return [...core, ...legacy, ...uniqueAdditions];
   }, []);
   const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? researchSites[0];
   const moduleSites = useMemo(() => {
