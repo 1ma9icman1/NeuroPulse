@@ -62,7 +62,7 @@ import {
   latLonToCartesian,
   cartesianToLatLon,
 } from '../data/earthData';
-import { calculateSubstellarPoint, fetchIersDut1Seconds, fetchPlaceImage, resolveStarAstrometry, EarthTarget, PlaceImage } from '../services/celestialEarthData';
+import { calculateSubstellarPoint, fetchIersDut1Seconds, fetchPlaceImages, resolveStarAstrometry, EarthTarget, PlaceImage } from '../services/celestialEarthData';
 import { SeaLevelDemTool } from './SeaLevelDemTool';
 
 
@@ -860,19 +860,47 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   }, [is24HourRotationActive, isEarthModeActive]);
   const [earthLocateTarget, setEarthLocateTarget] = useState<EarthTarget | null>(null);
   const [earthLocateImage, setEarthLocateImage] = useState<PlaceImage | null>(null);
+  const [earthLocateImages, setEarthLocateImages] = useState<PlaceImage[]>([]);
+  const [earthLocateImageIndex, setEarthLocateImageIndex] = useState(0);
   const [earthLocateLoading, setEarthLocateLoading] = useState(false);
   const [earthLocateImageLoading, setEarthLocateImageLoading] = useState(false);
   const [earthMapView, setEarthMapView] = useState<'map' | 'terrain' | 'satellite'>('map');
   const [selectedEarthSite, setSelectedEarthSite] = useState<EarthSiteSelection | null>(null);
+  const loadEarthPhotoGallery = async (latitude: number, longitude: number, placeName: string) => {
+    setEarthLocateImage(null);
+    setEarthLocateImages([]);
+    setEarthLocateImageIndex(0);
+    setEarthLocateImageLoading(true);
+    try {
+      const images = await fetchPlaceImages(latitude, longitude, placeName);
+      setEarthLocateImages(images);
+      setEarthLocateImage(images[0] || null);
+    } finally {
+      setEarthLocateImageLoading(false);
+    }
+  };
   const openEarthSite = (site: EarthSiteSelection) => {
     setSelectedEarthSite(site);
     onSiteSelect(site);
+    const now = new Date();
+    setEarthLocateTarget({
+      latitude: site.lat,
+      longitude: site.lon,
+      date: now.toISOString().slice(0, 10),
+      utcTime: now.toISOString().slice(11, 19) + ' UTC',
+      source: 'Selected Earth site coordinates',
+      raDeg: 0,
+      decDeg: site.lat,
+    });
+    void loadEarthPhotoGallery(site.lat, site.lon, site.name);
     onUpdateCameraView('top');
     window.setTimeout(() => globeRef.current?.pointOfView({ lat: site.lat, lng: site.lon, altitude: 0.48 }, 850), 150);
   };
   const handleLocateStarOnEarth = async (star: CelestialStar) => {
     setEarthLocateLoading(true);
     setEarthLocateImage(null);
+    setEarthLocateImages([]);
+    setEarthLocateImageIndex(0);
     setEarthLocateTarget(null);
     const observationDate = new Date();
     if (isTimelineActive) observationDate.setUTCFullYear(timelineYear);
@@ -885,19 +913,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const target = calculateSubstellarPoint(astrometry.raDeg, astrometry.decDeg, observationDate, source, dut1Seconds ?? 0);
       setEarthLocateTarget(target);
       setEarthLocateLoading(false);
-      setEarthLocateImageLoading(true);
       onUpdateCameraView('top');
       window.setTimeout(() => {
         globeRef.current?.pointOfView({ lat: target.latitude, lng: target.longitude, altitude: 0.65 }, 900);
       }, 150);
-      const image = await fetchPlaceImage(target.latitude, target.longitude, star.name);
-      setEarthLocateImage(image);
+      await loadEarthPhotoGallery(target.latitude, target.longitude, star.name);
     } catch (error) {
       console.error('Unable to locate star on Earth:', error);
       setEarthLocateTarget(null);
     } finally {
       setEarthLocateLoading(false);
-      setEarthLocateImageLoading(false);
     }
   };
   const [selectedStarPreset, setSelectedStarPreset] = useState<string>('orion-sirius-meridian');
