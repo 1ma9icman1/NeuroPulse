@@ -145,6 +145,37 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     'land-ocean': 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png',
   };
   const [earthTextureUrl, setEarthTextureUrl] = useState<string>(earthImagerySources['blue-marble']);
+  // Sea-level exploration: NOAA ETOPO provides the elevation/bathymetry data conceptually
+  // represented by the relief view; long-range future values beyond 2150 are illustrative,
+  // not official forecasts.
+  const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
+  const [seaLevelYearOffset, setSeaLevelYearOffset] = useState(0);
+  const [seaLevelScenario, setSeaLevelScenario] = useState<'low' | 'intermediate' | 'high'>('intermediate');
+  const seaLevelTopographyUrl = 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/export?bbox=-180,-85,180,85&bboxSR=4326&imageSR=4326&size=2048,1024&format=jpg&f=image';
+  const seaLevelMeters = useMemo(() => {
+    if (seaLevelYearOffset <= 0) {
+      // Approximate global mean level ~50 m below present 12,000 years ago, rising to present.
+      return -50 * (Math.abs(seaLevelYearOffset) / 12000);
+    }
+    const year = seaLevelYearOffset;
+    const levelBy2150 = seaLevelScenario === 'low' ? 0.5 : seaLevelScenario === 'intermediate' ? 0.9 : 1.5;
+    if (year <= 124) return levelBy2150 * year / 124;
+    // Beyond 2150, show an explicitly illustrative long-term commitment curve, not a forecast.
+    const longTermMeters = seaLevelScenario === 'low' ? 2 : seaLevelScenario === 'intermediate' ? 6 : 12;
+    const t = (year - 124) / (12000 - 124);
+    return levelBy2150 + (longTermMeters - levelBy2150) * Math.pow(t, 0.72);
+  }, [seaLevelYearOffset, seaLevelScenario]);
+  const seaLevelDisplayYear = new Date().getUTCFullYear() + seaLevelYearOffset;
+  const activateSeaLevelOverlay = (enabled: boolean) => {
+    setShowSeaLevelOverlay(enabled);
+    if (enabled) {
+      setEarthTextureUrl(seaLevelTopographyUrl);
+      setEarthAtmosphere(false);
+    } else {
+      setEarthTextureUrl(earthImagerySources[earthImagerySource]);
+      setEarthAtmosphere(true);
+    }
+  };
   const earthSites = [
     { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, year: -9600 },
     { name: 'Jericho', lat: 31.871, lon: 35.444, year: -9000 },
@@ -2493,6 +2524,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <Layers className="w-3.5 h-3.5" />
             EARTH IMAGERY
           </button>
+          <button
+            onClick={() => activateSeaLevelOverlay(!showSeaLevelOverlay)}
+            aria-pressed={showSeaLevelOverlay}
+            className={`ml-1 flex items-center gap-1 rounded border px-2 py-1 text-[10px] font-mono font-bold ${showSeaLevelOverlay ? 'border-cyan-300 bg-cyan-950 text-cyan-100' : 'border-cyan-700/60 text-cyan-300 hover:bg-cyan-950/50'}`}
+            title="Switch Earth to topographic relief and open the sea-level timeline"
+          >
+            <Layers className="w-3.5 h-3.5" /> SEA LEVEL
+          </button>
         </div>
 
         {/* Center: Star Celestial Alignment Button + Snap Channel Selector + Top Plane Overlay Button */}
@@ -2765,7 +2804,35 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
-      {/* Real-time Snap Feedback Banner */}
+      {showSeaLevelOverlay && isEarthModeActive && (
+        <div className="absolute top-16 right-3 z-40 w-[min(94vw,370px)] rounded-xl border border-cyan-400/60 bg-[#04111d]/95 p-3 shadow-2xl backdrop-blur-md pointer-events-auto">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-mono font-bold text-cyan-200"><Layers className="h-4 w-4" /> SEA-LEVEL / RELIEF TIMELINE</div>
+            <button onClick={() => activateSeaLevelOverlay(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close sea-level overlay"><X className="h-3.5 w-3.5" /></button>
+          </div>
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <span className="text-[10px] text-slate-400">Timeline year</span>
+            <span className="font-mono text-sm font-bold text-cyan-100">{seaLevelDisplayYear.toLocaleString('en-US')}</span>
+          </div>
+          <input aria-label="Sea-level timeline from 12000 years ago to 12000 years in the future" type="range" min={-12000} max={12000} step={100} value={seaLevelYearOffset} onChange={(event) => setSeaLevelYearOffset(Number(event.target.value))} className="w-full accent-cyan-400" />
+          <div className="mb-3 flex justify-between text-[9px] font-mono text-slate-500"><span>12,000 years ago</span><span>Present</span><span>12,000 years ahead</span></div>
+          <div className="mb-2 rounded-lg border border-cyan-900 bg-slate-950/80 p-2">
+            <div className="text-[10px] text-slate-400">Estimated global mean sea-level change vs present</div>
+            <div className={`text-2xl font-bold tabular-nums ${seaLevelMeters < 0 ? 'text-sky-300' : 'text-cyan-200'}`}>{seaLevelMeters > 0 ? '+' : ''}{seaLevelMeters.toFixed(1)} m</div>
+            <div className="text-[10px] text-slate-500">{seaLevelMeters < 0 ? 'Lower sea level exposes continental shelves.' : seaLevelMeters > 0 ? 'Higher sea level increases coastal inundation risk.' : 'Present-day reference level.'}</div>
+          </div>
+          <label className="mb-1 block text-[10px] font-mono text-slate-400" htmlFor="sea-level-scenario">Future emissions / warming pathway</label>
+          <select id="sea-level-scenario" value={seaLevelScenario} onChange={(event) => setSeaLevelScenario(event.target.value as 'low' | 'intermediate' | 'high')} className="mb-2 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100">
+            <option value="low">Lower long-term pathway</option>
+            <option value="intermediate">Intermediate pathway</option>
+            <option value="high">High warming / high ice loss</option>
+          </select>
+          <p className="text-[10px] leading-relaxed text-slate-400">Earth has switched to a topographic map view. The past end is a rounded global estimate. IPCC-based future ranges are available through 2150; values beyond 2150 are illustrative long-term scenarios, not validated predictions. This view currently displays the global sea-level estimate over relief imagery; it does not yet calculate pixel-accurate flooded coastlines from an elevation raster.</p>
+          <div className="mt-2 text-[9px] text-slate-500">Relief source: ArcGIS World Topographic Map. Science references: NOAA ETOPO Global Relief Model; NASA/IPCC AR6 Sea Level Projection Tool.</div>
+        </div>
+      )}
+
+      {/* Real-time Snap Feedback Banner */
       {snapFeedback && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-amber-400 text-slate-950 font-mono font-bold text-xs px-4 py-1.5 rounded-full shadow-[0_0_20px_rgba(250,204,21,0.6)] animate-bounce pointer-events-none">
           {snapFeedback}
