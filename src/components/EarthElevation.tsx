@@ -131,7 +131,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, onBack }) => {
             const b = a + 1;
             const c = a + gridWidth;
             const d = c + 1;
-            indices.push(a, c, b, b, c, d);
+            indices.push(a, b, c, b, d, c);
           }
         }
         geometry = new THREE.BufferGeometry();
@@ -222,6 +222,23 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, onBack }) => {
       scene = null;
       camera = null;
     };
+  }, []);
+
+  useEffect(() => {
+    const state = sceneRef.current;
+    if (!state) return;
+    const positionAttribute = state.geometry.getAttribute('position') as THREE.BufferAttribute;
+    for (let y = 0; y < state.height; y++) {
+      const lat = (90 - (y / (state.height - 1)) * 180) * Math.PI / 180;
+      for (let x = 0; x < state.width; x++) {
+        const lon = ((x / (state.width - 1)) * 360 - 180) * Math.PI / 180;
+        const elevation = state.heights[y * state.width + x];
+        const radius = BASE_RADIUS + elevation * HEIGHT_SCALE * terrainScale;
+        positionAttribute.setXYZ(y * state.width + x, radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+      }
+    }
+    positionAttribute.needsUpdate = true;
+    state.geometry.computeVertexNormals();
   }, [terrainScale]);
 
   useEffect(() => {
@@ -251,7 +268,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, onBack }) => {
     const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.8;
     state.marker!.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
     state.marker!.visible = true;
-  }, [selectedSite, seaLevel, terrainScale]);
+  }, [selectedSite, seaLevel, terrainScale, loading]);
 
   const changeYear = (value: number) => {
     setYearOffset(value);
