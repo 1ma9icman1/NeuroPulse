@@ -101,28 +101,12 @@ export default function App() {
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
   const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street'>('globe');
   const [streetFallbackNotice, setStreetFallbackNotice] = useState(false);
-  const streetFallbackTimerRef = useRef<number | null>(null);
 
-  // Street View may load its iframe successfully while having no panorama for the selected coordinates.
-  // Give it a short chance to appear, then fall back to satellite imagery rather than a road map.
+  // Clear stale fallback notices when the selected location changes. Do not replace a
+  // Street View iframe merely because it took longer than a few seconds to render.
   useEffect(() => {
-    if (streetFallbackTimerRef.current !== null) window.clearTimeout(streetFallbackTimerRef.current);
-    streetFallbackTimerRef.current = null;
     setStreetFallbackNotice(false);
-    if (earthAreaView === 'street') {
-      streetFallbackTimerRef.current = window.setTimeout(() => {
-        setEarthAreaView(current => {
-          if (current !== 'street') return current;
-          setStreetFallbackNotice(true);
-          return 'satellite';
-        });
-      }, 7000);
-    }
-    return () => {
-      if (streetFallbackTimerRef.current !== null) window.clearTimeout(streetFallbackTimerRef.current);
-      streetFallbackTimerRef.current = null;
-    };
-  }, [earthAreaView, selectedSiteId, selectedGlobeSite?.lat, selectedGlobeSite?.lon]);
+  }, [selectedSiteId, selectedGlobeSite?.lat, selectedGlobeSite?.lon]);
 
   const handleGlobeSiteSelect = useCallback((site: any) => {
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === site.name.toLowerCase());
@@ -265,7 +249,7 @@ export default function App() {
         <div className="atlas-topnav"><button className="atlas-secondary-button" onClick={() => setShowFavorites(value => !value)}><Star size={15} fill={favoriteSites.length ? 'currentColor' : 'none'} /> FAVORITES · {favoriteSites.length}</button></div>
         <div className="atlas-status">
           <button className="atlas-primary-button" onClick={handleToggleAudio}>{isRunning ? "STOP AUDIO" : "START AUDIO"}</button><div className="atlas-clock"><span className="status-dot" /> {isRunning ? "AUDIO ENGINE RUNNING" : "SYSTEM ONLINE"}</div>
-          <div className="atlas-status-sub">LOCAL DATA · {DEFAULT_EARTH_POINTS.length} SITES · {REAL_CELESTIAL_STARS.length} STARS</div>
+          <div className="atlas-status-sub">LOCAL DATA · {researchSites.length.toLocaleString()} SITES · {REAL_CELESTIAL_STARS.length} STARS</div>
         </div>
       </header>
 
@@ -308,6 +292,7 @@ export default function App() {
               onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
               onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 4.6, cameraView: 'top' })}
               onSiteSelect={handleGlobeSiteSelect}
+              siteCatalogue={researchSites}
             /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,0,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
             <div className="atlas-globe-overlay atlas-globe-overlay-bottom" aria-label="Earth map legend">
@@ -505,7 +490,7 @@ export default function App() {
         <section className="atlas-bottom-panel atlas-live-data">
           <div className="atlas-bottom-heading"><Activity size={13} /> LOCAL DATA STATUS</div>
           <div className="atlas-metric-grid">
-            <div><span>EARTH SITES</span><strong>{DEFAULT_EARTH_POINTS.length}</strong></div>
+            <div><span>EARTH SITES</span><strong>{researchSites.length.toLocaleString()}</strong></div>
             <div><span>CATALOGUED STARS</span><strong>{REAL_CELESTIAL_STARS.length}</strong></div>
             <div><span>ACOUSTIC RECORDS</span><strong>{ACOUSTIC_SITE_EVIDENCE.length}</strong></div>
             <div><span>SEARCH MATCHES</span><strong>{filteredSites.length}</strong></div>
