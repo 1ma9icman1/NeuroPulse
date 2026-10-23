@@ -64,9 +64,10 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
     let buildMarkers: (() => void) | null = null;
+    let ledAtlasReady = false;
     const retroLedAtlas = new THREE.TextureLoader().load(
       new URL('../../Retro LED Tilesheet and Neon Earth Globe.png', import.meta.url).href,
-      () => buildMarkers?.()
+      () => { ledAtlasReady = true; buildMarkers?.(); }
     );
     retroLedAtlas.colorSpace = THREE.SRGBColorSpace;
     retroLedAtlas.magFilter = THREE.NearestFilter;
@@ -225,6 +226,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           };
           markerBuildFrame = window.requestAnimationFrame(buildBatch);
         };
+        // If the atlas loaded while NOAA was still downloading, start markers now.
+        if (ledAtlasReady) buildMarkers();
         const onPointerDown = (event: PointerEvent) => { dragPointer = event.pointerId; lastX = event.clientX; lastY = event.clientY; renderer?.domElement.setPointerCapture(event.pointerId); };
         const onPointerMove = (event: PointerEvent) => {
           if (dragPointer !== event.pointerId || !earthGroup) return;
