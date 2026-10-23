@@ -444,33 +444,34 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
 
-  // True 3D vintage LED bulbs: domed colored lens, dark collar, and two metal leads.
+  // Real LED artwork: sample only the first column of the five color rows.
+  const retroLedAtlas = useMemo(() => {
+    const texture = new THREE.TextureLoader().load(new URL('../../Retro LED Tilesheet and Neon Earth Globe.png', import.meta.url).href);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    return texture;
+  }, []);
+
   const makeRetroLed = useCallback((site: any) => {
     const group = new THREE.Group();
     const raw = String(site.color || '#facc15').toLowerCase();
-    const color = /orange|fb923c|f97316|red|ef4444|f87171/.test(raw) ? '#ff302b'
-      : /yellow|gold|facc15|fbbf24/.test(raw) ? '#ffd52a'
-      : /blue|sky|60a5fa|38bdf8/.test(raw) ? '#168dff'
-      : /green|34d399|10b981|22c55e/.test(raw) ? '#20ff58'
-      : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? '#e13cff' : raw;
-    const ledColor = new THREE.Color(color);
-    const lensMaterial = new THREE.MeshStandardMaterial({ color: ledColor, emissive: ledColor, emissiveIntensity: 0.16, roughness: 0.24, metalness: 0.08 });
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.72, 12, 10), lensMaterial);
-    bulb.scale.set(1, 1.12, 0.88);
-    bulb.position.y = 0.52;
-    bulb.userData.isRetroLedLens = true;
-    group.add(bulb);
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.43, 0.28, 10), new THREE.MeshStandardMaterial({ color: '#343b45', metalness: 0.78, roughness: 0.32 }));
-    collar.position.y = -0.06;
-    group.add(collar);
-    const leadMaterial = new THREE.MeshStandardMaterial({ color: '#b8c3cf', metalness: 0.9, roughness: 0.24 });
-    for (const x of [-0.18, 0.18]) {
-      const lead = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.48, 6), leadMaterial);
-      lead.position.set(x, -0.42, 0);
-      group.add(lead);
-    }
+    const row = /orange|fb923c|f97316|red|ef4444|f87171/.test(raw) ? 0
+      : /yellow|gold|facc15|fbbf24/.test(raw) ? 1
+      : /blue|sky|60a5fa|38bdf8/.test(raw) ? 2
+      : /green|34d399|10b981|22c55e/.test(raw) ? 3
+      : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
+    const tile = retroLedAtlas.clone();
+    tile.repeat.set(0.5, 0.2);
+    tile.offset.set(0, (4 - row) * 0.2);
+    tile.needsUpdate = true;
+    const material = new THREE.MeshBasicMaterial({ map: tile, transparent: true, alphaTest: 0.06, side: THREE.DoubleSide, depthWrite: false });
+    const sprite = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    sprite.userData.isRetroLedSprite = true;
+    group.add(sprite);
     group.scale.setScalar(0.12 + Math.min(0.045, Number(site.size || 0.1) * 0.12));
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.045, 75, 5, 1, true), new THREE.MeshBasicMaterial({ color: ledColor, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const beamColor = new THREE.Color(row === 0 ? '#ff302b' : row === 1 ? '#ffd52a' : row === 2 ? '#168dff' : row === 3 ? '#20ff58' : '#e13cff');
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.045, 75, 5, 1, true), new THREE.MeshBasicMaterial({ color: beamColor, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }));
     beam.position.y = 38;
     beam.userData.isLaserSpaceBeam = true;
     group.add(beam);
@@ -479,11 +480,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     beamCore.userData.isLaserSpaceBeam = true;
     group.add(beamCore);
     group.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
-    group.userData.ledLens = bulb;
-    group.userData.ledColor = color;
-    group.userData.ledMaterial = lensMaterial;
     return group;
-  }, []);
+  }, [retroLedAtlas]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -491,15 +489,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       if (!scene) return;
       const now = performance.now() * 0.001;
       scene.traverse((object: any) => {
-        if (object.userData?.isLaserSpaceBeam) { const parent = object.parent; object.visible = !!parent?.userData?.showLaserSpaceOverlay; if (object.material) object.material.opacity = 0.2 + ((Math.sin(now * 1.8 + Number(parent?.userData?.ledPhase || 0)) + 1) * 0.5) * 0.5; return; }
-        if (!object.userData?.isRetroLedLens) return;
+        if (!object.userData?.isLaserSpaceBeam) return;
         const parent = object.parent;
-        const phase = Number(parent?.userData?.ledPhase || 0);
-        const pulse = (Math.sin(now * 2.1 + phase) + 1) * 0.5;
-        const material = object.material as THREE.MeshStandardMaterial;
-        material.emissiveIntensity = 0.08 + pulse * 2.8;
-        material.color.set(parent?.userData?.ledColor || '#ffffff');
-        material.needsUpdate = true;
+        object.visible = !!parent?.userData?.showLaserSpaceOverlay;
+        if (object.material) object.material.opacity = 0.2 + ((Math.sin(now * 1.8 + Number(parent?.userData?.ledPhase || 0)) + 1) * 0.5) * 0.5;
       });
     }, 80);
     return () => window.clearInterval(timer);
@@ -2802,6 +2795,11 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <span>{isCelestialDeckCollapsed ? 'STAR MENU' : 'MINIMIZE STAR MENU'}</span>
             </button>
           )}
+          {!isTimelineActive && (
+            <button onClick={() => setIsTimelineActive(true)} className="flex items-center gap-1 rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-2 py-1 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline" title="Show historical Earth / sky timeline">
+              TIMELINE OFF · SHOW
+            </button>
+          )}
 
           {/* Quick Overlay Visibility / Controls Toggle */}
           {overlay.imageUrl && (
@@ -3379,9 +3377,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
           <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. With STAR MODE on, Sun and planets move with this year using a local Stardroid-derived ephemeris. {planetEphemerisYearIsPreferred ? 'Orbital elements are within their preferred 1800–2050 CE range.' : 'Planet positions outside 1800–2050 CE are illustrative, not precision historical ephemerides.'} Sky precession is first-order (~50.29″/yr); year-only rotation phase is not an exact historical time-of-day.</div>
         </div>
-      ) : (
-        <button onClick={() => setIsTimelineActive(true)} className="absolute top-[4.6rem] left-3 z-20 pointer-events-auto rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-3 py-1.5 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline">TIMELINE OFF · SHOW</button>
-      )}
+      ) : null}
 
       {/* Large interactive Earth fills the Top Plane viewport; Globe controls retain drag-to-rotate and wheel zoom. */}
       {isEarthModeActive && !isSolarSystemMode && (
@@ -3429,7 +3425,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   <div style="font-size:10px;color:#cbd5e1;margin-top:3px">Click the location, then use ADD TO A/B/C to assign a channel.</div>
                 </div>`;
               }}
-              htmlElementsData={[...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              htmlElementsData={[...earthChannelMarkers, ...visibleEarthSites.filter((site: any) => site.isCity).map((site: any) => ({ ...site, isEarthSiteLabel: true })), ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
                 if (d.isEarthSiteLabel) {
