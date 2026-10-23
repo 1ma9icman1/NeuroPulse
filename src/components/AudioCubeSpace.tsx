@@ -2631,9 +2631,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       />
 
       {/* Top 3D Deck Controls */}
-      <div className="absolute top-3 left-3 right-3 z-[70] grid grid-cols-1 items-start gap-2 pointer-events-auto xl:grid-cols-[1fr_auto_1fr]">
+      <div className="absolute top-3 left-3 right-3 z-[70] flex h-11 flex-nowrap items-center gap-1 overflow-x-auto overflow-y-hidden rounded-lg border border-slate-800 bg-[#0b1220]/95 px-1 py-1 shadow-xl backdrop-blur-md pointer-events-auto [scrollbar-width:thin]">
         {/* Left: View Mode Switches & Orbit Reset */}
-        <div className="flex flex-wrap items-center justify-start gap-2 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg xl:justify-self-start">
+        <div className="flex shrink-0 flex-nowrap items-center gap-1 border-r border-slate-700 pr-1">
           <button
             onClick={() => onUpdateCameraView('perspective')}
             className={`px-2.5 py-1 text-xs font-mono font-bold rounded-md border transition-colors ${
@@ -2730,7 +2730,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 window.alert('Could not capture the Earth view. Try again after the globe finishes rendering.');
               }
             }}
-            className="ml-1 inline-flex items-center gap-1 rounded border border-sky-500/50 bg-sky-950/70 px-2 py-1 text-[10px] font-mono font-bold text-sky-200 hover:bg-sky-900/80"
+            className="inline-flex items-center gap-1 rounded border border-sky-500/50 bg-sky-950/70 px-2 py-1 text-[10px] font-mono font-bold text-sky-200 hover:bg-sky-900/80"
             title="Save a PNG screenshot of the Earth globe using the selected site's name"
           >
             <Camera className="w-3.5 h-3.5" /> SCREENSHOT
@@ -2744,7 +2744,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </button>
           <button
             onClick={() => setEarthImageryPanelOpen((open) => !open)}
-            className="ml-1 flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded border border-sky-500/40 text-sky-300 hover:bg-sky-950/50"
+            className="flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded border border-sky-500/40 text-sky-300 hover:bg-sky-950/50"
             title="Choose public Earth imagery without sign-in"
             aria-label="Earth imagery sources"
           >
@@ -2762,7 +2762,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
 
         {/* Center: zoom/fullscreen controls and star alignment controls */}
-        <div className="flex flex-wrap items-center justify-center gap-2 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg xl:justify-self-center">
+        <div className="flex shrink-0 flex-nowrap items-center gap-1">
           {isEarthModeActive && (
             <div className="flex shrink-0 items-center justify-center gap-2 rounded-md border border-purple-500/50 bg-slate-950/90 px-2 py-1 text-xs font-mono text-slate-300">
               <button onClick={() => onUpdateCameraZoom(Math.max(0.6, +(cameraZoom - 0.1).toFixed(2)))} className="rounded border border-slate-600 p-1 text-slate-300 hover:bg-slate-800 hover:text-white" title="Zoom Out" aria-label="Zoom out Earth view"><ZoomOut className="w-3.5 h-3.5" /></button>
