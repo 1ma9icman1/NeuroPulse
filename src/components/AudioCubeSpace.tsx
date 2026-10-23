@@ -82,6 +82,7 @@ interface AudioCubeSpaceProps {
   onUpdateCameraAngles: (yaw: number, pitch: number) => void;
   onUpdateCameraZoom: (zoom: number) => void;
   onResetCamera: () => void;
+  onSiteSelect: (site: any) => void;
 }
 
 export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
@@ -105,6 +106,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   onUpdateCameraAngles,
   onUpdateCameraZoom,
   onResetCamera,
+  onSiteSelect,
 }) => {
   const [isSkyMapOpen, setIsSkyMapOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -358,9 +360,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [earthLocateLoading, setEarthLocateLoading] = useState(false);
   const [earthLocateImageLoading, setEarthLocateImageLoading] = useState(false);
   const [earthMapView, setEarthMapView] = useState<'map' | 'terrain' | 'satellite'>('map');
-  const [selectedEarthSite, setSelectedEarthSite] = useState<EarthSiteSelection | null>(null);
   const openEarthSite = (site: EarthSiteSelection) => {
-    setSelectedEarthSite(site);
+    onSiteSelect(site);
     onUpdateCameraView('top');
     window.setTimeout(() => globeRef.current?.pointOfView({ lat: site.lat, lng: site.lon, altitude: 0.48 }, 850), 150);
   };
@@ -2484,7 +2485,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
       <canvas ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel} className={`absolute inset-0 z-10 w-full h-full touch-none ${isEarthModeActive ? 'hidden' : ''} ${hoverNode || activeDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-all-scroll'}`} />
 
-      <EarthSiteExplorer site={selectedEarthSite} onClose={() => setSelectedEarthSite(null)} description={selectedEarthSite ? getEarthSiteDescription(selectedEarthSite.name) : ''} alignmentSites={earthSites.filter((place: any) => !place.isCity)} />
+
 
       {/* Direct Vertical Elevation Sliders Overlay (3 Channels: A, B, C) */}
       <div className="absolute right-3 top-16 bottom-16 flex flex-col justify-center gap-4 pointer-events-auto bg-[#0b1220]/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800 shadow-xl z-20">
