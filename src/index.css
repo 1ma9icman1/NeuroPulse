@@ -505,7 +505,7 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 
 
 /* Search-first layout: keep Earth clear and put the research catalogue in the right drawer. */
-.atlas-workspace { grid-template-columns: minmax(0, 1fr) minmax(320px, 390px) !important; }
+.atlas-workspace { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px) !important; }
 .atlas-left { display: none !important; }
 .atlas-center { min-width: 0; min-height: 0; }
 .atlas-center-heading { display: none !important; }
@@ -543,10 +543,10 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 .atlas-search-drawer .atlas-results-strip { max-height:34vh; }
 .atlas-search-drawer .atlas-results-list { max-height:calc(34vh - 48px); }
 .atlas-search-drawer .atlas-module-workspace { max-height:24vh; }
-@media (min-width:1500px) { .atlas-workspace { grid-template-columns:minmax(0,1fr) minmax(340px,420px) !important; } }
+@media (min-width:1500px) { .atlas-workspace { grid-template-columns:minmax(0,1fr) minmax(300px,370px) !important; } }
 @media (max-width:900px) {
   .atlas-workspace { display:grid !important; grid-template-columns:minmax(0,1fr) !important; grid-template-rows:minmax(0,1fr) !important; }
-  .atlas-right { top:66px; bottom:8px; width:min(390px,calc(100vw - 16px)); }
+  .atlas-right { top:66px; bottom:8px; width:min(350px,calc(100vw - 16px)); }
   .atlas-search-drawer { max-height:calc(100dvh - 90px); }
   .atlas-search-top-button { min-height:31px; padding:6px 10px; }
 }
@@ -555,6 +555,6 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
   .atlas-brand-subtitle { display:none; }
   .atlas-brand-title { font-size:12px; }
   .atlas-search-top-button { font-size:8px; padding:5px 8px; }
-  .atlas-right { top:56px; right:5px; bottom:5px; width:min(370px,calc(100vw - 10px)); }
+  .atlas-right { top:56px; right:5px; bottom:5px; width:min(340px,calc(100vw - 10px)); }
   .atlas-search-drawer { max-height:calc(100dvh - 66px); padding:6px; }
 }
