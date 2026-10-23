@@ -1,519 +1,295 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AudioEngine } from './audio/AudioEngine';
+import type { TrinauralConfig } from './types/index';
 import {
-  TrinauralConfig,
-  Preset,
-  SpatialPosition,
-  WaveformType,
-  SpatialRoutingMode,
-  CameraView,
-  ChannelId,
-} from './types';
-import { DAW_PRESETS } from './data/dawPresets';
-import { MasterTransport } from './components/MasterTransport';
+  Activity, AudioLines, Atom, AudioWaveform, ChevronDown, Compass,
+  Database, Globe2, Layers3, Map, MapPin, Orbit, Radar, Search, Settings2,
+  Signal, SlidersHorizontal, Star, Target, Waves, X, Zap
+} from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
-import { DeltaHUD } from './components/DeltaHUD';
-import { OscillatorDeck } from './components/OscillatorDeck';
-import { FrequencyMatrix } from './components/FrequencyMatrix';
-import { CheckCircle2, Volume2, Triangle, Maximize, Minimize } from 'lucide-react';
+import type { CameraView, SpatialPosition, SpatialRoutingMode } from './types';
+import { DEFAULT_EARTH_POINTS } from './data/earthData';
+import { REAL_CELESTIAL_STARS } from './data/celestialStars';
+import { ACOUSTIC_SITE_EVIDENCE } from './data/acousticSiteEvidence';
 
-const INITIAL_CONFIG: TrinauralConfig = {
-  // Channel A (Left / Cyan)
-  aFreq: 432.0,
-  aFineTune: 0.0,
-  aWaveform: 'sine',
-  aGain: 0.85,
-  aMuted: false,
-  aPos: { x: -4.5, y: 1.5, z: 0.0 },
+const INITIAL_CONFIG: TrinauralConfig = { aFreq:432,aFineTune:0,aWaveform:'sine',aGain:0.85,aMuted:false,aPos:{x:-4.5,y:1.5,z:0}, bFreq:442,bFineTune:0,bWaveform:'sine',bGain:0.85,bMuted:false,bPos:{x:4.5,y:1.5,z:0}, cFreq:452,cFineTune:0,cWaveform:'sine',cGain:0.85,cMuted:false,cPos:{x:0,y:2.5,z:3.5},isDeltaLocked:true,lockedDeltaAB:10,lockedDeltaBC:10,masterVolume:0.8,spatialMode:'trinaural-isolated',cameraView:'top',cameraYaw:30,cameraPitch:22,cameraZoom:1 };
+const CENTER: SpatialPosition = { x: 0, y: 0, z: 0 };
+const NAV_ITEMS = [
+  { label: 'GLOBAL SEARCH', icon: Radar },
+  { label: 'ANCIENT SITES', icon: MapPin },
+  { label: 'ALIGNMENT ANALYSIS', icon: Target },
+  { label: 'FREQUENCY / HZ', icon: AudioWaveform },
+  { label: 'SOUND PATTERNS', icon: Waves },
+  { label: 'ANGLES & DIRECTIONS', icon: Compass },
+  { label: 'STELLAR ALIGNMENTS', icon: Star },
+  { label: 'TRIGONOMETRY', icon: Atom },
+  { label: 'MAP OVERLAYS', icon: Layers3 },
+  { label: 'DATABASE', icon: Database },
+  { label: 'SETTINGS', icon: Settings2 },
+];
 
-  // Channel B (Right / Pink)
-  bFreq: 442.0,
-  bFineTune: 0.0,
-  bWaveform: 'sine',
-  bGain: 0.85,
-  bMuted: false,
-  bPos: { x: 4.5, y: 1.5, z: 0.0 },
+function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+  const rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad;
+  const dLon = (b.lon - a.lon) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+}
 
-  // Channel C (Spatial Center / Amber)
-  cFreq: 452.0,
-  cFineTune: 0.0,
-  cWaveform: 'sine',
-  cGain: 0.85,
-  cMuted: false,
-  cPos: { x: 0.0, y: 2.5, z: 3.5 },
-
-  // Linking & Delta
-  isDeltaLocked: true,
-  lockedDeltaAB: 10.0,
-  lockedDeltaBC: 10.0,
-
-  // Master & 3D Spatial
-  masterVolume: 0.8,
-  spatialMode: 'trinaural-isolated',
-  cameraView: 'top',
-  cameraYaw: 30,
-  cameraPitch: 22,
-  cameraZoom: 1.0,
-};
+function formatCoordinate(value: number, positive: string, negative: string) {
+  return `${Math.abs(value).toFixed(4)}° ${value >= 0 ? positive : negative}`;
+}
 
 export default function App() {
   const [config, setConfig] = useState<TrinauralConfig>(INITIAL_CONFIG);
   const [isRunning, setIsRunning] = useState(false);
-  const [selectedPresetId, setSelectedPresetId] = useState<string>(DAW_PRESETS[0].id);
-  const [trinauralTestStatus, setTrinauralTestStatus] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
   const audioEngineRef = useRef<AudioEngine | null>(null);
+  useEffect(() => { const engine = new AudioEngine(INITIAL_CONFIG); audioEngineRef.current = engine; return () => { engine.stop(); audioEngineRef.current = null; }; }, []);
+  const handleUpdateConfig = useCallback((patch: Partial<TrinauralConfig>) => { setConfig((previous) => { const next = { ...previous, ...patch }; audioEngineRef.current?.updateConfig(next); return next; }); }, []);
+  const handleToggleAudio = async () => { const engine = audioEngineRef.current; if (!engine) return; if (isRunning) { engine.stop(); setIsRunning(false); } else { await engine.start(); setIsRunning(true); } };
+  const [activeNav, setActiveNav] = useState('GLOBAL SEARCH');
+  const [searchText, setSearchText] = useState('');
+  const [selectedSiteId, setSelectedSiteId] = useState(DEFAULT_EARTH_POINTS[0]?.id ?? '');
+  const [frequencyMax, setFrequencyMax] = useState(20000);
+  const [angleMax, setAngleMax] = useState(180);
+  const [includeStars, setIncludeStars] = useState(true);
+  const [includeAcoustics, setIncludeAcoustics] = useState(true);
+  const [includeGeometry, setIncludeGeometry] = useState(true);
+  const [showSiteList, setShowSiteList] = useState(false);
+  const [scanRequested, setScanRequested] = useState(false);
 
-  // Monitor fullscreen change
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+  const selectedSite = DEFAULT_EARTH_POINTS.find((site) => site.id === selectedSiteId) ?? DEFAULT_EARTH_POINTS[0];
+  const filteredSites = useMemo(() => {
+    const query = searchText.trim().toLocaleLowerCase();
+    return DEFAULT_EARTH_POINTS.filter((site) =>
+      !query || [site.name, site.category, site.desc].some((value) => value?.toLocaleLowerCase().includes(query))
+    );
+  }, [searchText]);
 
-  const handleToggleFullscreen = async () => {
-    try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
-    } catch (err) {
-      console.warn('Fullscreen request failed:', err);
-    }
+  const nearestSites = useMemo(() => {
+    if (!selectedSite) return [];
+    return DEFAULT_EARTH_POINTS
+      .filter((site) => site.id !== selectedSite.id)
+      .map((site) => ({ ...site, distance: distanceKm(selectedSite, site) }))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 4);
+  }, [selectedSite]);
+
+  const linkedAcousticRecords = useMemo(() => {
+    if (!selectedSite) return [];
+    return ACOUSTIC_SITE_EVIDENCE
+      .map((record) => ({ ...record, distance: distanceKm(selectedSite, record) }))
+      .filter((record) => record.distance < 100 && record.measuredFrequenciesHz.some((hz) => hz <= frequencyMax))
+      .sort((a, b) => a.distance - b.distance);
+  }, [selectedSite, frequencyMax]);
+
+  const updatePosition = (channel: 'a' | 'b' | 'c', position: SpatialPosition) => handleUpdateConfig({ [channel + 'Pos']: position } as Partial<TrinauralConfig>);
+
+  const navDescription: Record<string, string> = {
+    'GLOBAL SEARCH': 'Search and compare documented places, measured evidence, and calculated geometry.',
+    'ANCIENT SITES': 'Browse the existing geographic site catalogue.',
+    'ALIGNMENT ANALYSIS': 'Compare coordinates and test candidate alignments without treating proximity as proof.',
+    'FREQUENCY / HZ': 'Explore published acoustic measurements and clearly labelled investigation bands.',
+    'SOUND PATTERNS': 'Review source-backed acoustic records and their measurement context.',
+    'ANGLES & DIRECTIONS': 'Use coordinates and bearings as geometric inputs for further verification.',
+    'STELLAR ALIGNMENTS': 'Browse catalogue stars and compare candidate sky targets with dated site evidence.',
+    'TRIGONOMETRY': 'Inspect distances and geometric relationships calculated from site coordinates.',
+    'MAP OVERLAYS': 'Use the globe controls to switch map overlays and visualization layers.',
+    'DATABASE': 'Browse the site, star, and acoustic reference data already included in this build.',
+    'SETTINGS': 'Interface and visualization preferences.',
   };
 
-  // Initialize AudioEngine on first mount
-  useEffect(() => {
-    const engine = new AudioEngine(INITIAL_CONFIG);
-    audioEngineRef.current = engine;
-
-    return () => {
-      engine.stop();
-    };
-  }, []);
-
-  // Update audio engine when config changes
-  const handleUpdateConfig = useCallback((newConfig: Partial<TrinauralConfig>) => {
-    setConfig((prev) => {
-      const updated = { ...prev, ...newConfig };
-      if (audioEngineRef.current) {
-        audioEngineRef.current.updateConfig(updated);
-      }
-      return updated;
-    });
-  }, []);
-
-  // Master Play / Stop
-  const handleTogglePlay = async () => {
-    if (!audioEngineRef.current) return;
-
-    if (isRunning) {
-      audioEngineRef.current.stop();
-      setIsRunning(false);
-    } else {
-      await audioEngineRef.current.start();
-      setIsRunning(true);
-    }
-  };
-
-  // Run 3-Channel Trinaural Audio Sequence Test (CH-A -> CH-B -> CH-C -> All 3 Active)
-  const handleRunTrinauralTest = async () => {
-    if (!audioEngineRef.current) return;
-
-    if (!isRunning) {
-      await audioEngineRef.current.start();
-      setIsRunning(true);
-    }
-
-    // Preserve previous mute state
-    const prevMuteA = config.aMuted;
-    const prevMuteB = config.bMuted;
-    const prevMuteC = config.cMuted;
-
-    // Step 1: Channel A solo (Hard Left -1.0)
-    setTrinauralTestStatus('TESTING CH-A: LEFT EAR (-1.0)...');
-    handleUpdateConfig({ aMuted: false, bMuted: true, cMuted: true });
-
-    // Step 2: Channel B solo (Hard Right +1.0)
-    setTimeout(() => {
-      setTrinauralTestStatus('TESTING CH-B: RIGHT EAR (+1.0)...');
-      handleUpdateConfig({ aMuted: true, bMuted: false, cMuted: true });
-    }, 1800);
-
-    // Step 3: Channel C solo (Center Spatial 0.0)
-    setTimeout(() => {
-      setTrinauralTestStatus('TESTING CH-C: SPATIAL CENTER (0.0)...');
-      handleUpdateConfig({ aMuted: true, bMuted: true, cMuted: false });
-    }, 3600);
-
-    // Step 4: All 3 active in Trinaural Fusion
-    setTimeout(() => {
-      setTrinauralTestStatus('ALL 3 CHANNELS ACTIVE (TRINAURAL FUSION)');
-      handleUpdateConfig({ aMuted: false, bMuted: false, cMuted: false });
-    }, 5400);
-
-    // Done: Restore state
-    setTimeout(() => {
-      setTrinauralTestStatus(null);
-      handleUpdateConfig({ aMuted: prevMuteA, bMuted: prevMuteB, cMuted: prevMuteC });
-    }, 7400);
-  };
-
-  // Direct Channel A Frequency Tuning
-  const handleUpdateAFreq = (val: number) => {
-    if (config.isDeltaLocked) {
-      handleUpdateConfig({
-        aFreq: val,
-        bFreq: Number((val + config.lockedDeltaAB).toFixed(2)),
-        cFreq: Number((val + config.lockedDeltaAB + config.lockedDeltaBC).toFixed(2)),
-      });
-    } else {
-      handleUpdateConfig({ aFreq: val });
-    }
-  };
-
-  // Direct Channel B Frequency Tuning
-  const handleUpdateBFreq = (val: number) => {
-    if (config.isDeltaLocked) {
-      const newDeltaAB = Math.abs(val - config.aFreq);
-      handleUpdateConfig({
-        bFreq: val,
-        lockedDeltaAB: Number(newDeltaAB.toFixed(2)),
-      });
-    } else {
-      handleUpdateConfig({ bFreq: val });
-    }
-  };
-
-  // Direct Channel C Frequency Tuning
-  const handleUpdateCFreq = (val: number) => {
-    if (config.isDeltaLocked) {
-      const newDeltaBC = Math.abs(val - config.bFreq);
-      handleUpdateConfig({
-        cFreq: val,
-        lockedDeltaBC: Number(newDeltaBC.toFixed(2)),
-      });
-    } else {
-      handleUpdateConfig({ cFreq: val });
-    }
-  };
-
-  // Toggle Delta Link
-  const handleToggleDeltaLock = () => {
-    const currentDeltaAB = Math.abs(config.bFreq - config.aFreq);
-    const currentDeltaBC = Math.abs(config.cFreq - config.bFreq);
-    handleUpdateConfig({
-      isDeltaLocked: !config.isDeltaLocked,
-      lockedDeltaAB: Number(currentDeltaAB.toFixed(2)),
-      lockedDeltaBC: Number(currentDeltaBC.toFixed(2)),
-    });
-  };
-
-  // Quick Delta Snap from Brainwave Band
-  const handleSetQuickDelta = (delta: number) => {
-    handleUpdateConfig({
-      bFreq: Number((config.aFreq + delta).toFixed(2)),
-      cFreq: Number((config.aFreq + delta * 2).toFixed(2)),
-      lockedDeltaAB: delta,
-      lockedDeltaBC: delta,
-    });
-  };
-
-  // Solfeggio Tone Routing
-  const handleApplySolfeggio = (freq: number, target: 'base' | ChannelId | 'tri-spread') => {
-    if (target === 'base') {
-      const deltaAB = config.isDeltaLocked ? config.lockedDeltaAB : Math.abs(config.bFreq - config.aFreq);
-      const deltaBC = config.isDeltaLocked ? config.lockedDeltaBC : Math.abs(config.cFreq - config.bFreq);
-      handleUpdateConfig({
-        aFreq: freq,
-        bFreq: Number((freq + deltaAB).toFixed(2)),
-        cFreq: Number((freq + deltaAB + deltaBC).toFixed(2)),
-      });
-    } else if (target === 'tri-spread') {
-      const step = config.lockedDeltaAB || 10.0;
-      handleUpdateConfig({
-        aFreq: freq,
-        bFreq: Number((freq + step).toFixed(2)),
-        cFreq: Number((freq + step * 2).toFixed(2)),
-      });
-    } else if (target === 'a') {
-      handleUpdateAFreq(freq);
-    } else if (target === 'b') {
-      handleUpdateBFreq(freq);
-    } else if (target === 'c') {
-      handleUpdateCFreq(freq);
-    }
-  };
-
-  // Reset 3D Camera Angles
-  const handleResetCamera = () => {
-    handleUpdateConfig({
-      cameraYaw: 30,
-      cameraPitch: 22,
-      cameraZoom: 1.0,
-      cameraView: 'top',
-    });
-  };
-
-  // Apply Preset
-  const handleSelectPreset = (preset: Preset) => {
-    setSelectedPresetId(preset.id);
-    const newDeltaAB = Math.abs(preset.bFreq - preset.aFreq);
-    const newDeltaBC = Math.abs(preset.cFreq - preset.bFreq);
-    handleUpdateConfig({
-      aFreq: preset.aFreq,
-      bFreq: preset.bFreq,
-      cFreq: preset.cFreq,
-      aWaveform: preset.aWaveform,
-      bWaveform: preset.bWaveform,
-      cWaveform: preset.cWaveform,
-      lockedDeltaAB: newDeltaAB,
-      lockedDeltaBC: newDeltaBC,
-    });
+  const handleRunSearch = () => {
+    setScanRequested(true);
+    setShowSiteList(true);
   };
 
   return (
-    <div className="min-h-screen bg-[#060911] text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
-      {/* Top DAW Header with Run Stereo/Trinaural Test Button */}
-      <header className="flex flex-wrap items-center justify-between gap-4 px-6 py-3 bg-[#080d18] border-b border-slate-800/80 sticky top-0 z-50">
-        {/* Brand Lockup */}
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded bg-cyan-400 shadow-[0_0_10px_#00f0ff]" />
-          <span className="text-base font-mono font-bold tracking-tight text-white flex items-center gap-1.5">
-            <span>AUDIOCUBE SPACE</span>
-            <span className="text-slate-500 font-normal hidden sm:inline">· 3D Trinaural Spatial Synthesizer DAW</span>
-          </span>
-        </div>
-
-        {/* Center: Live Trinaural Test Button & Real-Time Readouts */}
-        <div className="flex items-center gap-3">
-          <button
-            style={{ display: "none" }}
-            onClick={handleRunTrinauralTest}
-            className={`hidden items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border shadow-sm ${
-              trinauralTestStatus
-                ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.3)] animate-pulse'
-                : 'bg-[#060a12] border-slate-700 text-slate-300 hover:text-white hover:border-slate-500'
-            }`}
-            title="Sequentially audits Channel A (Left) -> Channel B (Right) -> Channel C (Spatial) -> All 3"
-          >
-            <CheckCircle2 className={`w-3.5 h-3.5 ${trinauralTestStatus ? 'text-cyan-400' : 'text-slate-400'}`} />
-            <span>{trinauralTestStatus || 'RUN TRINAURAL TEST'}</span>
-          </button>
-
-          <div className="hidden lg:flex items-center gap-3 text-xs font-mono text-slate-400 border-l border-slate-800 pl-4">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block" />
-              A: <strong className="text-cyan-400 font-bold">{(config.aFreq + config.aFineTune).toFixed(1)} Hz</strong>
-            </span>
-            <span>·</span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-pink-400 inline-block" />
-              B: <strong className="text-pink-400 font-bold">{(config.bFreq + config.bFineTune).toFixed(1)} Hz</strong>
-            </span>
-            <span>·</span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-              C: <strong className="text-amber-400 font-bold">{(config.cFreq + config.cFineTune).toFixed(1)} Hz</strong>
-            </span>
-            <span>·</span>
-            <span className="flex items-center gap-1">
-              Δ A-B: <strong className="text-purple-400 font-bold">{Math.abs(config.bFreq - config.aFreq).toFixed(2)} Hz</strong>
-            </span>
+    <main className="atlas-app">
+      <header className="atlas-topbar">
+        <div className="atlas-brand">
+          <div className="atlas-brand-mark"><Globe2 size={28} strokeWidth={1.5} /></div>
+          <div className="atlas-brand-copy">
+            <div className="atlas-brand-title">NEUROPULSE<span> / ATLAS</span></div>
+            <div className="atlas-brand-subtitle">ANCIENT GLOBAL SEARCH PROGRAM</div>
+            <div className="atlas-brand-micro">ALIGNMENT · FREQUENCY · GEOMETRY · THE STARS</div>
           </div>
         </div>
-
-        {/* Right: Master Run/Stop Toggle & Fullscreen Button */}
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={handleToggleFullscreen}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold rounded-md border transition-all shadow-sm ${
-              isFullscreen
-                ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300'
-                : 'bg-[#060a12] border-slate-700 text-slate-300 hover:text-white hover:border-slate-500'
-            }`}
-            title={isFullscreen ? 'Exit Full Screen' : 'Toggle Full Screen Mode'}
-          >
-            {isFullscreen ? <Minimize className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize className="w-3.5 h-3.5 text-slate-400" />}
-            <span>{isFullscreen ? 'EXIT FULLSCREEN' : 'FULLSCREEN'}</span>
-          </button>
-
-          <button
-            style={{ display: "none" }}
-            onClick={handleTogglePlay}
-            className={`hidden px-5 py-1.5 text-xs font-mono font-bold tracking-wider rounded-md transition-all shadow-md ${
-              isRunning
-                ? 'bg-red-500 hover:bg-red-600 text-white shadow-[0_0_12px_rgba(239,68,68,0.5)]'
-                : 'bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-[0_0_12px_rgba(52,211,153,0.4)]'
-            }`}
-          >
-            {isRunning ? 'STOP ENGINE' : 'START AUDIO'}
-          </button>
+        <nav className="atlas-topnav" aria-label="Primary views">
+          {['EARTH', 'SOLAR SYSTEM', 'GALAXY', 'UNIVERSAL ARCHIVE'].map((item, index) => (
+            <button key={item} className={(index === 0 ? activeNav === 'GLOBAL SEARCH' : activeNav === item) ? 'active' : ''} onClick={() => setActiveNav(index === 0 ? 'GLOBAL SEARCH' : item)}>
+              {item}
+            </button>
+          ))}
+        </nav>
+        <div className="atlas-status">
+          <button className="atlas-primary-button" onClick={handleToggleAudio}>{isRunning ? "STOP AUDIO" : "START AUDIO"}</button><div className="atlas-clock"><span className="status-dot" /> {isRunning ? "AUDIO ENGINE RUNNING" : "SYSTEM ONLINE"}</div>
+          <div className="atlas-status-sub">LOCAL DATA · {DEFAULT_EARTH_POINTS.length} SITES · {REAL_CELESTIAL_STARS.length} STARS</div>
         </div>
       </header>
 
-      {/* Main Production Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col gap-4">
-        {/* Audio controls are intentionally hidden; audio state and handlers remain active. */}
-        <div style={{ display: "none" }} aria-hidden="true">
-          <MasterTransport
-            isRunning={isRunning}
-            masterVolume={config.masterVolume}
-            presets={DAW_PRESETS}
-            selectedPresetId={selectedPresetId}
-            audioEngine={audioEngineRef.current}
-            onTogglePlay={handleTogglePlay}
-            onUpdateVolume={(vol) => handleUpdateConfig({ masterVolume: vol })}
-            onSelectPreset={handleSelectPreset}
-          />
-        </div>
+      <div className="atlas-workspace">
+        <aside className="atlas-left">
+          <section className="atlas-panel atlas-navigation">
+            <div className="atlas-panel-heading">RESEARCH MODULES</div>
+            {NAV_ITEMS.map(({ label, icon: Icon }) => (
+              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => setActiveNav(label)}>
+                <Icon size={15} strokeWidth={1.8} /><span>{label}</span><span className="nav-chevron">›</span>
+              </button>
+            ))}
+          </section>
 
-        {/* 3D AudioCube Spatializer Stage (Interactive Orbit & Direct Elevation Sliders) */}
-        <section className="h-[430px] sm:h-[480px]">
-          <AudioCubeSpace
-            aPos={config.aPos}
-            bPos={config.bPos}
-            cPos={config.cPos}
-            spatialMode={config.spatialMode}
-            cameraView={config.cameraView}
-            cameraYaw={config.cameraYaw}
-            cameraPitch={config.cameraPitch}
-            cameraZoom={config.cameraZoom}
-            aFreq={config.aFreq + config.aFineTune}
-            bFreq={config.bFreq + config.bFineTune}
-            cFreq={config.cFreq + config.cFineTune}
-            isRunning={isRunning}
-            onUpdateAPos={(pos: SpatialPosition) => handleUpdateConfig({ aPos: pos })}
-            onUpdateBPos={(pos: SpatialPosition) => handleUpdateConfig({ bPos: pos })}
-            onUpdateCPos={(pos: SpatialPosition) => handleUpdateConfig({ cPos: pos })}
-            onUpdateSpatialMode={(mode: SpatialRoutingMode) => handleUpdateConfig({ spatialMode: mode })}
-            onUpdateCameraView={(view: CameraView) => handleUpdateConfig({ cameraView: view })}
-            onUpdateCameraAngles={(yaw: number, pitch: number) =>
-              handleUpdateConfig({ cameraYaw: yaw, cameraPitch: pitch })
-            }
-            onUpdateCameraZoom={(zoom: number) => handleUpdateConfig({ cameraZoom: zoom })}
-            onResetCamera={handleResetCamera}
-          />
+          <section className="atlas-panel atlas-filter-panel">
+            <div className="atlas-panel-heading"><SlidersHorizontal size={13} /> SEARCH FILTERS</div>
+            <label className="atlas-searchbox">
+              <Search size={14} />
+              <input value={searchText} onChange={(event) => { setSearchText(event.target.value); setShowSiteList(true); setScanRequested(false); }} placeholder="Name, region, keyword..." />
+              {searchText && <button aria-label="Clear search" onClick={() => setSearchText('')}><X size={13} /></button>}
+            </label>
+            <label className="atlas-field-label">SITE CATEGORY</label>
+            <button className="atlas-select-like" onClick={() => setShowSiteList((value) => !value)}>All documented categories <ChevronDown size={13} /></button>
+            <label className="atlas-field-label">FREQUENCY RANGE (HZ) <strong>{frequencyMax.toLocaleString()} Hz</strong></label>
+            <input className="atlas-range" aria-label="Maximum frequency" type="range" min="100" max="20000" step="100" value={frequencyMax} onChange={(event) => setFrequencyMax(Number(event.target.value))} />
+            <div className="atlas-range-labels"><span>100</span><span>20,000</span></div>
+            <label className="atlas-field-label">ANGLE RANGE <strong>{angleMax}°</strong></label>
+            <input className="atlas-range" aria-label="Maximum angle" type="range" min="1" max="180" value={angleMax} onChange={(event) => setAngleMax(Number(event.target.value))} />
+            <div className="atlas-range-labels"><span>1°</span><span>180°</span></div>
+            <div className="atlas-checks">
+              <label><input type="checkbox" checked={includeStars} onChange={(event) => setIncludeStars(event.target.checked)} /> Include star catalogue</label>
+              <label><input type="checkbox" checked={includeAcoustics} onChange={(event) => setIncludeAcoustics(event.target.checked)} /> Include acoustic evidence</label>
+              <label><input type="checkbox" checked={includeGeometry} onChange={(event) => setIncludeGeometry(event.target.checked)} /> Include geometric comparisons</label>
+            </div>
+            <button className="atlas-primary-button" onClick={handleRunSearch}><Radar size={16} /> RUN GLOBAL SEARCH</button>
+          </section>
+        </aside>
+
+        <section className="atlas-center">
+          <div className="atlas-center-heading">
+            <div><div className="atlas-eyebrow">ACTIVE WORKSPACE / EARTH</div><h1>{activeNav === 'GLOBAL SEARCH' ? 'Global Alignment Explorer' : activeNav}</h1><p>{navDescription[activeNav] ?? 'This view is represented in the navigation; its dedicated visualization is not yet connected.'}</p></div>
+            <div className="atlas-live-tag"><span className="status-dot" /> LIVE GLOBE</div>
+          </div>
+          <div className="atlas-globe-stage">
+            <div className="atlas-globe-grid" aria-hidden="true" />
+            <AudioCubeSpace
+              aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
+              spatialMode={config.spatialMode} cameraView={config.cameraView}
+              cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
+              aFreq={config.aFreq + config.aFineTune} bFreq={config.bFreq + config.bFineTune} cFreq={config.cFreq + config.cFineTune}
+              isRunning={isRunning}
+              onUpdateAPos={(position) => updatePosition('a', position)} onUpdateBPos={(position) => updatePosition('b', position)} onUpdateCPos={(position) => updatePosition('c', position)}
+              onUpdateSpatialMode={(spatialMode) => handleUpdateConfig({ spatialMode })} onUpdateCameraView={(cameraView) => handleUpdateConfig({ cameraView })}
+              onUpdateCameraAngles={(cameraYaw, cameraPitch) => handleUpdateConfig({ cameraYaw, cameraPitch })}
+              onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
+              onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 1, cameraView: 'top' })}
+            />
+            <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
+            <div className="atlas-globe-overlay atlas-globe-overlay-bottom">
+              <span><i className="legend-dot cyan" /> SITE DATABASE</span>
+              <span><i className="legend-dot gold" /> STAR CATALOGUE {includeStars ? 'ON' : 'OFF'}</span>
+              <span><i className="legend-dot green" /> ACOUSTIC RECORDS {includeAcoustics ? 'ON' : 'OFF'}</span>
+              <span><i className="legend-line" /> GEOMETRY {includeGeometry ? 'ON' : 'OFF'}</span>
+            </div>
+          </div>
+          {showSiteList && (
+            <div className="atlas-results-strip">
+              <div className="atlas-results-title"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></div>
+              <div className="atlas-results-list">
+                {filteredSites.slice(0, 8).map((site) => (
+                  <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-result-chip chosen' : 'atlas-result-chip'} onClick={() => setSelectedSiteId(site.id)}>
+                    <MapPin size={12} /><span>{site.name}</span>
+                  </button>
+                ))}
+                {filteredSites.length === 0 && <span className="atlas-empty">No sites match this search.</span>}
+              </div>
+              {scanRequested && <div className="atlas-search-note">Catalogue search complete · results reflect local reference data</div>}
+            </div>
+          )}
         </section>
 
-        {/* Triangular Delta Offset & 3-Signal Lissajous Scope Deck */}
-        <DeltaHUD
-          aFreq={config.aFreq}
-          bFreq={config.bFreq}
-          cFreq={config.cFreq}
-          aFineTune={config.aFineTune}
-          bFineTune={config.bFineTune}
-          cFineTune={config.cFineTune}
-          isDeltaLocked={config.isDeltaLocked}
-          audioEngine={audioEngineRef.current}
-          isRunning={isRunning}
-          onToggleDeltaLock={handleToggleDeltaLock}
-          onSetQuickDelta={handleSetQuickDelta}
-        />
+        <aside className="atlas-right">
+          <section className="atlas-panel atlas-site-card">
+            <div className="atlas-panel-heading"><MapPin size={13} /> SELECTED SITE <span className="atlas-panel-count">REFERENCE DATA</span></div>
+            {selectedSite ? <>
+              <div className="atlas-site-hero">
+                <div className="atlas-site-glyph"><MapPin size={26} /></div>
+                <div><h2>{selectedSite.name}</h2><div className="atlas-muted">{selectedSite.category ?? 'Recorded location'}</div></div>
+              </div>
+              <div className="atlas-coordinates">
+                <div><span>LATITUDE</span><strong>{formatCoordinate(selectedSite.lat, 'N', 'S')}</strong></div>
+                <div><span>LONGITUDE</span><strong>{formatCoordinate(selectedSite.lon, 'E', 'W')}</strong></div>
+              </div>
+              <p className="atlas-site-description">{selectedSite.desc ?? 'Coordinates are included in the local site catalogue.'}</p>
+              <div className="atlas-data-table">
+                <div><span>Nearest listed site</span><strong>{nearestSites[0]?.name ?? '—'}</strong></div>
+                <div><span>Surface distance</span><strong>{nearestSites[0] ? `${Math.round(nearestSites[0].distance).toLocaleString()} km` : '—'}</strong></div>
+                <div><span>Acoustic records within 100 km</span><strong>{linkedAcousticRecords.length}</strong></div>
+                <div><span>Geometry limit</span><strong>{angleMax}° max angle</strong></div>
+              </div>
+              <div className="atlas-subheading">ACOUSTIC EVIDENCE</div>
+              {!includeAcoustics ? <div className="atlas-no-data">Acoustic evidence is excluded by the current search filters.</div> : linkedAcousticRecords.length > 0 ? linkedAcousticRecords.slice(0, 2).map((record) => (
+                <div className="atlas-evidence-row" key={record.id}>
+                  <div><strong>{record.name}</strong><span>{record.status === 'published-measurement' ? 'Published measurement' : 'Candidate only'} · {Math.round(record.distance)} km</span></div>
+                  <b>{record.measuredFrequenciesHz.length ? record.measuredFrequenciesHz.map((hz) => `${hz} Hz`).join(' / ') : 'No measured Hz'}</b>
+                </div>
+              )) : <div className="atlas-no-data">No acoustic record in the current evidence catalogue is within 100 km. No frequency is inferred for this site.</div>}
+            </> : <div className="atlas-no-data">Select a site from the catalogue to inspect its reference data.</div>}
+          </section>
 
-        {/* 3-Channel Trinaural Oscillator DAW Channel Strips (CH-A, CH-B, CH-C) */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-          {/* Channel A: Left Ear Oscillator (Cyan) */}
-          <OscillatorDeck
-            channel="a"
-            frequency={config.aFreq}
-            fineTune={config.aFineTune}
-            waveform={config.aWaveform}
-            gain={config.aGain}
-            muted={config.aMuted}
-            position={config.aPos}
-            audioEngine={audioEngineRef.current}
-            isRunning={isRunning}
-            onUpdateFrequency={handleUpdateAFreq}
-            onUpdateFineTune={(fine) => handleUpdateConfig({ aFineTune: fine })}
-            onUpdateWaveform={(wave: WaveformType) => handleUpdateConfig({ aWaveform: wave })}
-            onUpdateGain={(g) => handleUpdateConfig({ aGain: g })}
-            onUpdateElevation={(elev) => handleUpdateConfig({ aPos: { ...config.aPos, y: elev } })}
-            onToggleMute={() => handleUpdateConfig({ aMuted: !config.aMuted })}
-          />
+          <section className="atlas-panel atlas-related-panel">
+            <div className="atlas-panel-heading"><Orbit size={13} /> NEAREST LISTED SITES</div>
+            {includeGeometry && nearestSites.map((site) => (
+              <button key={site.id} className="atlas-related-row" onClick={() => { setSelectedSiteId(site.id); setShowSiteList(false); }}>
+                <span className="atlas-related-marker"><MapPin size={14} /></span>
+                <span className="atlas-related-copy"><strong>{site.name}</strong><small>{formatCoordinate(site.lat, 'N', 'S')} · {formatCoordinate(site.lon, 'E', 'W')}</small></span>
+                <b>{Math.round(site.distance).toLocaleString()} km</b>
+              </button>
+            ))}
+          </section>
 
-          {/* Channel B: Right Ear Oscillator (Pink) */}
-          <OscillatorDeck
-            channel="b"
-            frequency={config.bFreq}
-            fineTune={config.bFineTune}
-            waveform={config.bWaveform}
-            gain={config.bGain}
-            muted={config.bMuted}
-            position={config.bPos}
-            audioEngine={audioEngineRef.current}
-            isRunning={isRunning}
-            onUpdateFrequency={handleUpdateBFreq}
-            onUpdateFineTune={(fine) => handleUpdateConfig({ bFineTune: fine })}
-            onUpdateWaveform={(wave: WaveformType) => handleUpdateConfig({ bWaveform: wave })}
-            onUpdateGain={(g) => handleUpdateConfig({ bGain: g })}
-            onUpdateElevation={(elev) => handleUpdateConfig({ bPos: { ...config.bPos, y: elev } })}
-            onToggleMute={() => handleUpdateConfig({ bMuted: !config.bMuted })}
-          />
+          <section className="atlas-panel atlas-star-panel">
+            <div className="atlas-panel-heading"><Star size={13} /> STAR CATALOGUE <span className="atlas-panel-count">{REAL_CELESTIAL_STARS.length} RECORDS</span></div>
+            {includeStars ? REAL_CELESTIAL_STARS.slice(0, 4).map((star) => (
+              <div className="atlas-star-row" key={star.id}><span className="star-spark">✦</span><span><strong>{star.name}</strong><small>{star.constellation}</small></span><b>{star.distLy.toLocaleString()} ly</b></div>
+            )) : <div className="atlas-no-data">Star catalogue is excluded by the current search filters.</div>}
+            <div className="atlas-footnote">Star catalogue coordinates and distances are reference data; a site alignment requires a dated sky calculation and verified architectural axis.</div>
+          </section>
+        </aside>
+      </div>
 
-          {/* Channel C: Spatial Center Oscillator (Amber) */}
-          <OscillatorDeck
-            channel="c"
-            frequency={config.cFreq}
-            fineTune={config.cFineTune}
-            waveform={config.cWaveform}
-            gain={config.cGain}
-            muted={config.cMuted}
-            position={config.cPos}
-            audioEngine={audioEngineRef.current}
-            isRunning={isRunning}
-            onUpdateFrequency={handleUpdateCFreq}
-            onUpdateFineTune={(fine) => handleUpdateConfig({ cFineTune: fine })}
-            onUpdateWaveform={(wave: WaveformType) => handleUpdateConfig({ cWaveform: wave })}
-            onUpdateGain={(g) => handleUpdateConfig({ cGain: g })}
-            onUpdateElevation={(elev) => handleUpdateConfig({ cPos: { ...config.cPos, y: elev } })}
-            onToggleMute={() => handleUpdateConfig({ cMuted: !config.cMuted })}
-          />
+      <footer className="atlas-bottom">
+        <section className="atlas-bottom-panel atlas-live-data">
+          <div className="atlas-bottom-heading"><Activity size={13} /> LOCAL DATA STATUS</div>
+          <div className="atlas-metric-grid">
+            <div><span>EARTH SITES</span><strong>{DEFAULT_EARTH_POINTS.length}</strong></div>
+            <div><span>CATALOGUED STARS</span><strong>{REAL_CELESTIAL_STARS.length}</strong></div>
+            <div><span>ACOUSTIC RECORDS</span><strong>{ACOUSTIC_SITE_EVIDENCE.length}</strong></div>
+            <div><span>SEARCH MATCHES</span><strong>{filteredSites.length}</strong></div>
+          </div>
         </section>
-
-        {/* Combined Unified Frequency Matrix: Solfeggio & Healing Tones + Brainwaves */}
-        <section>
-          <FrequencyMatrix
-            aFreq={config.aFreq}
-            bFreq={config.bFreq}
-            cFreq={config.cFreq}
-            lockedDeltaAB={config.lockedDeltaAB}
-            lockedDeltaBC={config.lockedDeltaBC}
-            isDeltaLocked={config.isDeltaLocked}
-            onApplySolfeggio={handleApplySolfeggio}
-            onApplyBrainwaveDelta={handleSetQuickDelta}
-          />
+        <section className="atlas-bottom-panel atlas-analysis">
+          <div className="atlas-bottom-heading"><Target size={13} /> ANALYSIS WORKSPACE</div>
+          <div className="atlas-analysis-items">
+            <div><span className="analysis-dot cyan" /><span>Coordinate distance</span><b>Available</b></div>
+            <div><span className="analysis-dot green" /><span>Published acoustic evidence</span><b>{includeAcoustics ? 'Included' : 'Filtered'}</b></div>
+            <div><span className="analysis-dot gold" /><span>Stellar reference catalogue</span><b>{includeStars ? 'Included' : 'Filtered'}</b></div>
+            <div><span className="analysis-dot purple" /><span>Alignment verification</span><b>Requires dated sky model</b></div>
+          </div>
         </section>
-      </main>
-
-      {/* Clean Studio Footer */}
-      <footer className="border-t border-slate-900 bg-[#05070d] py-3.5 px-6 text-xs text-slate-500 font-mono flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-slate-400">AUDIOCUBE SPACE</span>
-          <span>·</span>
-          <span>3D Trinaural Spatial Synthesizer DAW</span>
-          <span>·</span>
-          <span>Tri-Tone Interference Matrix</span>
-        </div>
-        <div className="flex items-center gap-4 text-[11px]">
-          <span>Free 3D Orbit Camera</span>
-          <span>·</span>
-          <span>Channel Elevation Sliders</span>
-          <span>·</span>
-          <span>Native Web Audio API Oscillators</span>
-        </div>
+        <section className="atlas-bottom-panel atlas-frequency">
+          <div className="atlas-bottom-heading"><Signal size={13} /> FREQUENCY INVESTIGATION</div>
+          <div className="atlas-frequency-display"><span>{frequencyMax.toLocaleString()} Hz</span><small>MAX SEARCH RANGE</small></div>
+          <div className="atlas-frequency-bars" aria-hidden="true">{Array.from({ length: 34 }, (_, index) => <i key={index} style={{ height: `${8 + ((index * 17 + 13) % 31)}%` }} />)}</div>
+          <div className="atlas-footnote">Decorative scale indicator only; it is not a live microphone spectrum or measurement.</div>
+        </section>
+        <section className="atlas-bottom-panel atlas-progress">
+          <div className="atlas-bottom-heading"><Zap size={13} /> SEARCH STATE</div>
+          <div className="atlas-progress-status"><span className="status-dot" /> {scanRequested ? 'CATALOGUE SEARCH COMPLETE' : 'READY FOR QUERY'}</div>
+          <div className="atlas-progress-track"><span style={{ width: scanRequested ? '100%' : '8%' }} /></div>
+          <div className="atlas-progress-copy">{scanRequested ? `${filteredSites.length} local site records match the current query.` : 'Run a search to filter the local site catalogue.'}</div>
+          <button className="atlas-secondary-button" onClick={() => { setSearchText(''); setShowSiteList(false); setScanRequested(false); setSelectedSiteId(DEFAULT_EARTH_POINTS[0]?.id ?? ''); }}>RESET SEARCH</button>
+        </section>
       </footer>
-
-
-    </div>
+      <div className="atlas-tagline">THE PAST LEAVES SIGNALS — WE FIND THEM <span>· EVIDENCE FIRST · HYPOTHESES LABELLED</span></div>
+    </main>
   );
 }
