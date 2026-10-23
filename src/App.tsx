@@ -377,11 +377,12 @@ export default function App() {
         <div className="atlas-panel-heading"><Star size={14} fill="currentColor"/> FAVORITE SITES <button className="atlas-secondary-button" onClick={() => setShowFavorites(false)}>CLOSE</button></div>
         {favoriteSites.length ? favoriteSites.map((site: any) => <div key={site.id} className="atlas-favorite-row" style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',padding:'6px 0'}}><button className="atlas-result-chip" onClick={() => { setSelectedGlobeSite(site); setSelectedSiteId(site.id); setEarthAreaView('satellite'); setShowFavorites(false); }}><MapPin size={12}/><span>{site.name}</span></button><button aria-label={'Remove '+site.name+' from favorites'} onClick={() => toggleFavorite(site)}><Star size={14} fill="currentColor"/></button></div>) : <p className="atlas-no-data">No favorites saved yet. Select a site and use Save to Favorites.</p>}
       </section>}
+      {earthAreaView === 'elevation' && <section aria-label="Water elevation Earth workspace" style={{ position: 'absolute', zIndex: 80, top: 58, left: 8, right: 8, bottom: 24, minWidth: 0, minHeight: 0, background: '#030814', border: '1px solid rgba(0, 128, 223, .56)', borderRadius: 7, overflow: 'hidden' }}><EarthElevation key="water-elevation-earth" selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null} siteCatalogue={researchSites} onBack={() => setEarthAreaView('globe')} /></section>}
       <div className="atlas-workspace">
         <section className="atlas-center">
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
-            {earthAreaView === 'elevation' ? <div className="absolute inset-0 z-20 h-full w-full"><EarthElevation key="earth-elevation-view" selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null} siteCatalogue={researchSites} onBack={() => setEarthAreaView('globe')} /></div> : (earthAreaView === 'globe' || !selectedSite) ? <AudioCubeSpace
+            {earthAreaView === 'elevation' ? null : (earthAreaView === 'globe' || !selectedSite) ? <AudioCubeSpace
               aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
               spatialMode={config.spatialMode} cameraView={config.cameraView}
               cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
