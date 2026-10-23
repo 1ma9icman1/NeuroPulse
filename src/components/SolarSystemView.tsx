@@ -303,74 +303,82 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
       ctx.globalAlpha = 1;
 
       const bodies = bodiesRef.current;
-      const maximumAU = Math.max(...bodies.map((body) => body.semimajorAxisAu * (1 + body.eccentricity)));
       const maximumOrbitPixels = Math.max(100, Math.min(width * 0.455, height * 0.405));
-      const sunX = width / 2;
-      const sunY = height / 2 + 8;
-      const displayAxis = (body: HeliocentricOrbitElement) =>
-        12 + Math.log1p(body.semimajorAxisAu) / Math.log1p(maximumAU) * (maximumOrbitPixels - 12);
-      const project = (point: { x: number; y: number; z: number }) => ({
-        x: sunX + point.x,
-        y: sunY - (point.y * Math.cos(0.23) - point.z * Math.sin(0.23)),
-      });
+      const centerX = width / 2;
+      const centerY = height / 2 + 8;
+      const earthBody = bodies.find((body) => body.id === 'earth')!;
+      const heliocentricPosition = (body: HeliocentricOrbitElement, daysFromNow: number) => {
+        const mean = body.meanAnomalyRad + daysFromNow / body.orbitalPeriodDays * TAU;
+        const eccentricAnomaly = solveEccentricAnomaly(mean, body.eccentricity);
+        return orbitPoint(body, eccentricAnomaly, body.semimajorAxisAu);
+      };
+      const projectGeocentric = (point: { x: number; y: number; z: number }) => {
+        const distance = Math.hypot(point.x, point.y, point.z);
+        const compressedRadius = distance < 1e-9 ? 0 : Math.log1p(distance * 3.2) / Math.log1p(40 * 3.2) * maximumOrbitPixels;
+        const factor = distance < 1e-9 ? 0 : compressedRadius / distance;
+        const x = point.x * factor, y = point.y * factor, z = point.z * factor;
+        return { x: centerX + x, y: centerY - (y * Math.cos(0.23) - z * Math.sin(0.23)) };
+      };
+      const geocentricPosition = (body: HeliocentricOrbitElement, daysFromNow: number) => {
+        const target = heliocentricPosition(body, daysFromNow);
+        const earthPos = heliocentricPosition(earthBody, daysFromNow);
+        return { x: target.x - earthPos.x, y: target.y - earthPos.y, z: target.z - earthPos.z };
+      };
 
-      // Planet orbits are drawn as true ellipse shapes with their sourced eccentricity
-      // and inclination, but semimajor axes are logarithmically compressed for a usable UI.
-      bodies.forEach((body) => {
-        const aPixels = displayAxis(body);
+      // Each track is computed from the body's heliocentric Keplerian vector minus
+      // Earth's vector at the same epoch. Relative trajectories create the apparent
+      // geocentric loops; the inclination comes from the actual orbital elements.
+      bodies.filter((body) => body.id !== 'earth').forEach((body) => {
+        const synodicDays = Math.abs(1 / (1 / body.orbitalPeriodDays - 1 / earthBody.orbitalPeriodDays));
+        const trackDays = Number.isFinite(synodicDays) ? Math.min(synodicDays, 90000) : 365.256;
         ctx.beginPath();
-        for (let sample = 0; sample <= 150; sample += 1) {
-          const eccentricAnomaly = sample / 150 * TAU;
-          const p = project(orbitPoint(body, eccentricAnomaly, aPixels));
-          if (sample === 0) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
+        const samples = 220;
+        for (let sample = 0; sample <= samples; sample += 1) {
+          const offsetDays = (sample / samples - 0.5) * trackDays;
+          const p = projectGeocentric(geocentricPosition(body, offsetDays));
+          if (sample === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
         }
-        ctx.closePath();
-        ctx.strokeStyle = body.id === 'earth' ? 'rgba(96,165,250,.58)' : body.id === 'mars' ? 'rgba(251,113,133,.36)' : 'rgba(148,163,184,.2)';
-        ctx.lineWidth = body.id === 'earth' ? 1.6 : 1;
+        ctx.strokeStyle = body.id === 'mars' ? 'rgba(251,113,133,.48)' :
+          body.id === 'venus' || body.id === 'mercury' ? 'rgba(96,165,250,.42)' : 'rgba(148,163,184,.28)';
+        ctx.lineWidth = 1;
         ctx.stroke();
       });
 
-      // Sun is the actual heliocentric origin for the model.
+      // The Sun's geocentric position is the negative of Earth's heliocentric vector.
+      const earthHelioNow = heliocentricPosition(earthBody, elapsedDays);
+      const sunPosition = projectGeocentric({ x: -earthHelioNow.x, y: -earthHelioNow.y, z: -earthHelioNow.z });
+      const sunX = sunPosition.x, sunY = sunPosition.y;
       ctx.save();
       const sunGlow = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, 36);
       sunGlow.addColorStop(0, 'rgba(255,246,180,.98)');
       sunGlow.addColorStop(0.17, 'rgba(251,191,36,.92)');
       sunGlow.addColorStop(0.48, 'rgba(249,115,22,.2)');
       sunGlow.addColorStop(1, 'rgba(249,115,22,0)');
-      ctx.fillStyle = sunGlow;
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, 36, 0, TAU);
-      ctx.fill();
+      ctx.fillStyle = sunGlow; ctx.beginPath(); ctx.arc(sunX, sunY, 36, 0, TAU); ctx.fill();
       const sunDisk = ctx.createRadialGradient(sunX - 3, sunY - 4, 1, sunX, sunY, 11);
-      sunDisk.addColorStop(0, '#fff7c2');
-      sunDisk.addColorStop(0.6, '#fbbf24');
-      sunDisk.addColorStop(1, '#ea580c');
-      ctx.fillStyle = sunDisk;
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, 11, 0, TAU);
-      ctx.fill();
-      ctx.font = 'bold 11px ui-monospace, monospace';
-      ctx.fillStyle = '#fde68a';
-      ctx.fillText('SUN · CENTER', sunX + 15, sunY - 12);
+      sunDisk.addColorStop(0, '#fff7c2'); sunDisk.addColorStop(0.6, '#fbbf24'); sunDisk.addColorStop(1, '#ea580c');
+      ctx.fillStyle = sunDisk; ctx.beginPath(); ctx.arc(sunX, sunY, 11, 0, TAU); ctx.fill();
+      ctx.font = 'bold 11px ui-monospace, monospace'; ctx.fillStyle = '#fde68a';
+      ctx.fillText('SUN · GEOCENTRIC', sunX + 15, sunY - 12);
       ctx.restore();
 
+      // Earth is stationary at the origin of this coordinate frame.
       const positionById: Record<string, { x: number; y: number; z: number; radius: number }> = {};
-      bodies.forEach((body) => {
-        const aPixels = displayAxis(body);
-        const mean = body.meanAnomalyRad + elapsedDays / body.orbitalPeriodDays * TAU;
-        const eccentricAnomaly = solveEccentricAnomaly(mean, body.eccentricity);
-        const p = project(orbitPoint(body, eccentricAnomaly, aPixels));
-        const radius = body.id === 'jupiter' ? 12.5 : body.id === 'saturn' ? 10.8 : body.id === 'earth' ? 7.4 : body.id === 'venus' ? 7 : body.id === 'uranus' || body.id === 'neptune' ? 7.2 : body.id === 'mars' ? 6.3 : body.id === 'mercury' ? 4.7 : 4.5;
+      const earthRadius = 8.5;
+      positionById.earth = { x: centerX, y: centerY, z: 0, radius: earthRadius };
+      drawPlanetDisk(ctx, earthBody, centerX, centerY, earthRadius, elapsedDays, planetTexturesRef.current);
+      ctx.font = 'bold 10px ui-monospace, monospace'; ctx.fillStyle = earthBody.color;
+      ctx.shadowColor = '#020617'; ctx.shadowBlur = 4;
+      ctx.fillText('EARTH · CENTER', centerX + earthRadius + 4, centerY - earthRadius - 2);
+      ctx.shadowBlur = 0;
+
+      bodies.filter((body) => body.id !== 'earth').forEach((body) => {
+        const p = projectGeocentric(geocentricPosition(body, elapsedDays));
+        const radius = body.id === 'jupiter' ? 12.5 : body.id === 'saturn' ? 10.8 : body.id === 'venus' ? 7 : body.id === 'uranus' || body.id === 'neptune' ? 7.2 : body.id === 'mars' ? 6.3 : body.id === 'mercury' ? 4.7 : 4.5;
         positionById[body.id] = { x: p.x, y: p.y, z: 0, radius };
-
-        // Distinct surface features, rotating texture marks, atmospheric shading and rim light.
         drawPlanetDisk(ctx, body, p.x, p.y, radius, elapsedDays, planetTexturesRef.current);
-
-        ctx.font = body.id === 'earth' ? 'bold 10px ui-monospace, monospace' : '9px ui-monospace, monospace';
-        ctx.fillStyle = body.color;
-        ctx.shadowColor = '#020617';
-        ctx.shadowBlur = 4;
+        ctx.font = '9px ui-monospace, monospace'; ctx.fillStyle = body.color;
+        ctx.shadowColor = '#020617'; ctx.shadowBlur = 4;
         ctx.fillText(body.name, p.x + radius + 4, p.y - radius - 2);
         ctx.shadowBlur = 0;
       });
@@ -422,13 +430,13 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
         ctx.fillText('MOON · 27.32 d · 1:1 LOCK', moonX + 6, moonY + 13);
       }
 
-      // Keep the Sun visibly centered even in compact viewports.
+      // Draw a crosshair at Earth’s geocentric origin.
       ctx.strokeStyle = 'rgba(251,191,36,.2)';
       ctx.beginPath();
-      ctx.moveTo(sunX - 45, sunY);
-      ctx.lineTo(sunX + 45, sunY);
-      ctx.moveTo(sunX, sunY - 45);
-      ctx.lineTo(sunX, sunY + 45);
+      ctx.moveTo(centerX - 45, centerY);
+      ctx.lineTo(centerX + 45, centerY);
+      ctx.moveTo(centerX, centerY - 45);
+      ctx.lineTo(centerX, centerY + 45);
       ctx.stroke();
 
       if (now - lastHudUpdate >= 800) {
@@ -445,18 +453,18 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
   const totalEarthDays = elapsedDaysDisplay.toLocaleString();
 
   return (
-    <div className="absolute inset-0 z-[15] overflow-hidden bg-[#02040a]" aria-label="Sun-centered solar system simulation">
+    <div className="absolute inset-0 z-[15] overflow-hidden bg-[#02040a]" aria-label="Earth-centered geocentric planetary model">
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       <div className="absolute left-3 right-3 top-[4.65rem] z-40 flex flex-wrap items-start justify-between gap-2 pointer-events-none">
         <div className="max-w-xl rounded-xl border border-amber-400/40 bg-slate-950/90 p-3 shadow-xl backdrop-blur-md pointer-events-auto">
           <div className="flex items-center gap-2 text-[11px] font-mono font-bold tracking-widest text-amber-200">
-            <Sun className="h-4 w-4" /> HELIOCENTRIC SOLAR SYSTEM
+            <Orbit className="h-4 w-4" /> EARTH-CENTERED GEOCENTRIC VIEW
           </div>
-          <div className="mt-1 text-[10px] text-slate-300">Sun fixed at the center · Keplerian elliptical orbits · inclination retained</div>
+          <div className="mt-1 text-[10px] text-slate-300">Earth fixed at origin · positions computed from Keplerian orbital elements · inclination retained</div>
           <div className="mt-1 text-[10px] font-mono text-sky-200">
-            DATE {formatDate(simulatedDateMs)} · +{totalEarthDays} SIMULATED DAYS · {daysPerSecond} DAY{daysPerSecond === 1 ? '' : 'S'}/SEC
+            DATE {formatDate(simulatedDateMs)} · +{totalEarthDays} ELAPSED DAYS · {daysPerSecond} DAY{daysPerSecond === 1 ? '' : 'S'}/SEC
           </div>
-          <div className="mt-1 text-[9px] leading-relaxed text-slate-500">Orbit radii and planet sizes are compressed for visibility. Orbital periods are derived from semimajor axis using Kepler's third law; perturbations are not simulated. Surface maps: Solar System Scope, based on NASA imagery/elevation data · CC BY 4.0; drawn details are local fallbacks.</div>
+          <div className="mt-1 text-[9px] leading-relaxed text-slate-500">Orbit distances and planet sizes are compressed for visibility. Positions use Kepler's equation and real orbital elements in a geocentric coordinate frame; planets do not physically orbit Earth. Planetary perturbations are not integrated. Surface maps: Solar System Scope, based on NASA imagery/elevation data · CC BY 4.0; drawn details are local fallbacks.</div>
         </div>
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/90 p-2 shadow-xl pointer-events-auto">
           <label className="flex items-center gap-2 text-[10px] font-mono text-slate-300">
