@@ -391,6 +391,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     return () => window.clearTimeout(centerTimer);
   }, [isEarthModeActive]);
 
+  // Only update React when the actual camera crosses a detail-tier boundary.
+  // Avoiding continuous zoom-state renders keeps Globe.gl's drag/rotation loop smooth.
+  const updateEarthZoomTier = useCallback((altitude: number) => {
+    if (!Number.isFinite(altitude) || altitude <= 0) return;
+    setEarthViewAltitude((current) => {
+      const tier = (value: number) => value > 1.55 ? 0 : value > 0.95 ? 1 : value > 0.58 ? 2 : 3;
+      return tier(current) === tier(altitude) ? current : altitude;
+    });
+  }, []);
+
   // Zoom changes adjust distance without moving the selected geographic center.
   useEffect(() => {
     if (!isEarthModeActive || !globeRef.current) return;
@@ -402,15 +412,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     return () => window.clearTimeout(tierTimer);
   }, [cameraZoom, isEarthModeActive, updateEarthZoomTier]);
 
-  // Only update React when the actual camera crosses a detail-tier boundary.
-  // Avoiding continuous zoom-state renders keeps Globe.gl's drag/rotation loop smooth.
-  const updateEarthZoomTier = useCallback((altitude: number) => {
-    if (!Number.isFinite(altitude) || altitude <= 0) return;
-    setEarthViewAltitude((current) => {
-      const tier = (value: number) => value > 1.55 ? 0 : value > 0.95 ? 1 : value > 0.58 ? 2 : 3;
-      return tier(current) === tier(altitude) ? current : altitude;
-    });
-  }, []);
   useEffect(() => {
     if (!isEarthModeActive) return;
     const controls = globeRef.current?.controls?.();
