@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import Globe3D from 'react-globe.gl';
+import { createPortal } from 'react-dom';
 import { SolarSystemView } from './SolarSystemView';
 import type { EarthSiteSelection } from './EarthSiteExplorer';
 import {
@@ -2837,8 +2838,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       )}
 
       {/* Floating Celestial Star & 7-11 Astrometric Deck (When Star Mode is active) */}
-      {isStarModeActive && !isCelestialDeckCollapsed && (
-        <div className="absolute top-16 left-3 z-30 max-w-sm w-full max-h-[calc(100%-5rem)] overflow-y-auto overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-3.5 rounded-xl border border-amber-500/40 shadow-2xl flex flex-col gap-2.5">
+      {isStarModeActive && !isCelestialDeckCollapsed && typeof document !== 'undefined' && document.querySelector('.atlas-left') && createPortal(
+        <div className="relative z-30 w-full max-w-full max-h-[55vh] overflow-y-auto overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-2 rounded-lg border border-amber-500/40 shadow-2xl flex flex-col gap-2.5">
           {/* Header & 7-11 Match Badge */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5">
@@ -3063,7 +3064,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.querySelector('.atlas-left') as HTMLElement
       )}
 
       {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
