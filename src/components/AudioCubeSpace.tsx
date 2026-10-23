@@ -3436,35 +3436,54 @@ remove old timeline button      {/* Historical Earth / sky timeline is off by de
               labelsData={visibleEarthSites.filter((site: any) => site.isCity && showCities)}
       labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
       labelColor={() => '#f8fafc'} labelSize={0.55} labelAltitude={0.012} labelDotRadius={0.12}
-              customLayerData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)}
-              customThreeObject={(d: any) => { const obj = makeRetroLed(d); const coords = globeRef.current?.getCoords?.(Number(d.lat), Number(d.lon), Number(d.altitude || 0)); if (coords) obj.position.copy(coords); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); return obj; }} customThreeObjectExtend={false}
-              customLayerLabel={(d: any) => {
-                if (!d || d.isChannelTarget) return '';
-                const escapeHtml = (value: unknown) => String(value ?? '')
-                  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                const channels = [
-                  { key: 'a' as const, color: '#22d3ee' },
-                  { key: 'b' as const, color: '#f472b6' },
-                  { key: 'c' as const, color: '#fbbf24' },
-                ];
-                const badges = channels.map(({ key, color }) => {
-                  const target = earthChannelTargets[key];
-                  const checked = !!target &&
-                    Math.abs(target.lat - Number(d.lat)) < 0.02 &&
-                    Math.abs(target.lng - Number(d.lon)) < 0.02;
-                  return `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:4px;padding:2px 5px;border:1px solid ${color}88;border-radius:5px;color:${color};font-weight:700;background:${checked ? color + '22' : 'rgba(15,23,42,.6)'}">${key.toUpperCase()} ${checked ? '☑' : '☐'}</span>`;
-                }).join('');
-                return `<div style="min-width:170px;max-width:250px;padding:7px 8px;border:1px solid rgba(125,211,252,.55);border-radius:9px;background:rgba(3,10,22,.96);color:#f8fafc;box-shadow:0 8px 25px rgba(0,0,0,.4);font:12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif">
-                  <div style="font-weight:700;margin-bottom:5px">${escapeHtml(d.name || 'Location')}</div>
-                  <div style="display:flex;gap:3px;align-items:center;margin-bottom:5px">${badges}</div>
-                  <div style="font-size:10px;color:#94a3b8">${Number(d.lat).toFixed(4)}°, ${Number(d.lon).toFixed(4)}°</div>
-                  <div style="font-size:10px;color:#cbd5e1;margin-top:3px">Click the location, then use ADD TO A/B/C to assign a channel.</div>
-                </div>`;
-              }}
-              htmlElementsData={[...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              htmlElementsData={[...visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures).map((site: any) => ({ ...site, isRetroLedSite: true, altitude: 0.035 })), ...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
+                if (d.isRetroLedSite) {
+                  const marker = document.createElement('div');
+                  marker.style.display = 'flex';
+                  marker.style.flexDirection = 'column';
+                  marker.style.gap = '3px';
+                  marker.style.padding = '5px';
+                  marker.style.border = '1px solid rgba(125,211,252,.7)';
+                  marker.style.borderRadius = '6px';
+                  marker.style.background = 'rgba(2,6,23,.88)';
+                  marker.style.boxShadow = '0 0 14px rgba(56,189,248,.28)';
+                  marker.style.pointerEvents = 'none';
+                  marker.style.transform = 'translate(-50%, -50%)';
+                  marker.title = `Retro LED ladder · ${d.name}`;
+                  const ledRows = [
+                    ['RED OFF', '#ff302b', false], ['RED ON', '#ff302b', true],
+                    ['YELLOW OFF', '#ffd52a', false], ['YELLOW ON', '#ffd52a', true],
+                    ['BLUE OFF', '#168dff', false], ['BLUE ON', '#168dff', true],
+                    ['GREEN OFF', '#20ff58', false], ['GREEN ON', '#20ff58', true],
+                    ['PURPLE OFF', '#e13cff', false], ['PURPLE ON', '#e13cff', true],
+                  ] as const;
+                  ledRows.forEach(([name, color, on]) => {
+                    const row = document.createElement('div');
+                    row.style.display = 'flex';
+                    row.style.alignItems = 'center';
+                    row.style.gap = '5px';
+                    row.style.height = '7px';
+                    const bulb = document.createElement('span');
+                    bulb.style.display = 'block';
+                    bulb.style.flex = '0 0 7px';
+                    bulb.style.width = '7px';
+                    bulb.style.height = '7px';
+                    bulb.style.borderRadius = '50%';
+                    bulb.style.background = on ? color : '#111827';
+                    bulb.style.border = `1px solid ${color}`;
+                    bulb.style.boxShadow = on ? `0 0 7px 2px ${color}` : 'none';
+                    const label = document.createElement('span');
+                    label.textContent = name;
+                    label.style.font = 'bold 7px/1 monospace';
+                    label.style.letterSpacing = '.04em';
+                    label.style.color = on ? color : '#94a3b8';
+                    row.append(bulb, label);
+                    marker.append(row);
+                  });
+                  return marker;
+                }
                 if (d.isEarthSiteLabel) {
                   const label = document.createElement('button');
                   label.type = 'button';
