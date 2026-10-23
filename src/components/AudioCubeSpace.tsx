@@ -2894,7 +2894,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
         {/* Earth camera controls belong in the Earth window's bottom bar, not beneath Search in the sidebar. */}
         {isEarthModeActive && (
-          <div className="absolute bottom-3 left-3 z-[70] flex flex-wrap items-center gap-2 rounded-lg border border-purple-500/50 bg-[#0b1220]/95 px-3 py-2 text-xs font-mono text-slate-300 shadow-lg backdrop-blur-md pointer-events-auto">
+          <div className="absolute bottom-3 right-3 z-[70] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-end gap-2 rounded-lg border border-purple-500/50 bg-[#0b1220]/95 px-3 py-2 text-xs font-mono text-slate-300 shadow-lg backdrop-blur-md pointer-events-auto">
             <Rotate3D className="w-3.5 h-3.5 text-purple-400" />
             <span>Yaw: <strong className="text-white">{cameraYaw.toFixed(0)}°</strong></span>
             <span className="text-slate-600">·</span>
