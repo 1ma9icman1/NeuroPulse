@@ -201,11 +201,12 @@ export default function App() {
     const query = searchText.trim().toLocaleLowerCase();
     return researchSites.filter((site) =>
       (activeNav === 'GLOBAL SEARCH' || ['EARTH','SOLAR SYSTEM','GALAXY','UNIVERSAL ARCHIVE'].includes(activeNav) || site.modules.includes(activeNav)) &&
+      (categoryFilter === 'ALL' || String(site.category ?? 'Other').trim() === categoryFilter) &&
       (!query || [site.name, site.category, site.desc, site.sourceUrl, ...(site.modules ?? []), ...(((site as any).tags ?? []) as string[])].some((value) => value?.toLocaleLowerCase().includes(query)))
     );
-  }, [researchSites, searchText, activeNav]);
+  }, [researchSites, searchText, activeNav, categoryFilter]);
   const categoryOptions = useMemo(() => [...new Set(researchSites.map(site => String(site.category ?? 'Other').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [researchSites]);
-  const filteredSites = moduleSites.filter(site => categoryFilter === 'ALL' || String(site.category ?? 'Other').trim() === categoryFilter);
+  const filteredSites = moduleSites;
 
   const nearestSites = useMemo(() => {
     if (!selectedSite) return [];
