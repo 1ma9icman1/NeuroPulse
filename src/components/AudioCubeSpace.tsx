@@ -2641,7 +2641,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
 
         {/* Center: Star Celestial Alignment Button + Snap Channel Selector + Top Plane Overlay Button */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-evenly gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg">
           {/* Compact Star Alignment panel: collapsed to one button by default. */}
           <div className="flex items-start gap-1">
             {!isStarPanelExpanded ? (
