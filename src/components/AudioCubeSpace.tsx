@@ -3159,9 +3159,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
-      {/* Floating Celestial Star & 7-11 Astrometric Deck (When Star Mode is active) */}
-      {isStarModeActive && !isCelestialDeckCollapsed && typeof document !== 'undefined' && document.querySelector('.atlas-left') && createPortal(
-        <div className="relative z-30 w-full max-w-full max-h-[55vh] overflow-y-auto overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-2 rounded-lg border border-amber-500/40 shadow-2xl flex flex-col gap-2.5">
+      {/* Floating Celestial Star & 7-11 Astrometric Deck: fixed to the right side of the workspace. */}
+      {isStarModeActive && !isCelestialDeckCollapsed && typeof document !== 'undefined' && createPortal(
+        <div className="fixed right-3 top-20 z-[120] w-[min(360px,calc(100vw-1.5rem))] max-h-[calc(100vh-6rem)] overflow-y-auto overscroll-contain touch-pan-y pr-1 bg-[#0b1220]/95 backdrop-blur-md p-2 rounded-lg border border-amber-500/40 shadow-2xl flex flex-col gap-2.5 pointer-events-auto">
           {/* Header & 7-11 Match Badge */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5">
@@ -3387,7 +3387,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             )}
           </div>
         </div>,
-        document.querySelector('.atlas-left') as HTMLElement
+        document.body
       )}
 
 remove old timeline button      {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
