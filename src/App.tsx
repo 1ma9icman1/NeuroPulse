@@ -76,6 +76,19 @@ export default function App() {
   const [searchText, setSearchText] = useState('');
   const [selectedSiteId, setSelectedSiteId] = useState(DEFAULT_EARTH_POINTS[0]?.id ?? '');
   const [selectedGlobeSite, setSelectedGlobeSite] = useState<any>(null);
+  const [favoriteSites, setFavoriteSites] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('neuropulse-favorite-sites') || '[]'); } catch { return []; }
+  });
+  const [showFavorites, setShowFavorites] = useState(false);
+  useEffect(() => { try { localStorage.setItem('neuropulse-favorite-sites', JSON.stringify(favoriteSites)); } catch { /* storage can be disabled */ } }, [favoriteSites]);
+  const toggleFavorite = useCallback((site: any) => {
+    if (!site) return;
+    const key = String(site.name || site.id || '');
+    setFavoriteSites(previous => previous.some(item => String(item.name || item.id || '') === key)
+      ? previous.filter(item => String(item.name || item.id || '') !== key)
+      : [...previous, { id: site.id ?? key, name: site.name ?? key, lat: site.lat, lon: site.lon, category: site.category ?? site.layerCategory ?? 'Research site', desc: site.desc ?? site.measurementSummary ?? site.researchReason ?? '' }]);
+  }, []);
+  const isFavorite = (site: any) => !!site && favoriteSites.some(item => String(item.name || item.id || '') === String(site.name || site.id || ''));
   const [frequencyMax, setFrequencyMax] = useState(20000);
   const [angleMax, setAngleMax] = useState(180);
   const [includeStars, setIncludeStars] = useState(true);
@@ -244,19 +257,17 @@ export default function App() {
             <div className="atlas-brand-micro">ALIGNMENT · FREQUENCY · GEOMETRY · THE STARS</div>
           </div>
         </div>
-        <nav className="atlas-topnav" aria-label="Primary views">
-          {['EARTH', 'SOLAR SYSTEM', 'GALAXY', 'UNIVERSAL ARCHIVE'].map((item, index) => (
-            <button key={item} className={(index === 0 ? activeNav === 'GLOBAL SEARCH' : activeNav === item) ? 'active' : ''} onClick={() => setActiveNav(index === 0 ? 'GLOBAL SEARCH' : item)}>
-              {item}
-            </button>
-          ))}
-        </nav>
+        <div className="atlas-topnav"><button className="atlas-secondary-button" onClick={() => setShowFavorites(value => !value)}><Star size={15} fill={favoriteSites.length ? 'currentColor' : 'none'} /> FAVORITES · {favoriteSites.length}</button></div>
         <div className="atlas-status">
           <button className="atlas-primary-button" onClick={handleToggleAudio}>{isRunning ? "STOP AUDIO" : "START AUDIO"}</button><div className="atlas-clock"><span className="status-dot" /> {isRunning ? "AUDIO ENGINE RUNNING" : "SYSTEM ONLINE"}</div>
           <div className="atlas-status-sub">LOCAL DATA · {DEFAULT_EARTH_POINTS.length} SITES · {REAL_CELESTIAL_STARS.length} STARS</div>
         </div>
       </header>
 
+      {showFavorites && <section className="atlas-panel" role="dialog" aria-label="Favorite sites" style={{position:'absolute',zIndex:100,top:84,right:20,width:'min(420px, calc(100vw - 32px)',maxHeight:'70vh',overflow:'auto',padding:16}}>
+        <div className="atlas-panel-heading"><Star size={14} fill="currentColor"/> FAVORITE SITES <button className="atlas-secondary-button" onClick={() => setShowFavorites(false)}>CLOSE</button></div>
+        {favoriteSites.length ? favoriteSites.map((site: any) => <div key={site.id} className="atlas-favorite-row" style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',padding:'6px 0'}}><button className="atlas-result-chip" onClick={() => { setSelectedGlobeSite(site); setSelectedSiteId(site.id); setEarthAreaView('satellite'); setShowFavorites(false); }}><MapPin size={12}/><span>{site.name}</span></button><button aria-label={'Remove '+site.name+' from favorites'} onClick={() => toggleFavorite(site)}><Star size={14} fill="currentColor"/></button></div>) : <p className="atlas-no-data">No favorites saved yet. Select a site and use Save to Favorites.</p>}
+      </section>}
       <div className="atlas-workspace">
         <aside className="atlas-left">
           <section className="atlas-panel atlas-navigation">
@@ -438,6 +449,7 @@ export default function App() {
                 <div><h2>{selectedSite.name}</h2><div className="atlas-muted">{selectedSite.category ?? 'Recorded location'}</div></div>
               </div>
               <div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('road')}>ROAD MAP IN EARTH VIEW</button><button onClick={() => setEarthAreaView('satellite')}>SATELLITE IN EARTH VIEW</button><button onClick={() => setEarthAreaView('street')}>STREET VIEW IN EARTH VIEW</button></div>
+              <div className="atlas-site-map-actions"><button onClick={() => toggleFavorite(selectedSite)} aria-pressed={isFavorite(selectedSite)}><Star size={14} fill={isFavorite(selectedSite) ? 'currentColor' : 'none'} /> {isFavorite(selectedSite) ? 'SAVED TO FAVORITES' : 'SAVE TO FAVORITES'}</button></div>
               <div className="atlas-site-assign-actions"><span>ASSIGN THIS LOCATION TO SPATIAL CHANNEL</span>{(['a','b','c'] as const).map(channel => <button key={channel} className={'assign-' + channel} onClick={() => window.dispatchEvent(new CustomEvent('neuro-pulse-assign-earth-site', { detail: { channel, latitude: selectedSite.lat, longitude: selectedSite.lon } }))}>ADD TO {channel.toUpperCase()}</button>)}</div>
               <div className="atlas-coordinates">
                 <div><span>LATITUDE</span><strong>{formatCoordinate(selectedSite.lat, 'N', 'S')}</strong></div>
