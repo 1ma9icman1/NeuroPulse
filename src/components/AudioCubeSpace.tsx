@@ -3104,21 +3104,43 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={() => showAcousticColorSystem ? 'rgba(56,189,248,0.08)' : 'rgba(226,232,240,0.04)'}
               polygonSideColor={() => 'rgba(56,189,248,0.03)'} polygonStrokeColor={() => showAcousticColorSystem ? 'rgba(125,211,252,0.72)' : 'rgba(226,232,240,0.55)'} polygonAltitude={0.012}
-              labelsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)}
-              labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon}
-              labelText={(d: any) => `  ◉ ${d.name}  `} labelSize={0.5} labelColor={(d: any) => d.color || '#facc15'}
-              labelAltitude={0.035} labelResolution={3} labelIncludeDot={true} labelDotRadius={0.12}
-              labelLabel={(d: any) => `${d.name} · click to view site details and assign A/B/C`}
-              onLabelClick={(d: any) => {
-                if (isEarthAssignMode) handlePinChannelToEarth(snapTargetChannel, d.lat, d.lon);
-                else openEarthSite(d);
-              }}
+              labelsData={[]}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               pointLabel={(d: any) => d.evidenceStatus ? `${d.layerCategory || 'SOUND'} · ${d.name} — ${d.measurementSummary || 'published acoustic record'} · reported values/bands: ${(d.measuredFrequenciesHz || []).join(', ')} Hz (check measurement context; range endpoints may not be site-specific peaks) · click to inspect` : d.isDimensionRecord ? `${d.layerCategory} · ${d.name}${d.structuralHeightFt ? ' · approximately ' + d.structuralHeightFt + ' ft' : ''} · ${d.heightBasis} · ${d.heightNote}${d.numberSystem ? ' · Number system: ' + d.numberSystem + (d.numberSystemNote ? ' — ' + d.numberSystemNote : '') : ''}${d.orientationNote ? ' · Orientation: ' + d.orientationNote : ''}${d.ritualContext ? ' · Ritual context: ' + d.ritualContext : ''}` : d.historicalRecord ? `${d.layerCategory} · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · ${d.researchReason} · click to inspect` : d.isCity ? `CITY · ${d.name} · click to open map and alignment explorer` : `${d.layerCategory || 'ANCIENT SITE'} · ${d.name} · ${d.year < 0 ? Math.abs(d.year) + ' BCE' : d.year + ' CE'} · click to explore`}
-              htmlElementsData={[...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              htmlElementsData={[...visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures).map((site: any) => ({ ...site, isEarthSiteLabel: true })), ...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
+                if (d.isEarthSiteLabel) {
+                  const label = document.createElement('button');
+                  label.type = 'button';
+                  label.textContent = d.name;
+                  label.title = `${d.layerCategory || (d.isCity ? 'CITY' : d.evidenceStatus ? 'ACOUSTIC SITE' : 'ANCIENT SITE')} · ${d.name} · click to inspect`;
+                  label.setAttribute('aria-label', `Open site details for ${d.name}`);
+                  label.style.maxWidth = '190px';
+                  label.style.padding = '4px 9px';
+                  label.style.borderRadius = '999px';
+                  label.style.border = `1px solid ${d.color || '#facc15'}88`;
+                  label.style.background = 'rgba(4, 13, 27, 0.76)';
+                  label.style.backdropFilter = 'blur(8px)';
+                  label.style.color = '#f1f7ff';
+                  label.style.font = '600 11px Inter, ui-sans-serif, system-ui, sans-serif';
+                  label.style.letterSpacing = '0.01em';
+                  label.style.lineHeight = '1.25';
+                  label.style.whiteSpace = 'nowrap';
+                  label.style.overflow = 'hidden';
+                  label.style.textOverflow = 'ellipsis';
+                  label.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.32)';
+                  label.style.cursor = 'pointer';
+                  label.style.pointerEvents = 'auto';
+                  label.style.transform = 'translate(-50%, -50%)';
+                  label.onclick = (event) => {
+                    event.stopPropagation();
+                    if (isEarthAssignMode) handlePinChannelToEarth(snapTargetChannel, d.lat, d.lon);
+                    else openEarthSite(d);
+                  };
+                  return label;
+                }
                 if (d.isChannelTarget) {
                   const badge = document.createElement('button');
                   badge.type = 'button';
