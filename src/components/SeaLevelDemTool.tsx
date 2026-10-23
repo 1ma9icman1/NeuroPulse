@@ -22,7 +22,10 @@ const delay = () => new Promise<void>((resolve) => window.setTimeout(resolve, 0)
  * Entirely local DEM processing. The selected TIFF is read in the browser; no
  * raster is uploaded to NeuroPulse or sent to an external service.
  */
-type FloodPolygon = { layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } };\ninterface SeaLevelDemToolProps { onFloodPolygons?: (polygons: FloodPolygon[]) => void }\n\nexport const SeaLevelDemTool: React.FC<SeaLevelDemToolProps> = ({ onFloodPolygons }) => {
+type FloodPolygon = { layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } };
+interface SeaLevelDemToolProps { onFloodPolygons?: (polygons: FloodPolygon[]) => void }
+
+export const SeaLevelDemTool: React.FC<SeaLevelDemToolProps> = ({ onFloodPolygons }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [target, setTarget] = useState(0);
