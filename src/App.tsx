@@ -4,7 +4,7 @@ import type { TrinauralConfig } from './types/index';
 import {
   Activity, AudioLines, Atom, AudioWaveform, ChevronDown, Compass,
   Database, Globe2, Layers3, Map, MapPin, Orbit, Radar, Search, Settings2,
-  Signal, SlidersHorizontal, Star, Target, Waves, X, Zap, Volume2, AudioWaveform, ChevronUp
+  Signal, SlidersHorizontal, Star, Target, Waves, X, Zap, Volume2, ChevronUp
 } from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
 import { OscillatorDeck } from './components/OscillatorDeck';
