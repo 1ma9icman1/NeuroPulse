@@ -166,7 +166,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
             const b = a + 1;
             const c = a + gridWidth;
             const d = c + 1;
-            indices.push(a, b, c, b, d, c);
+            // Latitude rows run north-to-south, so reverse the winding to keep normals facing outward.
+            indices.push(a, c, b, b, c, d);
           }
         }
         geometry = new THREE.BufferGeometry();
