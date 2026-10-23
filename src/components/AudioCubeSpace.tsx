@@ -534,8 +534,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const sites = visibleEarthSites.filter((site: any) =>
       site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures
     );
+    // Thousands of DOM-backed labels stall initial globe rendering. Keep the
+    // interactive label layer bounded; all locations remain as clickable globe points.
+    const citySites = sites.filter((site: any) => site.isCity).slice(0, 80);
+    const researchSites = sites.filter((site: any) => !site.isCity).slice(0, 100);
+    const labelledSites = [...citySites, ...researchSites];
     const buckets = new Map<string, number>();
-    return sites.map((site: any) => {
+    return labelledSites.map((site: any) => {
       const bucket = `${Math.round(Number(site.lat) / 3)}:${Math.round(Number(site.lon) / 3)}`;
       const slot = buckets.get(bucket) ?? 0;
       buckets.set(bucket, slot + 1);
@@ -1689,21 +1694,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.shadowBlur = isCity ? 3 : 7;
         ctx.fill();
         ctx.shadowBlur = 0;
-        // Paint city names on the same Earth projection so the WebGL label layer
-        // cannot disappear behind the custom canvas overlay.
-        if (isCity) {
-          const fontSize = Math.max(9, Math.min(12, earthScreenRadius * 0.035));
-          ctx.save();
-          ctx.font = `600 ${fontSize}px system-ui, -apple-system, Segoe UI, sans-serif`;
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'middle';
-          ctx.lineWidth = 3;
-          ctx.strokeStyle = 'rgba(2, 8, 23, 0.96)';
-          ctx.fillStyle = '#f8fafc';
-          ctx.strokeText(name, p.sx + 5, p.sy - 3);
-          ctx.fillText(name, p.sx + 5, p.sy - 3);
-          ctx.restore();
-        }
       };
       DEFAULT_EARTH_POINTS.forEach((point) => labelEarthPoint(point.name, point.lat, point.lon, point.color));
       if (showCities) majorCities.forEach((city) => labelEarthPoint(city.name, city.lat, city.lon, '#dbeafe', true));
