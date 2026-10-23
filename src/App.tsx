@@ -11,7 +11,7 @@ import { OscillatorDeck } from './components/OscillatorDeck';
 import { DeltaHUD } from './components/DeltaHUD';
 import { FrequencyMatrix } from './components/FrequencyMatrix';
 import type { CameraView, SpatialPosition, SpatialRoutingMode } from './types';
-import { DEFAULT_EARTH_POINTS } from './data/earthData';
+import { DEFAULT_EARTH_POINTS, LEGACY_HISTORICAL_SITES } from './data/earthData';
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
 import { ACOUSTIC_SITE_EVIDENCE } from './data/acousticSiteEvidence';
 
@@ -86,7 +86,7 @@ export default function App() {
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
   const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street'>('globe');
 
-  const selectedSite = selectedGlobeSite ?? DEFAULT_EARTH_POINTS.find((site) => site.id === selectedSiteId) ?? DEFAULT_EARTH_POINTS[0];
+  const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? researchSites[0];
   const handleGlobeSiteSelect = useCallback((site: any) => {
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === site.name.toLowerCase());
     setSelectedSiteId(known?.id ?? site.name);
@@ -94,21 +94,48 @@ export default function App() {
     setSelectedGlobeSite({ id: known?.id ?? site.name, name: site.name, lat: site.lat, lon: site.lon, category: site.layerCategory ?? (site.evidenceStatus ? 'Acoustic evidence' : 'Globe site'), desc: known?.desc ?? ([site.measurementSummary, site.heightNote, site.orientationNote, site.ritualContext].filter(Boolean).join(' · ') || 'Selected from the live Earth globe. Coordinates and available catalogue details are shown here.'), layerCategory: site.layerCategory, year: site.year, evidenceStatus: site.evidenceStatus, measuredFrequenciesHz: site.measuredFrequenciesHz, structuralHeightFt: site.structuralHeightFt, numberSystem: site.numberSystem, numberSystemNote: site.numberSystemNote, researchReason: site.researchReason, heightBasis: site.heightBasis, ritualContext: site.ritualContext, orientationNote: site.orientationNote, measurementContext: site.measurementContext });
     setShowSiteList(false);
   }, []);
-  const filteredSites = useMemo(() => {
+  const researchSites = useMemo(() => {
+    const core = DEFAULT_EARTH_POINTS.map((site) => ({
+      ...site,
+      modules: researchModuleForSite(site),
+      sourceUrl: /chankillo/i.test(site.name) ? 'https://whc.unesco.org/en/list/1624/' :
+        /stonehenge/i.test(site.name) ? 'https://whc.unesco.org/en/list/373/' :
+        /göbekli|gobekli/i.test(site.name) ? 'https://whc.unesco.org/en/list/1572/' : undefined,
+    }));
+    const known = new Set(core.map((site) => site.name.toLowerCase()));
+    const legacy = LEGACY_HISTORICAL_SITES
+      .filter((site) => !known.has(site.name.toLowerCase()))
+      .map((site, index) => {
+        const category = site.isCity ? 'city' : 'ancient';
+        const normalized = { ...site, id: 'legacy-' + index + '-' + site.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), category,
+          desc: site.isCity ? 'City reference point for geographic comparison. Urban coordinates are representative and do not imply an archaeological or astronomical alignment.' :
+          'Historical/archaeological reference entry. Its inclusion supports geographic and chronology research; any specific astronomical alignment or acoustic property requires site-specific evidence.',
+        };
+        return { ...normalized, modules: researchModuleForSite(normalized), sourceUrl:
+          /chankillo/i.test(site.name) ? 'https://whc.unesco.org/en/list/1624/' :
+          /stonehenge|avebury/i.test(site.name) ? 'https://whc.unesco.org/en/list/373/' :
+          /göbekli|gobekli/i.test(site.name) ? 'https://whc.unesco.org/en/list/1572/' :
+          /caral/i.test(site.name) ? 'https://whc.unesco.org/en/list/1269/' : undefined };
+      });
+    return [...core, ...legacy];
+  }, []);
+  const moduleSites = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase();
-    return DEFAULT_EARTH_POINTS.filter((site) =>
-      !query || [site.name, site.category, site.desc].some((value) => value?.toLocaleLowerCase().includes(query))
+    return researchSites.filter((site) =>
+      (activeNav === 'GLOBAL SEARCH' || ['EARTH','SOLAR SYSTEM','GALAXY','UNIVERSAL ARCHIVE'].includes(activeNav) || site.modules.includes(activeNav)) &&
+      (!query || [site.name, site.category, site.desc].some((value) => value?.toLocaleLowerCase().includes(query)))
     );
-  }, [searchText]);
+  }, [researchSites, searchText, activeNav]);
+  const filteredSites = moduleSites;
 
   const nearestSites = useMemo(() => {
     if (!selectedSite) return [];
-    return DEFAULT_EARTH_POINTS
-      .filter((site) => site.id !== selectedSite.id)
+    return researchSites
+      .filter((site) => site.name !== selectedSite.name)
       .map((site) => ({ ...site, distance: distanceKm(selectedSite, site) }))
       .sort((a, b) => a.distance - b.distance)
-      .slice(0, 4);
-  }, [selectedSite]);
+      .slice(0, 30);
+  }, [selectedSite, researchSites]);
 
   const linkedAcousticRecords = useMemo(() => {
     if (!selectedSite) return [];
@@ -133,7 +160,7 @@ export default function App() {
     'STELLAR ALIGNMENTS': 'Browse catalogue stars and compare candidate sky targets with dated site evidence.',
     'TRIGONOMETRY': 'Inspect distances and geometric relationships calculated from site coordinates.',
     'MAP OVERLAYS': 'Use the globe controls to switch map overlays and visualization layers.',
-    'DATABASE': 'Browse the site, star, and acoustic reference data already included in this build.',
+    'DATABASE': 'Browse the full combined site catalogue, historic city references, stars, and acoustic records. Curated site records link to UNESCO sources where available.',
     'A/B/C AUDIO CONTROLS': 'Full A, B, and C oscillator controls, waveform selection, gain, fine tuning, mute, and spatial elevation.',
     'TRINAURAL / SOLFEGGIO': 'Restore the trinaural delta lock, brainwave presets, and Solfeggio frequency matrix.',
     'SETTINGS': 'Interface and visualization preferences.',
@@ -275,7 +302,7 @@ export default function App() {
                 ))}
                 {filteredSites.length === 0 && <span className="atlas-empty">No sites match this search.</span>}
               </div>
-              {scanRequested && <div className="atlas-search-note">Catalogue search complete · results reflect local reference data</div>}
+              {scanRequested && <div className="atlas-search-note">Catalogue search complete · {filteredSites.length} combined site records · UNESCO source links appear in the selected-site details where available.</div>}
             </div>
           )}
         </section>
@@ -294,7 +321,7 @@ export default function App() {
                 <div><span>LATITUDE</span><strong>{formatCoordinate(selectedSite.lat, 'N', 'S')}</strong></div>
                 <div><span>LONGITUDE</span><strong>{formatCoordinate(selectedSite.lon, 'E', 'W')}</strong></div>
               </div>
-              <p className="atlas-site-description">{selectedSite.desc ?? 'Coordinates are included in the local site catalogue.'}</p>
+              <p className="atlas-site-description">{selectedSite.desc ?? 'Coordinates are included in the local site catalogue.'}</p>\n              {(selectedSite as any).sourceUrl && <p className="atlas-site-source"><strong>RESEARCH SOURCE</strong><br /><a href={(selectedSite as any).sourceUrl} target="_blank" rel="noreferrer">Open official UNESCO site record ↗</a></p>}
               <div className="atlas-data-table">
                 <div><span>Nearest listed site</span><strong>{nearestSites[0]?.name ?? '—'}</strong></div>
                 <div><span>Surface distance</span><strong>{nearestSites[0] ? `${Math.round(nearestSites[0].distance).toLocaleString()} km` : '—'}</strong></div>
