@@ -88,7 +88,7 @@ export default function App() {
   const [streetFallbackNotice, setStreetFallbackNotice] = useState(false);
 
   // Google renders its "no Street View imagery" message inside a cross-origin iframe,
-  // so the parent page cannot inspect it. If the panorama does not settle quickly,
+  // so the parent page cannot inspect it. If the panorama does not settle within 3 seconds,
   // automatically switch to the coordinate-centered road map instead of leaving a dead view.
   useEffect(() => {
     if (earthAreaView !== 'street') {
@@ -99,7 +99,7 @@ export default function App() {
     const fallbackTimer = window.setTimeout(() => {
       setStreetFallbackNotice(true);
       setEarthAreaView('road');
-    }, 8000);
+    }, 3000);
     return () => window.clearTimeout(fallbackTimer);
   }, [earthAreaView, selectedSiteId, selectedGlobeSite?.lat, selectedGlobeSite?.lon]);
 
