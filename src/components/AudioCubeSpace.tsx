@@ -462,21 +462,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       : /blue|sky|60a5fa|38bdf8/.test(raw) ? 2
       : /green|34d399|10b981|22c55e/.test(raw) ? 3
       : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
-    // Crop UVs to the first column only (the second column repeats the same art).
-    // The atlas has five horizontal rows: red, yellow, blue, green, purple.
-    const geometry = new THREE.PlaneGeometry(1, 1);
-    const uv = geometry.getAttribute('uv') as THREE.BufferAttribute;
-    const vLow = row * 0.2;
-    const vHigh = vLow + 0.2;
-    for (let i = 0; i < uv.count; i++) {
-      const u = uv.getX(i);
-      const v = uv.getY(i);
-      uv.setXY(i, u * 0.5, vLow + v * 0.2);
-    }
-    uv.needsUpdate = true;
-    const material = new THREE.MeshBasicMaterial({ map: retroLedAtlas, transparent: true, alphaTest: 0.06, side: THREE.DoubleSide, depthWrite: false });
-    const sprite = new THREE.Mesh(geometry, material);
+    // Use a camera-facing sprite, not a flat plane that can turn edge-on to the globe camera.
+    // Each marker gets a cloned texture view so its UV crop cannot change other markers.
+    // The image's second column repeats the first; sample only column one and the chosen color row.
+    const tileTexture = retroLedAtlas.clone();
+    tileTexture.repeat.set(0.5, 0.2);
+    tileTexture.offset.set(0, (4 - row) * 0.2);
+    tileTexture.needsUpdate = true;
+    const material = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.06, depthWrite: false });
+    const sprite = new THREE.Sprite(material);
     sprite.userData.isRetroLedSprite = true;
+    sprite.scale.set(1, 1, 1);
     group.add(sprite);
     group.scale.setScalar(0.12 + Math.min(0.045, Number(site.size || 0.1) * 0.12));
     const beamColor = new THREE.Color(row === 0 ? '#ff302b' : row === 1 ? '#ffd52a' : row === 2 ? '#168dff' : row === 3 ? '#20ff58' : '#e13cff');
@@ -2804,12 +2800,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <span>{isCelestialDeckCollapsed ? 'STAR MENU' : 'MINIMIZE STAR MENU'}</span>
             </button>
           )}
-          {!isTimelineActive && (
-            <button onClick={() => setIsTimelineActive(true)} className="flex items-center gap-1 rounded-lg border border-amber-500/40 bg-[#07101d]/90 px-2 py-1 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/50" aria-label="Show historical timeline" title="Show historical Earth / sky timeline">
-              TIMELINE OFF · SHOW
-            </button>
-          )}
-
           {/* Quick Overlay Visibility / Controls Toggle */}
           {overlay.imageUrl && (
             <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800">
@@ -3361,6 +3351,18 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
         </div>,
         document.querySelector('.atlas-left') as HTMLElement
+      )}
+
+      {/* Keep the timeline launcher in the main view, not inside the collapsible Star Menu portal. */}
+      {isEarthModeActive && !isTimelineActive && (
+        <button
+          onClick={() => setIsTimelineActive(true)}
+          className="absolute top-3 left-3 z-[70] flex items-center gap-1 rounded-lg border border-amber-500/60 bg-[#07101d]/95 px-3 py-2 text-[10px] font-mono font-bold text-amber-300 shadow-lg hover:bg-amber-950/70"
+          aria-label="Show historical timeline"
+          title="Show historical Earth / sky timeline"
+        >
+          TIMELINE OFF · SHOW
+        </button>
       )}
 
       {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
