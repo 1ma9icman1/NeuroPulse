@@ -476,7 +476,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     sprite.userData.ledTexture = tileTexture;
     sprite.scale.set(1, 1, 1);
     group.add(sprite);
-    group.scale.setScalar(0.85);
+    group.scale.setScalar(2.0);
     group.userData.ledColorIndex = row;
     const beamColor = new THREE.Color(row === 0 ? '#ff302b' : row === 1 ? '#ffd52a' : row === 2 ? '#168dff' : row === 3 ? '#20ff58' : '#e13cff');
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.045, 75, 5, 1, true), new THREE.MeshBasicMaterial({ color: beamColor, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -3438,7 +3438,7 @@ remove old timeline button      {/* Historical Earth / sky timeline is off by de
       labelColor={() => '#f8fafc'} labelSize={0.55} labelAltitude={0.012} labelDotRadius={0.12}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-              customThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; return obj; }} customThreeObjectUpdate={(obj: any, d: any) => { obj.scale.setScalar(0.85); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); }}
+              customThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; return obj; }} customThreeObjectUpdate={(obj: any, d: any) => { obj.scale.setScalar(2.0); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); }}
               pointLabel={(d: any) => {
                 if (!d || d.isChannelTarget) return '';
                 const escapeHtml = (value: unknown) => String(value ?? '')
