@@ -3405,7 +3405,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               arcsData={showAlignmentTriangles ? triangleEdges : []}
               arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
               arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
-              arcColor={() => '#67e8f9'} arcStroke={0.9} arcAltitude={0.014}
+              arcColor={() => '#67e8f9'} arcStroke={0.28} arcAltitude={0}
               // Triangulation is lines-only; reserve filled polygons for the Sea Level flood overlay.
               polygonsData={showSeaLevelOverlay ? seaLevelFloodPolygons : []}
               polygonGeoJsonGeometry={(d: any) => d.geometry}
