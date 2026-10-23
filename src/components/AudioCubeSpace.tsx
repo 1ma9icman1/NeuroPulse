@@ -3650,62 +3650,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       </div>
       )}
 
-      {/* Bottom Status Deck */}
-      <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
-        {/* Positions Readouts */}
-        <div className="flex flex-wrap items-center gap-3 bg-[#0b1220]/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-mono">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#00f0ff]" />
-            <span className="text-cyan-400 font-bold">
-              A: ({aPos.x.toFixed(1)}, {aPos.y.toFixed(1)}, {aPos.z.toFixed(1)}m)
-              {lockedChannels.a && <span className="text-[10px] text-cyan-300 ml-1">{earthChannelTargets.a ? "🌍 LOCKED · " + earthChannelTargets.a.lat.toFixed(2) + "°, " + earthChannelTargets.a.lng.toFixed(2) + "°" : starAId ? "★ LOCKED" : "🔒 LOCKED"}</span>}
-            </span>
-          </div>
 
-          <span className="text-slate-600">·</span>
-
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#ff007f]" />
-            <span className="text-pink-400 font-bold">
-              B: ({bPos.x.toFixed(1)}, {bPos.y.toFixed(1)}, {bPos.z.toFixed(1)}m)
-              {lockedChannels.b && <span className="text-[10px] text-pink-300 ml-1">{earthChannelTargets.b ? "🌍 LOCKED · " + earthChannelTargets.b.lat.toFixed(2) + "°, " + earthChannelTargets.b.lng.toFixed(2) + "°" : starBId ? "★ LOCKED" : "🔒 LOCKED"}</span>}
-            </span>
-          </div>
-
-          <span className="text-slate-600">·</span>
-
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#fbbf24]" />
-            <span className="text-amber-400 font-bold">
-              C: ({cPos.x.toFixed(1)}, {cPos.y.toFixed(1)}, {cPos.z.toFixed(1)}m)
-              {lockedChannels.c && <span className="text-[10px] text-amber-300 ml-1">{earthChannelTargets.c ? "🌍 LOCKED · " + earthChannelTargets.c.lat.toFixed(2) + "°, " + earthChannelTargets.c.lng.toFixed(2) + "°" : starCId ? "★ LOCKED" : "🔒 LOCKED"}</span>}
-            </span>
-          </div>
-        </div>
-
-        {/* Spatial Mode Switch */}
-        <div className="flex items-center gap-2 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800">
-          <button
-            onClick={() => onUpdateSpatialMode('trinaural-isolated')}
-            className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
-              spatialMode === 'trinaural-isolated'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Trinaural Split (A:L, B:R, C:Ctr)
-          </button>
-          <button
-            onClick={() => onUpdateSpatialMode('3d-hrtf')}
-            className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
-              spatialMode === '3d-hrtf'
-                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            3D HRTF Spatial Cube
-          </button>
-        </div>
       </div>
 
     </div>
