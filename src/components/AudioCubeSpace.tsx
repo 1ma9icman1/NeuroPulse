@@ -3435,7 +3435,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 ] as const).map(([view, label]) => (
                   <button key={view} onClick={() => setEarthMapView(view)} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold ${earthMapView === view ? 'border-emerald-400 bg-emerald-900 text-white' : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'}`}>{label}</button>
                 ))}
-                <a className="rounded border border-sky-700 bg-sky-950 px-2 py-1 text-[9px] font-mono font-bold text-sky-200 hover:bg-sky-900" href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${earthLocateTarget.latitude},${earthLocateTarget.longitude}`} target="_blank" rel="noreferrer">STREET VIEW ↗</a>
+                <button onClick={() => setEarthMapView('satellite')} className="rounded border border-sky-700 px-2 py-1 text-[9px] font-mono font-bold text-sky-200" title="Keep the selected coordinates in the embedded map">VIEW LOCATION IN APP</button>
               </div>
               <iframe
                 title={`Earth ${earthMapView} map at calculated substellar point`}
@@ -3446,8 +3446,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   : `https://maps.google.com/maps?q=${earthLocateTarget.latitude},${earthLocateTarget.longitude}&t=${earthMapView === 'satellite' ? 'k' : 'p'}&z=8&output=embed`}
               />
               <div className="flex flex-wrap justify-between gap-2 px-3 py-2">
-                <a className="text-[10px] text-sky-300 hover:text-sky-100" href={`https://www.openstreetmap.org/?mlat=${earthLocateTarget.latitude}&mlon=${earthLocateTarget.longitude}#map=8/${earthLocateTarget.latitude}/${earthLocateTarget.longitude}`} target="_blank" rel="noreferrer">Open full OpenStreetMap ↗</a>
-                <a className="text-[10px] text-sky-300 hover:text-sky-100" href={`https://www.google.com/maps/search/?api=1&query=${earthLocateTarget.latitude},${earthLocateTarget.longitude}`} target="_blank" rel="noreferrer">Explore nearby places ↗</a>
+                <span className="text-[10px] text-slate-400">Coordinates: {earthLocateTarget.latitude.toFixed(5)}, {earthLocateTarget.longitude.toFixed(5)}</span>
+                <button onClick={() => setEarthMapView('map')} className="text-[10px] text-sky-300 hover:text-sky-100">ROAD MAP IN APP</button>
+                <button onClick={() => setEarthMapView('satellite')} className="text-[10px] text-sky-300 hover:text-sky-100">SATELLITE IN APP</button>
               </div>
             </div>
             <div className="min-h-[260px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
