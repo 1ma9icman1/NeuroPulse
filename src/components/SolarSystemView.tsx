@@ -335,7 +335,7 @@ export const SolarSystemView: React.FC<SolarSystemViewProps> = ({ epochMs, onClo
         const samples = 220;
         for (let sample = 0; sample <= samples; sample += 1) {
           const offsetDays = (sample / samples - 0.5) * trackDays;
-          const p = projectGeocentric(geocentricPosition(body, offsetDays));
+          const p = projectGeocentric(geocentricPosition(body, elapsedDays + offsetDays));
           if (sample === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
         }
         ctx.strokeStyle = body.id === 'mars' ? 'rgba(251,113,133,.48)' :
