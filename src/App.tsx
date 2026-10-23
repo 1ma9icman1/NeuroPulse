@@ -352,8 +352,6 @@ export default function App() {
           </div>
         </div>
         <div className="atlas-topnav"><button className="atlas-search-top-button" onClick={() => setShowSearchPanel(value => !value)} aria-expanded={showSearchPanel}><Search size={15} /> {showSearchPanel ? "CLOSE SEARCH" : "SEARCH"}</button></div>
-          <div className="atlas-status-sub">LOCAL DATA · {researchSites.length.toLocaleString()} SITES · {REAL_CELESTIAL_STARS.length} STARS</div>
-        </div>
       </header>
 
       {showFavorites && <section className="atlas-panel" role="dialog" aria-label="Favorite sites" style={{position:'absolute',zIndex:100,top:84,right:20,width:'min(420px, calc(100vw - 32px))',maxHeight:'70vh',overflow:'auto',padding:16}}>
@@ -478,8 +476,7 @@ export default function App() {
             </section>
           )}
           {activeNav === 'TRINAURAL / SOLFEGGIO' && !audioMenuOpen && <section className="atlas-audio-workspace"><button className="atlas-primary-button" onClick={() => { setAudioMenuOpen(true); setMatrixMenuOpen(true); }}>OPEN TRINAURAL CONTROLS & FREQUENCY MATRIX</button></section>}
-
-
+        </section>
 
         <aside className="atlas-right">
           {showSearchPanel && <div className="atlas-search-drawer">
