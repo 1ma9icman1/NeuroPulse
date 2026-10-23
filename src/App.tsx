@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AudioEngine } from './audio/AudioEngine';
+import type { TrinauralConfig } from './types/index';
 import {
   Activity, AudioLines, Atom, AudioWaveform, ChevronDown, Compass,
   Database, Globe2, Layers3, Map, MapPin, Orbit, Radar, Search, Settings2,
@@ -10,6 +12,7 @@ import { DEFAULT_EARTH_POINTS } from './data/earthData';
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
 import { ACOUSTIC_SITE_EVIDENCE } from './data/acousticSiteEvidence';
 
+const INITIAL_CONFIG: TrinauralConfig = { aFreq:432,aFineTune:0,aWaveform:'sine',aGain:0.85,aMuted:false,aPos:{x:-4.5,y:1.5,z:0}, bFreq:442,bFineTune:0,bWaveform:'sine',bGain:0.85,bMuted:false,bPos:{x:4.5,y:1.5,z:0}, cFreq:452,cFineTune:0,cWaveform:'sine',cGain:0.85,cMuted:false,cPos:{x:0,y:2.5,z:3.5},isDeltaLocked:true,lockedDeltaAB:10,lockedDeltaBC:10,masterVolume:0.8,spatialMode:'trinaural-isolated',cameraView:'top',cameraYaw:30,cameraPitch:22,cameraZoom:1 };
 const CENTER: SpatialPosition = { x: 0, y: 0, z: 0 };
 const NAV_ITEMS = [
   { label: 'GLOBAL SEARCH', icon: Radar },
@@ -38,6 +41,12 @@ function formatCoordinate(value: number, positive: string, negative: string) {
 }
 
 export default function App() {
+  const [config, setConfig] = useState<TrinauralConfig>(INITIAL_CONFIG);
+  const [isRunning, setIsRunning] = useState(false);
+  const audioEngineRef = useRef<AudioEngine | null>(null);
+  useEffect(() => { const engine = new AudioEngine(INITIAL_CONFIG); audioEngineRef.current = engine; return () => { engine.stop(); audioEngineRef.current = null; }; }, []);
+  const handleUpdateConfig = useCallback((patch: Partial<TrinauralConfig>) => { setConfig((previous) => { const next = { ...previous, ...patch }; audioEngineRef.current?.updateConfig(next); return next; }); }, []);
+  const handleToggleAudio = async () => { const engine = audioEngineRef.current; if (!engine) return; if (isRunning) { engine.stop(); setIsRunning(false); } else { await engine.start(); setIsRunning(true); } };
   const [activeNav, setActiveNav] = useState('GLOBAL SEARCH');
   const [searchText, setSearchText] = useState('');
   const [selectedSiteId, setSelectedSiteId] = useState(DEFAULT_EARTH_POINTS[0]?.id ?? '');
@@ -74,11 +83,7 @@ export default function App() {
       .sort((a, b) => a.distance - b.distance);
   }, [selectedSite, frequencyMax]);
 
-  const noopPosition = (_position: SpatialPosition) => {};
-  const noopView = (_view: CameraView) => {};
-  const noopMode = (_mode: SpatialRoutingMode) => {};
-  const noopAngles = (_yaw: number, _pitch: number) => {};
-  const noopZoom = (_zoom: number) => {};
+  const updatePosition = (channel: 'a' | 'b' | 'c', position: SpatialPosition) => handleUpdateConfig({ [channel + 'Pos']: position } as Partial<TrinauralConfig>);
 
   const navDescription: Record<string, string> = {
     'GLOBAL SEARCH': 'Search and compare documented places, measured evidence, and calculated geometry.',
@@ -118,7 +123,7 @@ export default function App() {
           ))}
         </nav>
         <div className="atlas-status">
-          <div className="atlas-clock"><span className="status-dot" /> SYSTEM ONLINE</div>
+          <button className="atlas-primary-button" onClick={handleToggleAudio}>{isRunning ? "STOP AUDIO" : "START AUDIO"}</button><div className="atlas-clock"><span className="status-dot" /> {isRunning ? "AUDIO ENGINE RUNNING" : "SYSTEM ONLINE"}</div>
           <div className="atlas-status-sub">LOCAL DATA · {DEFAULT_EARTH_POINTS.length} SITES · {REAL_CELESTIAL_STARS.length} STARS</div>
         </div>
       </header>
@@ -166,14 +171,16 @@ export default function App() {
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
             <AudioCubeSpace
-              aPos={CENTER} bPos={CENTER} cPos={CENTER}
-              spatialMode="trinaural-isolated" cameraView="top"
-              cameraYaw={0} cameraPitch={0} cameraZoom={1}
-              aFreq={0} bFreq={0} cFreq={0} isRunning={false}
-              onUpdateAPos={noopPosition} onUpdateBPos={noopPosition} onUpdateCPos={noopPosition}
-              onUpdateSpatialMode={noopMode} onUpdateCameraView={noopView}
-              onUpdateCameraAngles={noopAngles} onUpdateCameraZoom={noopZoom}
-              onResetCamera={() => {}}
+              aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
+              spatialMode={config.spatialMode} cameraView={config.cameraView}
+              cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
+              aFreq={config.aFreq + config.aFineTune} bFreq={config.bFreq + config.bFineTune} cFreq={config.cFreq + config.cFineTune}
+              isRunning={isRunning}
+              onUpdateAPos={(position) => updatePosition('a', position)} onUpdateBPos={(position) => updatePosition('b', position)} onUpdateCPos={(position) => updatePosition('c', position)}
+              onUpdateSpatialMode={(spatialMode) => handleUpdateConfig({ spatialMode })} onUpdateCameraView={(cameraView) => handleUpdateConfig({ cameraView })}
+              onUpdateCameraAngles={(cameraYaw, cameraPitch) => handleUpdateConfig({ cameraYaw, cameraPitch })}
+              onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
+              onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 1, cameraView: 'top' })}
             />
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
             <div className="atlas-globe-overlay atlas-globe-overlay-bottom">
