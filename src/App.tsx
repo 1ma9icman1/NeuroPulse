@@ -81,6 +81,7 @@ export default function App() {
   const [scanRequested, setScanRequested] = useState(false);
   const [audioMenuOpen, setAudioMenuOpen] = useState(false);
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
+  const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street'>('globe');
 
   const selectedSite = selectedGlobeSite ?? DEFAULT_EARTH_POINTS.find((site) => site.id === selectedSiteId) ?? DEFAULT_EARTH_POINTS[0];
   const handleGlobeSiteSelect = useCallback((site: any) => {
@@ -172,41 +173,6 @@ export default function App() {
           </section>
 
 
-          <section className="atlas-panel atlas-site-card atlas-left-selected-site">
-            <div className="atlas-panel-heading"><MapPin size={13} /> SELECTED EARTH LOCATION <span className="atlas-panel-count">LIVE</span></div>
-            {selectedSite ? <>
-              <div className="atlas-site-hero">
-                <div className="atlas-site-glyph"><MapPin size={24} /></div>
-                <div><h2>{selectedSite.name}</h2><div className="atlas-muted">{selectedSite.category ?? 'Reference location'}{selectedGlobeSite ? ' · selected on globe' : ''}</div></div>
-              </div>
-              <div className="atlas-coordinates">
-                <div><span>LATITUDE</span><strong>{formatCoordinate(selectedSite.lat, 'N', 'S')}</strong></div>
-                <div><span>LONGITUDE</span><strong>{formatCoordinate(selectedSite.lon, 'E', 'W')}</strong></div>
-              </div>
-              <p className="atlas-site-description">{selectedSite.desc ?? 'Coordinates are included in the local site catalogue.'}</p>
-              <div className="atlas-data-table">
-                <div><span>Nearest listed site</span><strong>{nearestSites[0]?.name ?? '—'}</strong></div>
-                <div><span>Surface distance</span><strong>{nearestSites[0] ? `${Math.round(nearestSites[0].distance).toLocaleString()} km` : '—'}</strong></div>
-                <div><span>Acoustic records within 100 km</span><strong>{linkedAcousticRecords.length}</strong></div>
-                <div><span>Research modules</span><strong>{researchModuleForSite(selectedSite as (typeof DEFAULT_EARTH_POINTS)[number]).filter(m => m !== 'DATABASE' && m !== 'GLOBAL SEARCH' && m !== 'MAP OVERLAYS').length}</strong></div>
-              </div>
-              <div className="atlas-left-site-actions">
-                <a href={`https://www.openstreetmap.org/?mlat=${selectedSite.lat}&mlon=${selectedSite.lon}#map=9/${selectedSite.lat}/${selectedSite.lon}`} target="_blank" rel="noreferrer">OPEN STREET MAP ↗</a>
-                <a href={`https://www.google.com/maps/search/?api=1&query=${selectedSite.lat},${selectedSite.lon}`} target="_blank" rel="noreferrer">GOOGLE MAPS ↗</a>
-              </div>
-              <div className="atlas-subheading">NEARBY SITES · CLICK TO SELECT</div>
-              {nearestSites.slice(0,3).map(site => <button key={site.id} className="atlas-related-row" onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); }}><span className="atlas-related-marker"><MapPin size={13}/></span><span className="atlas-related-copy"><strong>{site.name}</strong><small>{Math.round(site.distance).toLocaleString()} km away</small></span></button>)}
-            </> : <div className="atlas-no-data">Click a city or site on Earth to load its location data here.</div>}
-          </section>
-          <section className="atlas-panel atlas-module-sites">
-            <div className="atlas-panel-heading"><Database size={13}/> {activeNav === 'GLOBAL SEARCH' ? 'SITE CATALOGUE' : activeNav} <span className="atlas-panel-count">{DEFAULT_EARTH_POINTS.filter(site => activeNav === 'GLOBAL SEARCH' || researchModuleForSite(site).includes(activeNav)).length}</span></div>
-            <div className="atlas-module-site-list">
-              {DEFAULT_EARTH_POINTS.filter(site => activeNav === 'GLOBAL SEARCH' || activeNav === 'DATABASE' || researchModuleForSite(site).includes(activeNav))
-                .filter(site => !searchText.trim() || [site.name, site.category, site.desc].some(value => value?.toLowerCase().includes(searchText.trim().toLowerCase())))
-                .map(site => <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-module-site selected' : 'atlas-module-site'} onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); }}><MapPin size={12}/><span>{site.name}</span><small>{site.category ?? 'reference'}</small></button>)}
-            </div>
-          </section>
-
           <section className="atlas-panel atlas-filter-panel">
             <div className="atlas-panel-heading"><SlidersHorizontal size={13} /> SEARCH FILTERS</div>
             <label className="atlas-searchbox">
@@ -238,7 +204,7 @@ export default function App() {
           </div>
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
-            <AudioCubeSpace
+            {earthAreaView === 'globe' ? <AudioCubeSpace
               aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
               spatialMode={config.spatialMode} cameraView={config.cameraView}
               cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
@@ -251,7 +217,7 @@ export default function App() {
               onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
               onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 4.6, cameraView: 'top' })}
               onSiteSelect={handleGlobeSiteSelect}
-            />
+            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div><iframe title={'Map view of ' + selectedSite.name} src={earthAreaView === 'street' ? 'https://maps.google.com/maps?q=&layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,0,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
             <div className="atlas-globe-overlay atlas-globe-overlay-bottom">
               <span><i className="legend-dot cyan" /> SITE DATABASE</span>
@@ -315,6 +281,8 @@ export default function App() {
                 <div className="atlas-site-glyph"><MapPin size={26} /></div>
                 <div><h2>{selectedSite.name}</h2><div className="atlas-muted">{selectedSite.category ?? 'Recorded location'}</div></div>
               </div>
+              <div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('road')}>ROAD MAP IN EARTH VIEW</button><button onClick={() => setEarthAreaView('satellite')}>SATELLITE IN EARTH VIEW</button><button onClick={() => setEarthAreaView('street')}>STREET VIEW IN EARTH VIEW</button></div>
+              <div className="atlas-site-assign-actions"><span>ASSIGN THIS LOCATION TO SPATIAL CHANNEL</span>{(['a','b','c'] as const).map(channel => <button key={channel} className={'assign-' + channel} onClick={() => window.dispatchEvent(new CustomEvent('neuro-pulse-assign-earth-site', { detail: { channel, latitude: selectedSite.lat, longitude: selectedSite.lon } }))}>ADD TO {channel.toUpperCase()}</button>)}</div>
               <div className="atlas-coordinates">
                 <div><span>LATITUDE</span><strong>{formatCoordinate(selectedSite.lat, 'N', 'S')}</strong></div>
                 <div><span>LONGITUDE</span><strong>{formatCoordinate(selectedSite.lon, 'E', 'W')}</strong></div>
