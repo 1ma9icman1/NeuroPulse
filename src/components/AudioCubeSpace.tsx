@@ -325,12 +325,30 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // Feed every combined App catalogue record into the globe, retaining older globe-only
   // records as a fallback. The catalogue version wins for duplicate names because it
   // includes the fuller descriptions, categories and source metadata.
+  // User-added places and favorites persist in this browser without an API key.
+  const [customEarthSites, setCustomEarthSites] = useState<any[]>(() => {
+    try { return JSON.parse(window.localStorage.getItem('neuropulse-custom-earth-sites') || '[]'); } catch { return []; }
+  });
+  const [favoriteEarthSites, setFavoriteEarthSites] = useState<any[]>(() => {
+    try { return JSON.parse(window.localStorage.getItem('neuropulse-favorite-earth-sites') || '[]'); } catch { return []; }
+  });
+  const [showAddEarthSite, setShowAddEarthSite] = useState(false);
+  const [earthSiteSearch, setEarthSiteSearch] = useState('');
+  const [earthSiteSearchResults, setEarthSiteSearchResults] = useState<any[]>([]);
+  const [earthSiteSearchLoading, setEarthSiteSearchLoading] = useState(false);
+  const [earthSiteSearchMessage, setEarthSiteSearchMessage] = useState('');
+  const [earthSiteLatitude, setEarthSiteLatitude] = useState('');
+  const [earthSiteLongitude, setEarthSiteLongitude] = useState('');
+  const [earthSiteCategory, setEarthSiteCategory] = useState('ancient');
+  useEffect(() => { try { window.localStorage.setItem('neuropulse-custom-earth-sites', JSON.stringify(customEarthSites)); } catch { /* Storage may be disabled. */ } }, [customEarthSites]);
+  useEffect(() => { try { window.localStorage.setItem('neuropulse-favorite-earth-sites', JSON.stringify(favoriteEarthSites)); } catch { /* Storage may be disabled. */ } }, [favoriteEarthSites]);
+
   const earthSites = (() => {
     const merged: any[] = [];
     const seen = new Set<string>();
     const normalizeName = (value: string) => value.toLocaleLowerCase().normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-    for (const raw of [...(siteCatalogue as any[]), ...(builtInEarthSites as any[])]) {
+    for (const raw of [...(siteCatalogue as any[]), ...(builtInEarthSites as any[]), ...customEarthSites]) {
       if (!raw || typeof raw.name !== 'string' ||
           !Number.isFinite(Number(raw.lat)) || !Number.isFinite(Number(raw.lon)) ||
           Number(raw.lat) < -90 || Number(raw.lat) > 90 ||
@@ -3600,6 +3618,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             }}>
             <Globe3D ref={globeRef} rendererConfig={{ preserveDrawingBuffer: true }} width={Math.max(320, containerRef.current?.clientWidth || 800)}
               height={Math.max(320, containerRef.current?.clientHeight || 600)}
+              onZoom={(pov: any) => { const altitude = Number(pov?.altitude); if (Number.isFinite(altitude) && altitude > 0) setEarthViewAltitude(altitude); }}
               globeImageUrl={earthTextureUrl}
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
