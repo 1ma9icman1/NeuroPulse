@@ -134,3 +134,45 @@ export function getPlanetSkyPositions(year: number): PlanetSkyPosition[] {
 export function isPlanetEphemerisYearInPreferredRange(year: number): boolean {
   return year >= 1800 && year <= 2050;
 }
+
+
+/**
+ * Compact heliocentric orbital elements for the dedicated Sun-centred canvas.
+ * Display geometry is intentionally compressed; values are approximate educational
+ * elements rather than a precision ephemeris.
+ */
+export interface HeliocentricOrbitElement {
+  id: string;
+  name: string;
+  color: string;
+  semimajorAxisAu: number;
+  eccentricity: number;
+  inclinationDeg: number;
+  longitudeAscendingNodeDeg: number;
+  argumentOfPerihelionDeg: number;
+  meanAnomalyRad: number;
+  orbitalPeriodDays: number;
+}
+
+export function getHeliocentricOrbitElements(epochMs: number): HeliocentricOrbitElement[] {
+  const jd = epochMs / 86400000 + 2440587.5;
+  const daysFromJ2000 = jd - 2451545.0;
+  const data: Array<[string,string,number,number,number,number,number,number,number]> = [
+    ['mercury','Mercury',0.3871,0.2056,7.005,48.331,29.125,174.796,87.969],
+    ['venus','Venus',0.7233,0.0068,3.395,76.680,54.884,50.115,224.701],
+    ['earth','Earth',1.0000,0.0167,0.000,0.000,102.937,357.517,365.256],
+    ['mars','Mars',1.5237,0.0934,1.850,49.558,286.502,19.373,686.980],
+    ['jupiter','Jupiter',5.2026,0.0485,1.303,100.464,273.867,20.020,4332.589],
+    ['saturn','Saturn',9.5549,0.0555,2.489,113.665,339.392,317.020,10759.22],
+    ['uranus','Uranus',19.2184,0.0463,0.773,74.006,96.998,142.238,30688.5],
+    ['neptune','Neptune',30.1104,0.0095,1.770,131.784,273.187,256.228,60182],
+    ['pluto','Pluto',39.482,0.2488,17.14,110.299,113.834,14.53,90560],
+  ];
+  return data.map(([id,name,a,e,i,node,peri,mean0,period]) => ({
+    id, name, color: id === 'earth' ? '#93c5fd' : id === 'mars' ? '#fda4af' : id === 'jupiter' ? '#d6b08c' : '#cbd5e1',
+    semimajorAxisAu: a, eccentricity: e, inclinationDeg: i,
+    longitudeAscendingNodeDeg: node, argumentOfPerihelionDeg: peri,
+    meanAnomalyRad: ((mean0 + 360 * daysFromJ2000 / period) % 360) * Math.PI / 180,
+    orbitalPeriodDays: period,
+  }));
+}
