@@ -898,6 +898,84 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       setEarthLocateImageLoading(false);
     }
   };
+  const searchEarthSites = async () => {
+    const query = earthSiteSearch.trim();
+    if (!query) { setEarthSiteSearchMessage('Enter a site, city, landmark, or coordinates.'); return; }
+    setEarthSiteSearchLoading(true);
+    setEarthSiteSearchMessage('');
+    try {
+      const normalized = query.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+      const local = earthSites.filter((site: any) => String(site.name).toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normalized)).slice(0, 6);
+      const coordinateMatch = query.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+      let online: any[] = [];
+      if (coordinateMatch) {
+        const lat = Number(coordinateMatch[1]), lon = Number(coordinateMatch[2]);
+        if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+          online = [{ name: `Coordinates ${lat.toFixed(4)}, ${lon.toFixed(4)}`, lat, lon, category: earthSiteCategory, source: 'Coordinates entered manually' }];
+          setEarthSiteLatitude(String(lat)); setEarthSiteLongitude(String(lon));
+        } else {
+          setEarthSiteSearchMessage('Latitude must be between -90 and 90; longitude between -180 and 180.');
+        }
+      } else {
+        const params = new URLSearchParams({ q: query, format: 'jsonv2', limit: '8', addressdetails: '1' });
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error('Place search is temporarily unavailable.');
+        const items = await response.json();
+        online = (items || []).map((item: any) => ({
+          name: String(item.name || item.display_name?.split(',')[0] || query),
+          displayName: String(item.display_name || item.name || query),
+          lat: Number(item.lat), lon: Number(item.lon),
+          category: earthSiteCategory, source: 'OpenStreetMap place search',
+          isCity: /city|town|village|municipality|administrative/i.test(String(item.type || item.addresstype || '')),
+        })).filter((item: any) => Number.isFinite(item.lat) && Number.isFinite(item.lon));
+      }
+      const merged = [...local.map((site: any) => ({ ...site, source: 'Already in Earth dataset', alreadyListed: true })), ...online];
+      const unique = merged.filter((item, index) => merged.findIndex((other) =>
+        String(other.name).toLowerCase() === String(item.name).toLowerCase() &&
+        Math.abs(Number(other.lat) - Number(item.lat)) < 0.001 &&
+        Math.abs(Number(other.lon) - Number(item.lon)) < 0.001) === index);
+      setEarthSiteSearchResults(unique);
+      if (!unique.length && !earthSiteSearchMessage) setEarthSiteSearchMessage('No matches found. Try a more specific name or enter latitude, longitude.');
+    } catch (error) {
+      setEarthSiteSearchMessage(error instanceof Error ? error.message : 'Place search failed. You can still add coordinates manually.');
+      setEarthSiteSearchResults([]);
+    } finally { setEarthSiteSearchLoading(false); }
+  };
+  const toggleEarthSiteFavorite = (site: any) => {
+    const key = `${String(site.name).toLowerCase()}|${Number(site.lat).toFixed(4)}|${Number(site.lon).toFixed(4)}`;
+    setFavoriteEarthSites((current) => current.some((item) => item.key === key)
+      ? current.filter((item) => item.key !== key)
+      : [...current, { ...site, key }]);
+  };
+  const addEarthSiteToDataset = (site: any) => {
+    const name = String(site.name || '').trim();
+    const lat = Number(site.lat), lon = Number(site.lon);
+    if (!name || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      setEarthSiteSearchMessage('This result has invalid coordinates.'); return;
+    }
+    const exists = earthSites.some((item: any) => String(item.name).toLowerCase() === name.toLowerCase() && Math.abs(item.lat - lat) < 0.001 && Math.abs(item.lon - lon) < 0.001);
+    if (exists) { setEarthSiteSearchMessage(`${name} is already in the Earth dataset.`); return; }
+    const isCity = site.isCity || earthSiteCategory === 'city';
+    const record = {
+      id: `user-site-${Date.now()}`, name, lat, lon,
+      category: isCity ? 'city' : earthSiteCategory,
+      isCity, year: earthSiteCategory === 'ancient' ? -3000 : new Date().getUTCFullYear(),
+      color: isCity ? '#60a5fa' : earthSiteCategory === 'astronomy' ? '#a78bfa' : earthSiteCategory === 'acoustic' ? '#fb923c' : '#facc15',
+      source: site.source || 'User-added site', description: site.displayName || site.name,
+    };
+    setCustomEarthSites((current) => [...current, record]);
+    setEarthSiteSearchResults((current) => current.map((item) => item === site ? { ...item, alreadyListed: true } : item));
+    setEarthSiteSearchMessage(`Added ${name} to your local Earth dataset. It will appear on the globe when its layer is enabled and zoomed in.`);
+  };
+  const addEarthSiteFromCoordinates = () => {
+    const lat = Number(earthSiteLatitude), lon = Number(earthSiteLongitude);
+    if (!earthSiteLatitude.trim() || !earthSiteLongitude.trim() || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      setEarthSiteSearchMessage('Enter a valid latitude (-90 to 90) and longitude (-180 to 180).'); return;
+    }
+    const result = { name: earthSiteSearch.trim() || `Site ${lat.toFixed(4)}, ${lon.toFixed(4)}`, lat, lon, category: earthSiteCategory, source: 'Coordinates entered manually' };
+    setEarthSiteSearchResults((current) => [result, ...current.filter((item) => Math.abs(Number(item.lat) - lat) > 0.001 || Math.abs(Number(item.lon) - lon) > 0.001)]);
+    setEarthSiteSearchMessage('Coordinates ready. Choose Add to dataset to save this marker.');
+  };
   const openEarthSite = (site: EarthSiteSelection) => {
     setSelectedEarthSite(site);
     onSiteSelect(site);
