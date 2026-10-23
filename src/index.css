@@ -558,3 +558,28 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
   .atlas-right { top:56px; right:5px; bottom:5px; width:min(340px,calc(100vw - 10px)); }
   .atlas-search-drawer { max-height:calc(100dvh - 66px); padding:6px; }
 }
+
+
+/* Final toolbar polish: center the wider Search control and remove the tiny globe caption. */
+.atlas-topbar { position: relative; justify-content: initial !important; }
+.atlas-topnav {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  height: 100%;
+  transform: translateX(-50%);
+  width: auto;
+  margin: 0 !important;
+  justify-content: center !important;
+  z-index: 2;
+}
+.atlas-search-top-button {
+  min-width: 168px;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+.atlas-globe-overlay-top { display: none !important; }
+@media (max-width: 560px) {
+  .atlas-topnav { position: static; transform: none; width: auto; margin-left: auto !important; }
+  .atlas-search-top-button { min-width: 112px; padding-left: 12px; padding-right: 12px; }
+}
