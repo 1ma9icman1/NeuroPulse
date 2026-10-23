@@ -243,7 +243,7 @@ export default function App() {
             <div className="atlas-panel-heading"><Star size={13} /> STAR CATALOGUE <span className="atlas-panel-count">{REAL_CELESTIAL_STARS.length} RECORDS</span></div>
             {includeStars ? REAL_CELESTIAL_STARS.slice(0, 4).map((star) => (
               <div className="atlas-star-row" key={star.id}><span className="star-spark">✦</span><span><strong>{star.name}</strong><small>{star.constellation}</small></span><b>{star.distLy.toLocaleString()} ly</b></div>
-            ))}
+            )) : <div className="atlas-no-data">Star catalogue is excluded by the current search filters.</div>}
             <div className="atlas-footnote">Star catalogue coordinates and distances are reference data; a site alignment requires a dated sky calculation and verified architectural axis.</div>
           </section>
         </aside>
