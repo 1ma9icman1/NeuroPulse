@@ -74,6 +74,7 @@ export default function App() {
   const handleToggleAudio = async () => { const engine = audioEngineRef.current; if (!engine) return; if (isRunning) { engine.stop(); setIsRunning(false); } else { await engine.start(); setIsRunning(true); } };
   const [activeNav, setActiveNav] = useState('GLOBAL SEARCH');
   const [searchText, setSearchText] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [selectedSiteId, setSelectedSiteId] = useState(DEFAULT_EARTH_POINTS[0]?.id ?? '');
   const [selectedGlobeSite, setSelectedGlobeSite] = useState<any>(null);
   const [favoriteSites, setFavoriteSites] = useState<any[]>(() => {
@@ -203,7 +204,8 @@ export default function App() {
       (!query || [site.name, site.category, site.desc, site.sourceUrl, ...(site.modules ?? []), ...(((site as any).tags ?? []) as string[])].some((value) => value?.toLocaleLowerCase().includes(query)))
     );
   }, [researchSites, searchText, activeNav]);
-  const filteredSites = moduleSites;
+  const categoryOptions = useMemo(() => [...new Set(researchSites.map(site => String(site.category ?? 'Other').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [researchSites]);
+  const filteredSites = moduleSites.filter(site => categoryFilter === 'ALL' || String(site.category ?? 'Other').trim() === categoryFilter);
 
   const nearestSites = useMemo(() => {
     if (!selectedSite) return [];
@@ -282,28 +284,7 @@ export default function App() {
           </section>
 
 
-          <section className="atlas-panel atlas-filter-panel">
-            <div className="atlas-panel-heading"><SlidersHorizontal size={13} /> SEARCH FILTERS</div>
-            <label className="atlas-searchbox">
-              <Search size={14} />
-              <input value={searchText} onChange={(event) => { setSearchText(event.target.value); setShowSiteList(true); setScanRequested(false); }} placeholder="Name, region, keyword..." />
-              {searchText && <button aria-label="Clear search" onClick={() => setSearchText('')}><X size={13} /></button>}
-            </label>
-            <label className="atlas-field-label">SITE CATEGORY</label>
-            <button className="atlas-select-like" onClick={() => setShowSiteList((value) => !value)}>All documented categories <ChevronDown size={13} /></button>
-            <label className="atlas-field-label">FREQUENCY RANGE (HZ) <strong>{frequencyMax.toLocaleString()} Hz</strong></label>
-            <input className="atlas-range" aria-label="Maximum frequency" type="range" min="100" max="20000" step="100" value={frequencyMax} onChange={(event) => setFrequencyMax(Number(event.target.value))} />
-            <div className="atlas-range-labels"><span>100</span><span>20,000</span></div>
-            <label className="atlas-field-label">ANGLE RANGE <strong>{angleMax}°</strong></label>
-            <input className="atlas-range" aria-label="Maximum angle" type="range" min="1" max="180" value={angleMax} onChange={(event) => setAngleMax(Number(event.target.value))} />
-            <div className="atlas-range-labels"><span>1°</span><span>180°</span></div>
-            <div className="atlas-checks">
-              <label><input type="checkbox" checked={includeStars} onChange={(event) => setIncludeStars(event.target.checked)} /> Include star catalogue</label>
-              <label><input type="checkbox" checked={includeAcoustics} onChange={(event) => setIncludeAcoustics(event.target.checked)} /> Include acoustic evidence</label>
-              <label><input type="checkbox" checked={includeGeometry} onChange={(event) => setIncludeGeometry(event.target.checked)} /> Include geometric comparisons</label>
-            </div>
-            <button className="atlas-primary-button" onClick={handleRunSearch}><Radar size={16} /> RUN GLOBAL SEARCH</button>
-          </section>
+
         </aside>
 
         <section className="atlas-center">
@@ -389,12 +370,35 @@ export default function App() {
                   <button className="atlas-secondary-button" onClick={() => {
                     setIncludeStars(true); setIncludeAcoustics(true); setIncludeGeometry(true);
                     setShowSiteList(false); setFrequencyMax(20000); setAngleMax(180);
-                    setSearchText(''); setScanRequested(false);
+                    setSearchText(''); setCategoryFilter('ALL'); setScanRequested(false);
                   }}>RESET WORKSPACE SETTINGS</button>
                 </div>
               )}
             </section>
           )}
+          <section className="atlas-panel atlas-filter-panel">
+            <div className="atlas-panel-heading"><SlidersHorizontal size={13} /> SEARCH FILTERS</div>
+            <label className="atlas-searchbox">
+              <Search size={14} />
+              <input value={searchText} onChange={(event) => { setSearchText(event.target.value); setShowSiteList(true); setScanRequested(false); }} placeholder="Name, region, keyword..." />
+              {searchText && <button aria-label="Clear search" onClick={() => setSearchText('')}><X size={13} /></button>}
+            </label>
+            <label className="atlas-field-label">SITE CATEGORY</label>
+            <select className="atlas-select-like" aria-label="Filter by site category" value={categoryFilter} onChange={event => { setCategoryFilter(event.target.value); setShowSiteList(true); setScanRequested(false); }}><option value="ALL">All documented categories</option>{categoryOptions.map(category => <option key={category} value={category}>{category}</option>)}</select>
+            <label className="atlas-field-label">FREQUENCY RANGE (HZ) <strong>{frequencyMax.toLocaleString()} Hz</strong></label>
+            <input className="atlas-range" aria-label="Maximum frequency" type="range" min="100" max="20000" step="100" value={frequencyMax} onChange={(event) => setFrequencyMax(Number(event.target.value))} />
+            <div className="atlas-range-labels"><span>100</span><span>20,000</span></div>
+            <label className="atlas-field-label">ANGLE RANGE <strong>{angleMax}°</strong></label>
+            <input className="atlas-range" aria-label="Maximum angle" type="range" min="1" max="180" value={angleMax} onChange={(event) => setAngleMax(Number(event.target.value))} />
+            <div className="atlas-range-labels"><span>1°</span><span>180°</span></div>
+            <div className="atlas-checks">
+              <label><input type="checkbox" checked={includeStars} onChange={(event) => setIncludeStars(event.target.checked)} /> Include star catalogue</label>
+              <label><input type="checkbox" checked={includeAcoustics} onChange={(event) => setIncludeAcoustics(event.target.checked)} /> Include acoustic evidence</label>
+              <label><input type="checkbox" checked={includeGeometry} onChange={(event) => setIncludeGeometry(event.target.checked)} /> Include geometric comparisons</label>
+            </div>
+            <button className="atlas-primary-button" onClick={handleRunSearch}><Radar size={16} /> RUN GLOBAL SEARCH</button>
+          </section>
+
           {true && (
             <section className="atlas-audio-workspace">
               <div className="atlas-audio-menu-header">
@@ -526,7 +530,7 @@ export default function App() {
           <div className="atlas-progress-status"><span className="status-dot" /> {scanRequested ? 'CATALOGUE SEARCH COMPLETE' : 'READY FOR QUERY'}</div>
           <div className="atlas-progress-track"><span style={{ width: scanRequested ? '100%' : '8%' }} /></div>
           <div className="atlas-progress-copy">{scanRequested ? `${filteredSites.length} local site records match the current query.` : 'Run a search to filter the local site catalogue.'}</div>
-          <button className="atlas-secondary-button" onClick={() => { setSearchText(''); setShowSiteList(false); setScanRequested(false); setSelectedSiteId(DEFAULT_EARTH_POINTS[0]?.id ?? ''); setEarthAreaView('street'); }}>RESET SEARCH</button>
+          <button className="atlas-secondary-button" onClick={() => { setSearchText(''); setShowSiteList(false); setScanRequested(false); setCategoryFilter('ALL'); setSelectedSiteId(DEFAULT_EARTH_POINTS[0]?.id ?? ''); setEarthAreaView('street'); }}>RESET SEARCH</button>
         </section>
       </footer>
       <div className="atlas-tagline">THE PAST LEAVES SIGNALS — WE FIND THEM <span>· EVIDENCE FIRST · HYPOTHESES LABELLED</span></div>
