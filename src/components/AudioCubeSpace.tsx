@@ -394,8 +394,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // Zoom changes adjust distance without moving the selected geographic center.
   useEffect(() => {
     if (!isEarthModeActive || !globeRef.current) return;
-    globeRef.current.pointOfView({ altitude: Math.max(1.35, 2.05 - cameraZoom * 0.18) }, 250);
-  }, [cameraZoom, isEarthModeActive]);
+    const targetAltitude = Math.max(1.35, 2.05 - cameraZoom * 0.18);
+    globeRef.current.pointOfView({ altitude: targetAltitude }, 250);
+    const tierTimer = window.setTimeout(() => {
+      updateEarthZoomTier(Number(globeRef.current?.pointOfView?.()?.altitude ?? targetAltitude));
+    }, 280);
+    return () => window.clearTimeout(tierTimer);
+  }, [cameraZoom, isEarthModeActive, updateEarthZoomTier]);
 
   // Only update React when the actual camera crosses a detail-tier boundary.
   // Avoiding continuous zoom-state renders keeps Globe.gl's drag/rotation loop smooth.
