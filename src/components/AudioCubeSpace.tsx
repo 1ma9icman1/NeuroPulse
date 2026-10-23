@@ -344,7 +344,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const seen = new Set<string>();
     const normalizeName = (value: string) => value.toLocaleLowerCase().normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-    for (const raw of [...siteCatalogue, ...builtInEarthSites]) {
+    for (const raw of [...(siteCatalogue as any[]), ...(builtInEarthSites as any[])]) {
       if (!raw || typeof raw.name !== 'string' ||
           !Number.isFinite(Number(raw.lat)) || !Number.isFinite(Number(raw.lon)) ||
           Number(raw.lat) < -90 || Number(raw.lat) > 90 ||
