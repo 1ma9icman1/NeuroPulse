@@ -101,7 +101,7 @@ export default function App() {
   const [scanRequested, setScanRequested] = useState(false);
   const [audioMenuOpen, setAudioMenuOpen] = useState(false);
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
-  const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street' | 'elevation'>('elevation');
+  const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street' | 'elevation'>('globe');
   const [waterElevationRequest, setWaterElevationRequest] = useState(0);
   const [streetFallbackNotice, setStreetFallbackNotice] = useState(false);
   const [streetFrameLoaded, setStreetFrameLoaded] = useState(false);
