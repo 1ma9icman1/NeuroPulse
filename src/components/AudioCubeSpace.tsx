@@ -426,6 +426,11 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showConstellationControls, setShowConstellationControls] = useState<boolean>(true);
   const [show110HzResearchComets, setShow110HzResearchComets] = useState<boolean>(false);
   const [showCities, setShowCities] = useState<boolean>(true);
+  // Globe altitude: higher altitude is farther out. Start at a city-only view,
+  // then reveal regional and full research-site layers as the user zooms in.
+  const [earthViewAltitude, setEarthViewAltitude] = useState<number>(2.05);
+  const earthZoomTier = earthViewAltitude > 1.55 ? 0 : earthViewAltitude > 0.95 ? 1 : earthViewAltitude > 0.58 ? 2 : 3;
+  const zoomTierLabel = earthZoomTier === 0 ? 'WORLD · MAJOR CITIES' : earthZoomTier === 1 ? 'CONTINENT · CITIES' : earthZoomTier === 2 ? 'REGION · SITES' : 'CLOSE-UP · ALL SITES';
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
 
@@ -535,9 +540,18 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // plain text labels. Group nearby coordinates and stagger their tag positions
   // so neighboring names have their own space, with a colored leader back to each pin.
   const earthSiteLabelData = (() => {
-    const sites = visibleEarthSites.filter((site: any) =>
-      site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures
-    );
+    const sites = visibleEarthSites.filter((site: any) => {
+      if (site.isCity) {
+        if (!showCities) return false;
+        // At world scale show only the curated major-city layer; more city labels
+        // appear as the user zooms toward a continent or region.
+        if (earthZoomTier === 0 && !site.isMajorCity) return false;
+        if (earthZoomTier === 1 && !site.isMajorCity && !site.isCapital) return false;
+        return true;
+      }
+      if (earthZoomTier < 2) return false;
+      return site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures;
+    });
     // Every visible city and research location gets its own HTML tag.
     // Do not cap these arrays: the user expects all mapped places to be named.
     const citySites = sites.filter((site: any) => site.isCity);
@@ -3536,7 +3550,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       {/* Large interactive Earth fills the Top Plane viewport; Globe controls retain drag-to-rotate and wheel zoom. */}
       {isEarthModeActive && !isSolarSystemMode && (
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-          <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto flex items-center justify-center">
+          <div className="relative h-full w-full max-w-full max-h-full pointer-events-auto flex items-center justify-center"
+            onWheel={() => {
+              // Globe controls update their POV during the wheel event; sample it
+              // shortly afterward so React can reveal the appropriate detail tier.
+              window.setTimeout(() => {
+                const altitude = Number(globeRef.current?.pointOfView?.()?.altitude);
+                if (Number.isFinite(altitude) && altitude > 0) setEarthViewAltitude(altitude);
+              }, 90);
+            }}>
             <Globe3D ref={globeRef} rendererConfig={{ preserveDrawingBuffer: true }} width={Math.max(320, containerRef.current?.clientWidth || 800)}
               height={Math.max(320, containerRef.current?.clientHeight || 600)}
               globeImageUrl={earthTextureUrl}
@@ -3556,7 +3578,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
               labelColor={(d: any) => d.isCity ? '#e2e8f0' : d.evidenceStatus ? '#fdba74' : '#fde68a'}
               labelSize={(d: any) => d.isCity ? 0.40 : 0.31} labelAltitude={0.016} labelDotRadius={(d: any) => d.isCity ? 0.065 : 0.045}
-              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? (showCities && (earthZoomTier >= 2 || site.isMajorCity || site.isCapital)) : (earthZoomTier >= 2 && (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)))} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               {...({
                 // Use the points-layer API so the LED sprites replace default point dots.
