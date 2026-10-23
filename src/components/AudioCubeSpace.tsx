@@ -3309,6 +3309,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       {isEarthModeActive && (
         <button type="button" onClick={() => { setShowAddEarthSite(true); setEarthSiteSearchMessage(''); }}
           className="absolute bottom-4 left-1/2 z-[55] -translate-x-1/2 flex items-center gap-2 rounded-xl border border-cyan-300/70 bg-slate-950/95 px-5 py-3 text-xs font-mono font-bold tracking-wider text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,.22)] hover:bg-cyan-950">
+          <span className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] text-slate-300">{earthSiteLabelData.length} VISIBLE</span>
           <Plus className="h-4 w-4" /> ADD SITE
         </button>
       )}
