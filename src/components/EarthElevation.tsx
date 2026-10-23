@@ -265,17 +265,25 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     }
     positionAttribute.needsUpdate = true;
     state.geometry.computeVertexNormals();
+  }, [terrainScale]);
+
+  useEffect(() => {
+    const state = sceneRef.current;
+    if (!state) return;
     const siteAttribute = state.sitePoints.geometry.getAttribute('position') as THREE.BufferAttribute;
-    siteCatalogue.forEach((site, index) => {
-      if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon) || index >= siteAttribute.count) return;
+    let pointIndex = 0;
+    for (const site of siteCatalogue) {
+      if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
+      if (pointIndex >= siteAttribute.count) break;
       const sx = Math.max(0, Math.min(state.width - 1, Math.round(((site.lon + 180) / 360) * (state.width - 1))));
       const sy = Math.max(0, Math.min(state.height - 1, Math.round(((90 - site.lat) / 180) * (state.height - 1))));
       const elevation = state.heights[sy * state.width + sx] || 0;
       const lat = site.lat * Math.PI / 180;
       const lon = site.lon * Math.PI / 180;
       const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.35;
-      siteAttribute.setXYZ(index, radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
-    });
+      siteAttribute.setXYZ(pointIndex, radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+      pointIndex++;
+    }
     siteAttribute.needsUpdate = true;
   }, [terrainScale, siteCatalogue, seaLevel]);
 
