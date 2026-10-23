@@ -321,7 +321,8 @@ export default function App() {
                 <div><span>LATITUDE</span><strong>{formatCoordinate(selectedSite.lat, 'N', 'S')}</strong></div>
                 <div><span>LONGITUDE</span><strong>{formatCoordinate(selectedSite.lon, 'E', 'W')}</strong></div>
               </div>
-              <p className="atlas-site-description">{selectedSite.desc ?? 'Coordinates are included in the local site catalogue.'}</p>\n              {(selectedSite as any).sourceUrl && <p className="atlas-site-source"><strong>RESEARCH SOURCE</strong><br /><a href={(selectedSite as any).sourceUrl} target="_blank" rel="noreferrer">Open official UNESCO site record ↗</a></p>}
+              <p className="atlas-site-description">{selectedSite.desc ?? 'Coordinates are included in the local site catalogue.'}</p>
+              {(selectedSite as any).sourceUrl && <p className="atlas-site-source"><strong>RESEARCH SOURCE</strong><br /><a href={(selectedSite as any).sourceUrl} target="_blank" rel="noreferrer">Open official UNESCO site record ↗</a></p>}
               <div className="atlas-data-table">
                 <div><span>Nearest listed site</span><strong>{nearestSites[0]?.name ?? '—'}</strong></div>
                 <div><span>Surface distance</span><strong>{nearestSites[0] ? `${Math.round(nearestSites[0].distance).toLocaleString()} km` : '—'}</strong></div>
@@ -339,14 +340,14 @@ export default function App() {
           </section>
 
           <section className="atlas-panel atlas-related-panel">
-            <div className="atlas-panel-heading"><Orbit size={13} /> NEAREST LISTED SITES</div>
-            {includeGeometry && nearestSites.map((site) => (
+            <div className="atlas-panel-heading"><Orbit size={13} /> NEAREST LISTED SITES <span className="atlas-panel-count">{nearestSites.length} LISTED</span></div>
+            {includeGeometry && <div className="atlas-nearest-scroll" tabIndex={0} aria-label="Scrollable nearest sites list">{nearestSites.map((site) => (
               <button key={site.id} className="atlas-related-row" onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); setShowSiteList(false); setEarthAreaView('street'); }}>
                 <span className="atlas-related-marker"><MapPin size={14} /></span>
                 <span className="atlas-related-copy"><strong>{site.name}</strong><small>{formatCoordinate(site.lat, 'N', 'S')} · {formatCoordinate(site.lon, 'E', 'W')}</small></span>
                 <b>{Math.round(site.distance).toLocaleString()} km</b>
               </button>
-            ))}
+            ))}</div>}
           </section>
 
           <section className="atlas-panel atlas-star-panel">
