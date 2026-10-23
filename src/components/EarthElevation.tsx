@@ -4,9 +4,10 @@ import { fromUrl } from 'geotiff';
 import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw } from 'lucide-react';
 
 type Site = { name: string; lat: number; lon: number } | null;
-type Props = { selectedSite: Site; onBack: () => void };
+type CatalogueSite = { name: string; lat: number; lon: number; category?: string; color?: string };
+type Props = { selectedSite: Site; siteCatalogue: CatalogueSite[]; onBack: () => void };
 
-const NOAA_DEM_URL = 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic/ImageServer/exportImage?bbox=-180,-90,180,90&bboxSR=4326&size=360,180&imageSR=4326&format=tiff&pixelType=F32&f=image';
+const NOAA_DEM_URL = 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic/ImageServer/exportImage?bbox=-180,-90,180,90&bboxSR=4326&size=720,360&imageSR=4326&format=tiff&pixelType=F32&f=image';
 const NOAA_SOURCE = 'https://www.ncei.noaa.gov/products/etopo-global-relief-model';
 const BASE_RADIUS = 100;
 const HEIGHT_SCALE = 0.0015;
@@ -37,9 +38,9 @@ function elevationColor(height: number): THREE.Color {
   return new THREE.Color('#887d75').lerp(new THREE.Color('#f0eee9'), Math.min(1, (height - 4500) / 4000));
 }
 
-export const EarthElevation: React.FC<Props> = ({ selectedSite, onBack }) => {
+export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, onBack }) => {
   const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; geometry: THREE.BufferGeometry; heights: Float32Array; width: number; height: number } | null>(null);
+  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Points; geometry: THREE.BufferGeometry; heights: Float32Array; width: number; height: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [yearOffset, setYearOffset] = useState(0);
@@ -58,6 +59,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, onBack }) => {
     let geometry: THREE.BufferGeometry | null = null;
     let water: THREE.Mesh | null = null;
     let marker: THREE.Mesh | null = null;
+    let sitePoints: THREE.Points | null = null;
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
     let heights = new Float32Array(0);
@@ -78,8 +80,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, onBack }) => {
         const raster = await image.readRasters({ width: 360, height: 180, interleave: true });
         if (cancelled) return;
         const values = raster as unknown as Float32Array;
-        gridWidth = 360;
-        gridHeight = 180;
+        gridWidth = 720;
+        gridHeight = 360;
         heights = new Float32Array(gridWidth * gridHeight);
         let validCount = 0;
         for (let i = 0; i < heights.length; i++) {
@@ -143,6 +145,27 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, onBack }) => {
         terrain.renderOrder = 1;
         earthGroup.add(terrain);
 
+        const sitePositions: number[] = [];
+        const siteColors: number[] = [];
+        for (const site of siteCatalogue) {
+          if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
+          const sx = Math.max(0, Math.min(gridWidth - 1, Math.round(((site.lon + 180) / 360) * (gridWidth - 1))));
+          const sy = Math.max(0, Math.min(gridHeight - 1, Math.round(((90 - site.lat) / 180) * (gridHeight - 1))));
+          const elevation = heights[sy * gridWidth + sx] || 0;
+          const lat = site.lat * Math.PI / 180;
+          const lon = site.lon * Math.PI / 180;
+          const radius = BASE_RADIUS + Math.max(elevation, 0) * HEIGHT_SCALE * terrainScale + 0.35;
+          sitePositions.push(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+          const color = new THREE.Color(site.color || (/city/i.test(site.category || '') ? '#60a5fa' : /acoustic|frequency/i.test(site.category || '') ? '#fb923c' : '#facc15'));
+          siteColors.push(color.r, color.g, color.b);
+        }
+        const siteGeometry = new THREE.BufferGeometry();
+        siteGeometry.setAttribute('position', new THREE.Float32BufferAttribute(sitePositions, 3));
+        siteGeometry.setAttribute('color', new THREE.Float32BufferAttribute(siteColors, 3));
+        sitePoints = new THREE.Points(siteGeometry, new THREE.PointsMaterial({ size: 1.45, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0.95 }));
+        sitePoints.renderOrder = 3;
+        earthGroup.add(sitePoints);
+
         water = new THREE.Mesh(
           new THREE.SphereGeometry(BASE_RADIUS, 128, 64),
           new THREE.MeshStandardMaterial({ color: '#168bd2', transparent: true, opacity: 0.58, roughness: 0.28, metalness: 0.08, depthWrite: false, side: THREE.DoubleSide })
@@ -154,7 +177,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, onBack }) => {
         marker.visible = false;
         earthGroup.add(marker);
 
-        sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, geometry, heights, width: gridWidth, height: gridHeight };
+        sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, heights, width: gridWidth, height: gridHeight };
         const onPointerDown = (event: PointerEvent) => { dragPointer = event.pointerId; lastX = event.clientX; lastY = event.clientY; renderer?.domElement.setPointerCapture(event.pointerId); };
         const onPointerMove = (event: PointerEvent) => {
           if (dragPointer !== event.pointerId || !earthGroup) return;
@@ -209,6 +232,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, onBack }) => {
           (sceneRef.current.marker.geometry as THREE.BufferGeometry).dispose();
           (sceneRef.current.marker.material as THREE.Material).dispose();
         }
+        sceneRef.current.sitePoints.geometry.dispose();
+        (sceneRef.current.sitePoints.material as THREE.Material).dispose();
         sceneRef.current.renderer.dispose();
         sceneRef.current.renderer.domElement.remove();
       } else {
@@ -219,10 +244,11 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, onBack }) => {
       earthGroup = null;
       water = null;
       marker = null;
+      sitePoints = null;
       scene = null;
       camera = null;
     };
-  }, []);
+  }, [siteCatalogue]);
 
   useEffect(() => {
     const state = sceneRef.current;
