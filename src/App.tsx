@@ -536,7 +536,7 @@ export default function App() {
 
           {showSiteList && (
             <div className="atlas-results-strip">
-              <div className="atlas-results-title"><span className="atlas-results-heading"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></span><button className="atlas-results-minimize" onClick={() => setShowSiteList(false)} aria-label="Minimize search results">MINIMIZE <ChevronDown size={12} /></button></div>
+              <div className="atlas-results-title"><span className="atlas-results-heading"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></span><button className="atlas-results-minimize" onClick={() => setShowSiteList(false)} aria-label="Close search results" title="Close search results"><X size={14} /></button></div>
               <div className="atlas-results-list">
                 {filteredSites.slice(0, 80).map((site) => (
                   <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-result-chip chosen' : 'atlas-result-chip'} onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); setEarthAreaView('street'); }}>
