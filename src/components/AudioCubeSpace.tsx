@@ -2916,15 +2916,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
-      {showSeaLevelOverlay && isEarthModeActive && (
-        <aside className="absolute top-16 right-3 z-40 w-[min(94vw,380px)] max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-xl border border-cyan-400/60 bg-[#04111d]/95 p-3 shadow-2xl backdrop-blur-md pointer-events-auto">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-mono font-bold text-cyan-200"><Layers className="h-4 w-4" /> SEA-LEVEL INUNDATION MODEL</div>
+      {showSeaLevelOverlay && isEarthModeActive && typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
+        <section className="atlas-panel atlas-sea-level-panel max-h-[65vh] overflow-y-auto">
+          <div className="atlas-panel-heading">
+            <span className="flex items-center gap-2 text-cyan-200"><Layers className="h-4 w-4" /> SEA-LEVEL INUNDATION MODEL</span>
             <button onClick={() => activateSeaLevelOverlay(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close sea-level model"><X className="h-3.5 w-3.5" /></button>
           </div>
           <p className="mb-2 text-[10px] leading-relaxed text-slate-400">Uses actual elevations from a GeoTIFF DEM. The model floods only terrain connected to ocean cells at the raster edge; it does not invent future sea levels or pretend a basemap is elevation data.</p>
           <SeaLevelDemTool onFloodPolygons={setSeaLevelFloodPolygons} />
-        </aside>
+        </section>,
+        document.querySelector('.atlas-right')!
       )}
 
       {/* Real-time Snap Feedback Banner */}
