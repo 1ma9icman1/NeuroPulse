@@ -3291,6 +3291,90 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
+      {isEarthModeActive && (
+        <button type="button" onClick={() => { setShowAddEarthSite(true); setEarthSiteSearchMessage(''); }}
+          className="absolute bottom-4 left-1/2 z-[55] -translate-x-1/2 flex items-center gap-2 rounded-xl border border-cyan-300/70 bg-slate-950/95 px-5 py-3 text-xs font-mono font-bold tracking-wider text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,.22)] hover:bg-cyan-950">
+          <Plus className="h-4 w-4" /> ADD SITE
+        </button>
+      )}
+
+      {showAddEarthSite && isEarthModeActive && (
+        <div className="absolute inset-3 z-[75] overflow-y-auto rounded-2xl border border-cyan-400/70 bg-[#06111f]/[.98] p-4 md:inset-8 md:p-6 shadow-2xl backdrop-blur-xl pointer-events-auto">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <div className="text-base font-mono font-bold tracking-wider text-cyan-100">ADD EARTH SITE</div>
+              <p className="mt-1 max-w-2xl text-xs text-slate-400">Search for a landmark or city, find places missing from your map, or enter exact coordinates. Favorites and additions save in this browser.</p>
+            </div>
+            <button type="button" onClick={() => setShowAddEarthSite(false)} aria-label="Close add site" className="rounded-lg border border-slate-600 p-2 text-slate-300 hover:bg-slate-800"><X className="h-4 w-4" /></button>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="min-w-0 space-y-3">
+              <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); void searchEarthSites(); }}>
+                <input value={earthSiteSearch} onChange={(event) => setEarthSiteSearch(event.target.value)} placeholder="Site name, city, monument, or lat, lon" className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-cyan-400" />
+                <button type="submit" disabled={earthSiteSearchLoading} className="rounded-lg border border-cyan-500/70 bg-cyan-950 px-4 py-3 text-xs font-mono font-bold text-cyan-100 hover:bg-cyan-900 disabled:opacity-50">{earthSiteSearchLoading ? 'SEARCHING…' : 'SEARCH PLACES'}</button>
+              </form>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="text-[10px] font-mono text-slate-400">LATITUDE
+                  <input value={earthSiteLatitude} onChange={(event) => setEarthSiteLatitude(event.target.value)} inputMode="decimal" placeholder="e.g. 41.9028" className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
+                </label>
+                <label className="text-[10px] font-mono text-slate-400">LONGITUDE
+                  <input value={earthSiteLongitude} onChange={(event) => setEarthSiteLongitude(event.target.value)} inputMode="decimal" placeholder="e.g. 12.4964" className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={addEarthSiteFromCoordinates} className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-200 hover:border-cyan-500">USE COORDINATES</button>
+                <label className="flex items-center gap-2 text-xs text-slate-400">SITE TYPE
+                  <select value={earthSiteCategory} onChange={(event) => setEarthSiteCategory(event.target.value)} className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white">
+                    <option value="ancient">Ancient / historical</option><option value="city">City / settlement</option><option value="astronomy">Astronomy</option><option value="acoustic">Acoustic / sound</option><option value="custom">Other research site</option>
+                  </select>
+                </label>
+              </div>
+              {earthSiteSearchMessage && <div role="status" className="rounded-lg border border-cyan-900 bg-cyan-950/50 px-3 py-2 text-xs text-cyan-100">{earthSiteSearchMessage}</div>}
+              <div className="space-y-2">
+                {earthSiteSearchResults.map((item, index) => {
+                  const key = `${String(item.name).toLowerCase()}|${Number(item.lat).toFixed(4)}|${Number(item.lon).toFixed(4)}`;
+                  const isFavorite = favoriteEarthSites.some((fav) => fav.key === key);
+                  return (
+                    <div key={key + index} className="rounded-xl border border-slate-700 bg-slate-900/80 p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <button type="button" onClick={() => { openEarthSite(item); setShowAddEarthSite(false); }} className="min-w-0 flex-1 text-left">
+                          <span className="block text-sm font-semibold text-slate-100 hover:text-cyan-200">{item.name}</span>
+                          {item.displayName && <span className="mt-1 block text-xs text-slate-400">{item.displayName}</span>}
+                          <span className="mt-1 block text-[10px] font-mono text-slate-500">{Number(item.lat).toFixed(5)}, {Number(item.lon).toFixed(5)} · {item.source || 'Place result'}</span>
+                        </button>
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          <button type="button" onClick={() => toggleEarthSiteFavorite(item)} className={`rounded-md border px-3 py-2 text-[10px] font-mono font-bold ${isFavorite ? 'border-amber-300 bg-amber-950 text-amber-200' : 'border-slate-600 bg-slate-950 text-slate-300 hover:border-amber-400'}`}>{isFavorite ? '★ FAVORITED' : '☆ FAVORITE'}</button>
+                          <button type="button" disabled={item.alreadyListed} onClick={() => addEarthSiteToDataset(item)} className="rounded-md border border-emerald-600/80 bg-emerald-950 px-3 py-2 text-[10px] font-mono font-bold text-emerald-200 hover:bg-emerald-900 disabled:opacity-50">{item.alreadyListed ? 'IN DATASET' : '+ ADD TO DATASET'}</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {!earthSiteSearchResults.length && !earthSiteSearchLoading && <div className="rounded-xl border border-dashed border-slate-700 p-5 text-center text-xs text-slate-500">Search for a place to see existing records and new map results here.</div>}
+              </div>
+            </div>
+            <aside className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+              <div className="mb-2 text-xs font-mono font-bold tracking-wider text-amber-200">★ FAVORITES · {favoriteEarthSites.length}</div>
+              <div className="space-y-2">
+                {favoriteEarthSites.map((fav: any) => (
+                  <div key={fav.key} className="rounded-lg border border-slate-700 bg-slate-950/70 p-2">
+                    <div className="text-xs font-semibold text-slate-100">{fav.name}</div>
+                    <div className="my-1 text-[10px] text-slate-500">{Number(fav.lat).toFixed(4)}, {Number(fav.lon).toFixed(4)}</div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { openEarthSite(fav); setShowAddEarthSite(false); }} className="rounded border border-slate-600 px-2 py-1 text-[10px] text-slate-200">VIEW</button>
+                      <button type="button" onClick={() => addEarthSiteToDataset(fav)} className="rounded border border-emerald-700 px-2 py-1 text-[10px] text-emerald-200">ADD TO DATASET</button>
+                      <button type="button" onClick={() => setFavoriteEarthSites((current) => current.filter((item) => item.key !== fav.key))} className="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-400">REMOVE</button>
+                    </div>
+                  </div>
+                ))}
+                {!favoriteEarthSites.length && <p className="py-3 text-xs text-slate-500">Favorite search results to keep them here.</p>}
+              </div>
+            </aside>
+          </div>
+        </div>
+      )}
+
       {earthLocateTarget && (
         <div className="absolute inset-3 z-[60] overflow-y-auto rounded-2xl border border-emerald-400/70 bg-[#07101d]/96 p-3 md:p-5 shadow-2xl backdrop-blur-md pointer-events-auto">
           <div className="flex items-start justify-between gap-3 mb-3">
