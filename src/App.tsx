@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AudioEngine } from './audio/AudioEngine';
 import type { TrinauralConfig } from './types/index';
 import {
-  Activity, AudioLines, Atom, AudioWaveform, Building2, ChevronDown, Compass,
+  Activity, AudioLines, Atom, AudioWaveform, Building2, Camera, ChevronDown, Compass,
   Database, Globe2, Landmark, Layers3, Map, MapPin, Orbit, Radar, Search, Settings2,
   Signal, SlidersHorizontal, Star, Target, Waves, X, Zap, Volume2, ChevronUp
 } from 'lucide-react';
@@ -101,6 +101,8 @@ export default function App() {
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
   const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street'>('globe');
   const [streetFallbackNotice, setStreetFallbackNotice] = useState(false);
+  const [mapSnapshotNotice, setMapSnapshotNotice] = useState('');
+  const [mapSnapshotLoading, setMapSnapshotLoading] = useState(false);
 
   // Clear stale fallback notices when the selected location changes. Do not replace a
   // Street View iframe merely because it took longer than a few seconds to render.
@@ -230,6 +232,108 @@ export default function App() {
     'SETTINGS': 'Interface and visualization preferences.',
   };
 
+  const handleMapSnapshot = async () => {
+    const latitude = Number(selectedSite?.lat);
+    const longitude = Number(selectedSite?.lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setMapSnapshotNotice('Select a location before saving a map snapshot.');
+      return;
+    }
+    setMapSnapshotLoading(true);
+    setMapSnapshotNotice('');
+    const service = earthAreaView === 'road'
+      ? 'World_Street_Map'
+      : 'World_Imagery';
+    // Google Maps is embedded in a cross-origin iframe, so the browser cannot copy
+    // its pixels directly. Export an imagery/road-map image for the selected location.
+    const halfLat = 0.055;
+    const halfLon = Math.min(45, halfLat * 1.55 / Math.max(0.25, Math.cos(latitude * Math.PI / 180)));
+    const west = Math.max(-180, longitude - halfLon);
+    const east = Math.min(180, longitude + halfLon);
+    const south = Math.max(-85, latitude - halfLat);
+    const north = Math.min(85, latitude + halfLat);
+    const exportUrl = new URL(`https://services.arcgisonline.com/ArcGIS/rest/services/${service}/MapServer/export`);
+    exportUrl.search = new URLSearchParams({
+      bbox: [west, south, east, north].join(','),
+      bboxSR: '4326',
+      imageSR: '4326',
+      size: '1400,900',
+      format: 'png32',
+      transparent: 'false',
+      f: 'image',
+    }).toString();
+    try {
+      const response = await fetch(exportUrl.toString(), { mode: 'cors' });
+      if (!response.ok) throw new Error(`Map export returned ${response.status}`);
+      const sourceBlob = await response.blob();
+      const sourceUrl = URL.createObjectURL(sourceBlob);
+      try {
+        const image = new Image();
+        image.src = sourceUrl;
+        await new Promise<void>((resolve, reject) => {
+          image.onload = () => resolve();
+          image.onerror = () => reject(new Error('The map image could not be decoded.'));
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = 1400;
+        canvas.height = 900;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not create a map snapshot canvas.');
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        // Add a small title/date strip and a visible center pin for the selected place.
+        ctx.fillStyle = 'rgba(3, 10, 22, 0.88)';
+        ctx.fillRect(0, 0, canvas.width, 72);
+        ctx.fillStyle = '#e0f2fe';
+        ctx.font = 'bold 25px Arial, sans-serif';
+        ctx.fillText(String(selectedSite.name || 'Selected location').slice(0, 70), 24, 31);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '16px Arial, sans-serif';
+        ctx.fillText(`${latitude.toFixed(5)}°, ${longitude.toFixed(5)}° · ${earthAreaView === 'road' ? 'Road map' : earthAreaView === 'street' ? 'Aerial context for Street View' : 'Satellite imagery'} · ${new Date().toLocaleString()}`, 24, 55);
+        const px = canvas.width / 2;
+        const py = canvas.height / 2 + 36;
+        ctx.beginPath();
+        ctx.arc(px, py, 11, 0, Math.PI * 2);
+        ctx.fillStyle = '#fb7185';
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(px, py + 12);
+        ctx.lineTo(px, py + 28);
+        ctx.strokeStyle = '#fb7185';
+        ctx.lineWidth = 5;
+        ctx.stroke();
+
+        const png = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('PNG encoding failed.')), 'image/png');
+        });
+        const downloadUrl = URL.createObjectURL(png);
+        const link = document.createElement('a');
+        const safeName = String(selectedSite.name || 'map').normalize('NFKD')
+          .replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-')
+          .replace(/^-+|-+$/g, '').slice(0, 80) || 'map';
+        link.href = downloadUrl;
+        link.download = `${safeName}-map-snapshot-${new Date().toISOString().slice(0, 10)}.png`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
+        setMapSnapshotNotice(earthAreaView === 'street'
+          ? 'Map snapshot saved. It shows aerial context; the embedded Google Street View panorama itself cannot be captured by this button.'
+          : 'Map snapshot saved.');
+      } finally {
+        URL.revokeObjectURL(sourceUrl);
+      }
+    } catch (error) {
+      console.error('Map snapshot export failed:', error);
+      setMapSnapshotNotice('Snapshot download failed. Try again, or use the map’s own menu to save/share this view.');
+    } finally {
+      setMapSnapshotLoading(false);
+    }
+  };
+
   const handleRunSearch = () => {
     setScanRequested(true);
     setShowSiteList(true);
@@ -262,7 +366,7 @@ export default function App() {
           <section className="atlas-panel atlas-navigation">
             <div className="atlas-panel-heading">RESEARCH MODULES</div>
             {NAV_ITEMS.map(({ label, icon: Icon }) => (
-              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => setActiveNav(label)}>
+              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
                 <Icon size={15} strokeWidth={1.8} /><span>{label}</span><span className="nav-chevron">›</span>
               </button>
             ))}
@@ -293,7 +397,7 @@ export default function App() {
               onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 4.6, cameraView: 'top' })}
               onSiteSelect={handleGlobeSiteSelect}
               siteCatalogue={researchSites}
-            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,0,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
+            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,0,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
             <div className="atlas-globe-overlay atlas-globe-overlay-bottom" aria-label="Earth map legend">
               <span><i className="legend-dot" style={{background:'#60a5fa'}} /> CITIES</span>
@@ -385,7 +489,7 @@ export default function App() {
             <button className="atlas-primary-button" onClick={handleRunSearch}><Radar size={16} /> RUN GLOBAL SEARCH</button>
           </section>
 
-          {true && (
+          {['A/B/C AUDIO CONTROLS', 'TRINAURAL / SOLFEGGIO'].includes(activeNav) && (
             <section className="atlas-audio-workspace">
               <div className="atlas-audio-menu-header">
                 <div><strong><AudioLines size={15} /> A / B / C SPATIAL AUDIO ENGINE</strong><span>Independent oscillator controls · changes update the live audio engine</span></div>
