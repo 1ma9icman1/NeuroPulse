@@ -373,6 +373,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
+  const [triangulationOverlay, setTriangulationOverlay] = useState<{ edges: Array<{ startLat: number; startLng: number; endLat: number; endLng: number }>; polygons: Array<{ name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }>; siteCount: number }>({ edges: [], polygons: [], siteCount: 0 });
   const [showCosmicBeam, setShowCosmicBeam] = useState<boolean>(false);
   const [showLocationMenu, setShowLocationMenu] = useState<boolean>(false);
   const [showMeasuredSoundSites, setShowMeasuredSoundSites] = useState<boolean>(true);
@@ -389,38 +390,64 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [isTimelineActive, setIsTimelineActive] = useState<boolean>(false);
   const timelineYearsAgo = new Date().getUTCFullYear() - timelineYear;
   const visibleEarthSites = [...earthSites.filter((site: any) => site.isCity ? showCities : site.year <= timelineYear).map((site: any) => ({ ...site, color: site.isCity ? '#60a5fa' : '#facc15', size: site.isCity ? 0.10 : 0.12, altitude: 0.012, layerCategory: site.isCity ? 'CITY' : 'ANCIENT SITE' })), ...(showAncientStructures ? ANCIENT_STRUCTURE_DIMENSIONS.filter((structure) => !earthSites.some((site: any) => !site.isCity && Math.abs(site.lat - structure.lat) < 0.08 && Math.abs(site.lon - structure.lon) < 0.08)).map((structure) => ({ name: structure.name, lat: structure.lat, lon: structure.lon, year: -3500, color: '#facc15', size: 0.12, altitude: 0.012, layerCategory: 'ANCIENT STRUCTURE HEIGHT', structuralHeightFt: structure.approximateHeightFt, heightBasis: structure.heightBasis, heightNote: structure.evidenceNote, numberSystem: structure.numberSystem, numberSystemNote: structure.numberSystemNote, orientationNote: structure.orientationNote, ritualContext: structure.ritualContext, isDimensionRecord: true })) : []), ...(timelineYear >= -4000 && showMeasuredSoundSites ? ACOUSTIC_SITE_EVIDENCE.filter((site) => !showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.14, altitude: 0.016, evidenceStatus: site.status, layerCategory: site.status === 'published-measurement' ? 'MEASURED SOUND' : 'SOUND CANDIDATE', measuredFrequenciesHz: site.measuredFrequenciesHz, measurementSummary: site.measurementContext || site.summary, measuredHz: site.measuredFrequenciesHz.reduce((best, hz) => Math.abs(hz - 111) < Math.abs(best - 111) ? hz : best, site.measuredFrequenciesHz[0]) })) : []), ...(showAncientStructures ? LEGACY_HISTORICAL_SITES.filter((legacy) => !earthSites.some((site: any) => !site.isCity && site.name.toLowerCase() === legacy.name.toLowerCase()) && !ANCIENT_STRUCTURE_DIMENSIONS.some((structure) => structure.name.toLowerCase() === legacy.name.toLowerCase()) && !DEFAULT_EARTH_POINTS.some((point) => point.name.toLowerCase() === legacy.name.toLowerCase()) && timelineYear >= legacy.year).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: site.year, color: '#34d399', size: 0.115, altitude: 0.014, layerCategory: 'HISTORICAL & ARCHAEOLOGICAL', historicalRecord: true, researchReason: 'Historical or archaeological reference location included for research context. Its presence on the globe is not evidence of a specific resonance or frequency; that requires site-specific measurements.' })) : [])];
-  const triangleCandidates = showAlignmentTriangles && showAncientStructures ? visibleEarthSites.filter((site: any) => !site.isCity && !site.evidenceStatus) : [];
-  const triangleEdgeMap = new Map<string, { startLat: number; startLng: number; endLat: number; endLng: number }>();
-  const triangleKey = (a: string, b: string) => [a, b].sort().join('::');
-  const triangleDistance = (a: any, b: any) => {
-    const dLat = (b.lat - a.lat) * Math.PI / 180;
-    const dLon = (b.lon - a.lon) * Math.PI / 180;
-    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-    return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+  const triangleEdges = showAlignmentTriangles ? triangulationOverlay.edges : [];
+  const trianglePolygons = showAlignmentTriangles ? triangulationOverlay.polygons : [];
+  const repeatedTriangleAngles: Array<[string, number]> = [];
+
+  // One-shot geographic triangulation: nearest-neighbour mesh across cities, monuments,
+  // historic places, and acoustic locations. Results are held in state, not recalculated
+  // on every render or animation frame.
+  const triangulateEarthLocations = () => {
+    const uniqueSites = new Map<string, any>();
+    visibleEarthSites.forEach((site: any) => {
+      if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) return;
+      const key = String(site.name || '').trim().toLocaleLowerCase() + ':' + Number(site.lat).toFixed(5) + ':' + Number(site.lon).toFixed(5);
+      if (site.name && !uniqueSites.has(key)) uniqueSites.set(key, site);
+    });
+    const sites = Array.from(uniqueSites.values());
+    const distance = (a: any, b: any) => {
+      const rad = Math.PI / 180;
+      const dLat = (b.lat - a.lat) * rad;
+      const dLon = (b.lon - a.lon) * rad;
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+      return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+    };
+    const siteKey = (site: any) => String(site.name || '') + '|' + Number(site.lat).toFixed(5) + '|' + Number(site.lon).toFixed(5);
+    const edgeMap = new Map<string, { startLat: number; startLng: number; endLat: number; endLng: number }>();
+    const triangleMap = new Map<string, { name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }>();
+    const nearestBySite = new Map<string, any[]>();
+    sites.forEach((site: any) => {
+      const nearest = sites.filter((other: any) => siteKey(other) !== siteKey(site))
+        .map((other: any) => ({ site: other, distance: distance(site, other) }))
+        .sort((a: any, b: any) => a.distance - b.distance)
+        .slice(0, 3).map((entry: any) => entry.site);
+      nearestBySite.set(siteKey(site), nearest);
+      nearest.forEach((other: any) => {
+        const aKey = siteKey(site), bKey = siteKey(other);
+        const key = [aKey, bKey].sort().join('::');
+        if (!edgeMap.has(key)) edgeMap.set(key, { startLat: site.lat, startLng: site.lon, endLat: other.lat, endLng: other.lon });
+      });
+    });
+    sites.forEach((site: any) => {
+      const nearest = nearestBySite.get(siteKey(site)) || [];
+      for (let i = 0; i < nearest.length; i++) for (let j = i + 1; j < nearest.length; j++) {
+        const a = site, b = nearest[i], c = nearest[j];
+        const keys = [siteKey(a), siteKey(b), siteKey(c)].sort();
+        const key = keys.join('::');
+        if (triangleMap.has(key)) continue;
+        // Reject nearly-collinear triples so the overlay reads as a clean mesh.
+        const x1 = (b.lon - a.lon) * Math.cos(a.lat * Math.PI / 180), y1 = b.lat - a.lat;
+        const x2 = (c.lon - a.lon) * Math.cos(a.lat * Math.PI / 180), y2 = c.lat - a.lat;
+        if (Math.abs(x1 * y2 - y1 * x2) < 0.00001) continue;
+        triangleMap.set(key, {
+          name: [a.name, b.name, c.name].join(' / '),
+          geometry: { type: 'Polygon', coordinates: [[[a.lon, a.lat], [b.lon, b.lat], [c.lon, c.lat], [a.lon, a.lat]]] },
+        });
+      }
+    });
+    setTriangulationOverlay({ edges: Array.from(edgeMap.values()), polygons: Array.from(triangleMap.values()), siteCount: sites.length });
+    setShowAlignmentTriangles(true);
   };
-  triangleCandidates.forEach((site: any) => triangleCandidates.filter((other: any) => other.name !== site.name).sort((a: any, b: any) => triangleDistance(site, a) - triangleDistance(site, b)).slice(0, 3).forEach((other: any) => {
-    const key = triangleKey(site.name, other.name);
-    if (!triangleEdgeMap.has(key)) triangleEdgeMap.set(key, { startLat: site.lat, startLng: site.lon, endLat: other.lat, endLng: other.lon });
-  }));
-  const triangleEdges = Array.from(triangleEdgeMap.values());
-  const trianglePolygons: Array<{ name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }> = [];
-  const triangleAngleCounts: Record<string, number> = {};
-  const triangleConnected = (a: string, b: string) => triangleEdgeMap.has(triangleKey(a, b));
-  const localXY = (site: any) => ({ x: site.lon * Math.cos(site.lat * Math.PI / 180), y: site.lat });
-  const triangleAngle = (p: any, q: any, r: any) => {
-    const a = localXY(p), b = localXY(q), c = localXY(r);
-    const ux = b.x - a.x, uy = b.y - a.y, vx = c.x - a.x, vy = c.y - a.y;
-    const denominator = Math.hypot(ux, uy) * Math.hypot(vx, vy);
-    return denominator ? Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / denominator))) * 180 / Math.PI : 0;
-  };
-  for (let ai = 0; ai < triangleCandidates.length; ai++) for (let bi = ai + 1; bi < triangleCandidates.length; bi++) for (let ci = bi + 1; ci < triangleCandidates.length; ci++) {
-    const a = triangleCandidates[ai], b = triangleCandidates[bi], c = triangleCandidates[ci];
-    if (!triangleConnected(a.name, b.name) || !triangleConnected(b.name, c.name) || !triangleConnected(c.name, a.name)) continue;
-    const angles = [triangleAngle(a,b,c), triangleAngle(b,c,a), triangleAngle(c,a,b)];
-    angles.forEach((angle) => { const bin = String(Math.round(angle / 5) * 5); triangleAngleCounts[bin] = (triangleAngleCounts[bin] || 0) + 1; });
-    trianglePolygons.push({ name: [a.name,b.name,c.name].join(' / '), geometry: { type: 'Polygon', coordinates: [[[a.lon,a.lat],[b.lon,b.lat],[c.lon,c.lat],[a.lon,a.lat]]] } });
-  }
-  const repeatedTriangleAngles = Object.entries(triangleAngleCounts).filter(([, count]) => count >= 4).sort((a,b) => Number(a[0])-Number(b[0]));
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
   const [isCelestialDeckCollapsed, setIsCelestialDeckCollapsed] = useState<boolean>(false);
   const [showDetailedStarInfo, setShowDetailedStarInfo] = useState<boolean>(true);
@@ -2933,7 +2960,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               })}</div>}
               <div className="text-[9px] leading-relaxed text-slate-500">All 88 constellation stick figures use sourced J2000 right-ascension/declination line paths. These are traditional sky-chart connections, not the IAU constellation boundary outlines. Data source: d3-celestial.</div>
             </div>
-            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowLocationMenu((open) => !open)} className="rounded-lg border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-sky-100 hover:bg-sky-900"><MapPin className="mr-1 inline h-3.5 w-3.5" />{showLocationMenu ? 'CLOSE LOCATION LAYERS' : 'CITY / LOCATION LAYERS'} · {showCities || showAncientStructures || showMeasuredSoundSites ? 'ON' : 'OFF'}</button><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showAlignmentTriangles} onChange={(e) => setShowAlignmentTriangles(e.target.checked)} className="accent-sky-400" /><span><strong>Site triangles</strong></span></label><label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCosmicBeam} onChange={(e) => setShowCosmicBeam(e.target.checked)} className="accent-orange-400" /><span><strong>Cosmic beam</strong></span></label></div>
+            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowLocationMenu((open) => !open)} className="rounded-lg border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-sky-100 hover:bg-sky-900"><MapPin className="mr-1 inline h-3.5 w-3.5" />{showLocationMenu ? 'CLOSE LOCATION LAYERS' : 'CITY / LOCATION LAYERS'} · {showCities || showAncientStructures || showMeasuredSoundSites ? 'ON' : 'OFF'}</button><button type="button" onClick={triangulateEarthLocations} className="rounded-lg border border-cyan-300/50 bg-gradient-to-r from-cyan-950/90 to-slate-900 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)] hover:border-cyan-200 hover:bg-cyan-900">△ TRIANGULATE CITIES / LOCATIONS</button>{showAlignmentTriangles && <><button type="button" onClick={() => setShowAlignmentTriangles(false)} className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-[10px] font-mono text-slate-300 hover:text-white">HIDE MESH</button><span className="self-center text-[9px] font-mono text-cyan-200">{triangulationOverlay.polygons.length.toLocaleString()} TRIANGLES · {triangulationOverlay.siteCount.toLocaleString()} LOCATIONS</span></>}<label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCosmicBeam} onChange={(e) => setShowCosmicBeam(e.target.checked)} className="accent-orange-400" /><span><strong>Cosmic beam</strong></span></label></div>
             {showLocationMenu && <div className="mt-2 rounded-xl border border-sky-500/30 bg-slate-950/90 p-3"><div className="mb-2 text-[10px] font-mono font-bold tracking-widest text-sky-200">LOCATION LAYERS · ON / OFF</div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label className="flex items-center gap-2 rounded-lg border border-sky-400/30 px-2 py-2 text-xs text-slate-100 cursor-pointer"><input type="checkbox" checked={showCities} onChange={(e) => setShowCities(e.target.checked)} className="accent-sky-400" /><span><strong className="text-sky-200">CITIES</strong><span className="block text-[9px] text-slate-400">Blue dots · city locations</span></span></label>
             <label className="flex items-center gap-2 rounded-lg border border-yellow-400/30 px-2 py-2 text-xs text-slate-100 cursor-pointer"><input type="checkbox" checked={showAncientStructures} onChange={(e) => setShowAncientStructures(e.target.checked)} className="accent-yellow-400" /><span><strong className="text-yellow-200">ANCIENT SITES / MONUMENTS</strong><span className="block text-[9px] text-slate-400">Yellow dots · monuments and structures</span></span></label>
@@ -3131,14 +3158,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
               showGraticules={false} showAtmosphere={earthAtmosphere}
-              arcsData={showAlignmentTriangles && showAncientStructures ? triangleEdges : []}
+              arcsData={showAlignmentTriangles ? triangleEdges : []}
               arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
               arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
-              arcColor={() => showAcousticColorSystem ? '#38bdf8' : '#e2e8f0'} arcStroke={0.65} arcAltitude={0.008}
-              polygonsData={showAlignmentTriangles && showAncientStructures ? trianglePolygons : []}
+              arcColor={() => '#67e8f9'} arcStroke={0.9} arcAltitude={0.014}
+              polygonsData={showAlignmentTriangles ? trianglePolygons : []}
               polygonGeoJsonGeometry={(d: any) => d.geometry}
-              polygonCapColor={() => showAcousticColorSystem ? 'rgba(56,189,248,0.08)' : 'rgba(226,232,240,0.04)'}
-              polygonSideColor={() => 'rgba(56,189,248,0.03)'} polygonStrokeColor={() => showAcousticColorSystem ? 'rgba(125,211,252,0.72)' : 'rgba(226,232,240,0.55)'} polygonAltitude={0.012}
+              polygonCapColor={() => 'rgba(34,211,238,0.055)'}
+              polygonSideColor={() => 'rgba(8,145,178,0.22)'} polygonStrokeColor={() => 'rgba(165,243,252,0.92)'} polygonAltitude={0.018}
               labelsData={[]}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
