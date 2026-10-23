@@ -665,9 +665,17 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
   min-height: 26px;
 }
 
-/* Transparent control surfaces across the app; keep borders and labels readable. */
-button { background-color: transparent !important; background-image: none !important; box-shadow: none !important; }
-button:hover, button:focus-visible { background-color: transparent !important; border-color: rgba(148,163,184,0.8); }
+/* Unified translucent grey button surfaces across the app; keep borders and labels readable. */
+button {
+  background-color: rgba(128, 128, 128, 0.22) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(3px);
+}
+button:hover, button:focus-visible {
+  background-color: rgba(160, 160, 160, 0.34) !important;
+  border-color: rgba(190, 190, 190, 0.85);
+}
 
 /* GLOBAL COMPACT DISPLAY: keep the complete workspace inside the viewport. */
 :root {
