@@ -338,3 +338,17 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 .atlas-module-toggles input { accent-color:#22b8f0; }
 .atlas-module-toggles button { margin-left:auto; }
 @media (max-width:900px) { .atlas-module-workspace { max-height:32vh; } .atlas-module-results .atlas-result-chip { font-size:10px; } }
+
+
+/* Laser-space workspace: give the globe more of the viewport and lower the search strip slightly. */
+.atlas-center-heading { min-height: 42px; padding-top: 2px; padding-bottom: 1px; }
+.atlas-globe-stage { min-height: 260px; }
+.atlas-searchbox { margin-top: 7px; }
+@media (min-width: 900px) {
+  .atlas-center-heading p { max-width: 520px; }
+  .atlas-globe-stage { min-height: 0; flex: 1 1 0; }
+}
+@media (max-height: 850px) and (min-width: 900px) {
+  .atlas-center-heading { min-height: 34px; }
+  .atlas-center-heading p { display: none; }
+}
