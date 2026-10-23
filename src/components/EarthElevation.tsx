@@ -77,7 +77,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         const tiff = await fromUrl(NOAA_DEM_URL);
         if (cancelled) return;
         const image = await tiff.getImage();
-        const raster = await image.readRasters({ width: 360, height: 180, interleave: true });
+        const raster = await image.readRasters({ width: 720, height: 360, interleave: true });
         if (cancelled) return;
         const values = raster as unknown as Float32Array;
         gridWidth = 720;
