@@ -3198,9 +3198,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         <div className="absolute inset-3 z-[60] overflow-y-auto rounded-2xl border border-emerald-400/70 bg-[#07101d]/96 p-3 md:p-5 shadow-2xl backdrop-blur-md pointer-events-auto">
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
-              <div className="text-sm md:text-base font-mono font-bold text-emerald-200">EARTH LOCATION · {clickedStar?.name || 'Selected star'}</div>
+              <div className="text-sm md:text-base font-mono font-bold text-emerald-200">EARTH LOCATION · {selectedEarthSite?.name || clickedStar?.name || 'Selected location'}</div>
               <div className="mt-1 text-[10px] md:text-xs font-mono text-slate-300">
-                Substellar point: {earthLocateTarget.latitude.toFixed(4)}° lat, {earthLocateTarget.longitude.toFixed(4)}° lon · {earthLocateTarget.date} {earthLocateTarget.utcTime}
+                {selectedEarthSite ? 'Site coordinates' : 'Substellar point'}: {earthLocateTarget.latitude.toFixed(4)}° lat, {earthLocateTarget.longitude.toFixed(4)}° lon · {earthLocateTarget.date} {earthLocateTarget.utcTime}
               </div>
               <div className="mt-1 text-[9px] font-mono text-slate-500">{earthLocateTarget.source} · UTC / GMST calculation. The marker is the point where the star is directly overhead.</div>
             </div>
