@@ -41,6 +41,7 @@ import {
   X,
   Sparkles,
   Sun,
+  Camera,
 } from 'lucide-react';
 import {
   REAL_CELESTIAL_STARS,
@@ -2372,6 +2373,29 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             title={is24HourRotationActive ? '24-hour rotation is running continuously; click to pause it' : 'Start continuous 24-hour Earth and sky rotation; it keeps running beyond 24 hours until clicked again'}
           >
             {is24HourRotationActive ? '24H DAY · ON' : '24H DAY'}
+          </button>
+          <button
+            onClick={() => {
+              const globe = globeRef.current;
+              const canvas = globe?.renderer?.()?.domElement as HTMLCanvasElement | undefined;
+              if (!canvas) { window.alert('The Earth view is not ready for a screenshot yet.'); return; }
+              try {
+                const pov = globe?.pointOfView?.() || {};
+                const spot = selectedEarthSite?.name || `Earth-${Number(pov.lat ?? 0).toFixed(2)}-${Number(pov.lng ?? 0).toFixed(2)}`;
+                const safeName = String(spot).normalize('NFKD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90) || 'Earth-Screenshot';
+                const link = document.createElement('a');
+                link.download = `${safeName}-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+              } catch (error) {
+                console.error('Earth screenshot failed:', error);
+                window.alert('Could not capture the Earth view. Try again after the globe finishes rendering.');
+              }
+            }}
+            className="ml-1 inline-flex items-center gap-1 rounded border border-sky-500/50 bg-sky-950/70 px-2 py-1 text-[10px] font-mono font-bold text-sky-200 hover:bg-sky-900/80"
+            title="Save a PNG screenshot of the Earth globe using the selected site's name"
+          >
+            <Camera className="w-3.5 h-3.5" /> SCREENSHOT
           </button>
           <button
             onClick={onResetCamera}
