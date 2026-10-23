@@ -352,7 +352,7 @@ export default function App() {
         </div>
         <div className="atlas-topnav"><button className="atlas-secondary-button" onClick={() => setShowFavorites(value => !value)}><Star size={15} fill={favoriteSites.length ? 'currentColor' : 'none'} /> FAVORITES · {favoriteSites.length}</button></div>
         <div className="atlas-status">
-          <button className="atlas-primary-button" onClick={handleToggleAudio}>{isRunning ? "STOP AUDIO" : "START AUDIO"}</button><div className="atlas-clock"><span className="status-dot" /> {isRunning ? "AUDIO ENGINE RUNNING" : "SYSTEM ONLINE"}</div>
+          <div className="atlas-status-line"><div className="atlas-clock"><span className="status-dot" /> {isRunning ? "AUDIO ENGINE RUNNING" : "SYSTEM ONLINE"}</div><button className="atlas-audio-top-button" onClick={handleToggleAudio}><Volume2 size={14} /> {isRunning ? "STOP AUDIO" : "START AUDIO"}</button></div>
           <div className="atlas-status-sub">LOCAL DATA · {researchSites.length.toLocaleString()} SITES · {REAL_CELESTIAL_STARS.length} STARS</div>
         </div>
       </header>
