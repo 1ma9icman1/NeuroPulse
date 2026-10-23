@@ -2881,14 +2881,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             Earth View
           </button>
           <button
-            onClick={() => onUpdateCameraView('front')}
+            onClick={() => activateSeaLevelOverlay(true)}
+            aria-pressed={showSeaLevelOverlay}
             className={`px-2.5 py-1 text-xs font-mono font-bold rounded-md border transition-colors ${
-              cameraView === 'front'
-                ? 'bg-purple-600 text-white border-purple-300 shadow-sm'
-                : 'bg-slate-900/90 text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white'
+              showSeaLevelOverlay
+                ? 'bg-cyan-800 text-cyan-100 border-cyan-300 shadow-sm'
+                : 'bg-slate-900/90 text-cyan-300 border-cyan-700/60 hover:bg-cyan-950 hover:text-white'
             }`}
+            title="Open the water-level and elevation model in this Earth window"
           >
-            Earth Elevation
+            Water Elevation
           </button>
 
           <button
