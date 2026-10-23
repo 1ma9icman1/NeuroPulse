@@ -86,6 +86,7 @@ export default function App() {
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
   const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street'>('globe');
   const [streetFallbackNotice, setStreetFallbackNotice] = useState(false);
+  const streetFallbackTimerRef = useRef<number | null>(null);
 
   // Google renders its "no Street View imagery" message inside a cross-origin iframe,
   // so the parent page cannot inspect it. If the panorama does not settle within 3 seconds,
@@ -96,11 +97,14 @@ export default function App() {
       return;
     }
     setStreetFallbackNotice(false);
-    const fallbackTimer = window.setTimeout(() => {
+    streetFallbackTimerRef.current = window.setTimeout(() => {
       setStreetFallbackNotice(true);
       setEarthAreaView('road');
     }, 3000);
-    return () => window.clearTimeout(fallbackTimer);
+    return () => {
+      if (streetFallbackTimerRef.current !== null) window.clearTimeout(streetFallbackTimerRef.current);
+      streetFallbackTimerRef.current = null;
+    };
   }, [earthAreaView, selectedSiteId, selectedGlobeSite?.lat, selectedGlobeSite?.lon]);
 
   const handleGlobeSiteSelect = useCallback((site: any) => {
@@ -293,7 +297,7 @@ export default function App() {
               onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
               onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 4.6, cameraView: 'top' })}
               onSiteSelect={handleGlobeSiteSelect}
-            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{streetFallbackNotice && <span role="status">Street View unavailable — showing road map</span>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onError={() => { if (earthAreaView === 'street') setEarthAreaView('road'); }} src={earthAreaView === 'street' ? 'https://maps.google.com/maps?q=&layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,0,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
+            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{streetFallbackNotice && <span role="status">Street View unavailable — showing road map</span>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street' && streetFallbackTimerRef.current !== null) { window.clearTimeout(streetFallbackTimerRef.current); streetFallbackTimerRef.current = null; } }} onError={() => { if (earthAreaView === 'street') setEarthAreaView('road'); }} src={earthAreaView === 'street' ? 'https://maps.google.com/maps?q=&layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,0,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
             <div className="atlas-globe-overlay atlas-globe-overlay-bottom">
               <span><i className="legend-dot cyan" /> SITE DATABASE</span>
