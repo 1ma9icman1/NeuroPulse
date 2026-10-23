@@ -664,3 +664,7 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
   min-width: 26px;
   min-height: 26px;
 }
+
+/* Transparent control surfaces across the app; keep borders and labels readable. */
+button { background-color: transparent !important; background-image: none !important; box-shadow: none !important; }
+button:hover, button:focus-visible { background-color: rgba(148,163,184,0.10) !important; }
