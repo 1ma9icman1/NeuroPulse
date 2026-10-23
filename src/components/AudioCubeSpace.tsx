@@ -430,6 +430,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // then reveal regional and full research-site layers as the user zooms in.
   const [earthViewAltitude, setEarthViewAltitude] = useState<number>(2.05);
   const earthZoomTier = earthViewAltitude > 1.55 ? 0 : earthViewAltitude > 0.95 ? 1 : earthViewAltitude > 0.58 ? 2 : 3;
+  const zoomMajorCityNames = new Set(['New York', 'Los Angeles', 'Chicago', 'Mexico City', 'Toronto', 'Rio de Janeiro', 'London', 'Paris', 'Rome', 'Cairo', 'Lagos', 'Nairobi', 'Istanbul', 'Dubai', 'Mumbai', 'Delhi', 'Bangkok', 'Singapore', 'Beijing', 'Seoul', 'Tokyo', 'Sydney', 'Auckland', 'Moscow', 'Reykjavik', 'Honolulu', 'Anchorage', 'Washington', 'Washington, D.C.', 'Ottawa', 'Brasilia', 'Buenos Aires', 'Madrid', 'Berlin', 'Athens', 'Jerusalem', 'Tehran', 'Karachi', 'Dhaka', 'Jakarta', 'Manila', 'Hanoi', 'Taipei', 'Kuala Lumpur', 'Cape Town', 'Johannesburg', 'Addis Ababa', 'Accra', 'Perth', 'Melbourne', 'Vancouver', 'San Francisco', 'Seattle', 'Boston', 'Miami', 'Denver', 'Phoenix']);
+  const isMajorZoomCity = (site: any) => !!site.isMajorCity || !!site.isCapital || zoomMajorCityNames.has(String(site.name || '').trim());
   const zoomTierLabel = earthZoomTier === 0 ? 'WORLD · MAJOR CITIES' : earthZoomTier === 1 ? 'CONTINENT · CITIES' : earthZoomTier === 2 ? 'REGION · SITES' : 'CLOSE-UP · ALL SITES';
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
@@ -545,8 +547,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         if (!showCities) return false;
         // At world scale show only the curated major-city layer; more city labels
         // appear as the user zooms toward a continent or region.
-        if (earthZoomTier === 0 && !site.isMajorCity) return false;
-        if (earthZoomTier === 1 && !site.isMajorCity && !site.isCapital) return false;
+        if (earthZoomTier === 0 && !isMajorZoomCity(site)) return false;
+        if (earthZoomTier === 1 && !isMajorZoomCity(site) && !site.isCapital) return false;
         return true;
       }
       if (earthZoomTier < 2) return false;
@@ -3578,7 +3580,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
               labelColor={(d: any) => d.isCity ? '#e2e8f0' : d.evidenceStatus ? '#fdba74' : '#fde68a'}
               labelSize={(d: any) => d.isCity ? 0.40 : 0.31} labelAltitude={0.016} labelDotRadius={(d: any) => d.isCity ? 0.065 : 0.045}
-              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? (showCities && (earthZoomTier >= 2 || site.isMajorCity || site.isCapital)) : (earthZoomTier >= 2 && (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)))} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? (showCities && (earthZoomTier >= 2 || isMajorZoomCity(site))) : (earthZoomTier >= 2 && (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)))} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               {...({
                 // Use the points-layer API so the LED sprites replace default point dots.
