@@ -2578,30 +2578,30 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         <div className="flex items-center gap-1 bg-[#0b1220]/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-lg">
           <button
             onClick={() => onUpdateCameraView('perspective')}
-            className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors ${
+            className={`px-2.5 py-1 text-xs font-mono font-bold rounded-md border transition-colors ${
               cameraView === 'perspective'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-purple-600 text-white border-purple-300 shadow-sm'
+                : 'bg-slate-900/90 text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white'
             }`}
           >
             3D Space Cube
           </button>
           <button
             onClick={() => onUpdateCameraView('top')}
-            className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors ${
+            className={`px-2.5 py-1 text-xs font-mono font-bold rounded-md border transition-colors ${
               cameraView === 'top'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-purple-600 text-white border-purple-300 shadow-sm'
+                : 'bg-slate-900/90 text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white'
             }`}
           >
             Earth View
           </button>
           <button
             onClick={() => onUpdateCameraView('front')}
-            className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-colors ${
+            className={`px-2.5 py-1 text-xs font-mono font-bold rounded-md border transition-colors ${
               cameraView === 'front'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-purple-600 text-white border-purple-300 shadow-sm'
+                : 'bg-slate-900/90 text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white'
             }`}
           >
             Earth Elevation
@@ -2899,11 +2899,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         {/* Earth camera controls belong in the Earth window's bottom bar, not beneath Search in the sidebar. */}
         {isEarthModeActive && (
           <div className="absolute bottom-3 right-3 z-[70] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-end gap-2 rounded-lg border border-purple-500/50 bg-[#0b1220]/95 px-3 py-2 text-xs font-mono text-slate-300 shadow-lg backdrop-blur-md pointer-events-auto">
-            <Rotate3D className="w-3.5 h-3.5 text-purple-400" />
-            <span>Yaw: <strong className="text-white">{cameraYaw.toFixed(0)}°</strong></span>
-            <span className="text-slate-600">·</span>
-            <span>Pitch: <strong className="text-white">{cameraPitch.toFixed(0)}°</strong></span>
-            <div className="flex items-center gap-1 border-l border-slate-700 pl-2">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => onUpdateCameraZoom(Math.max(0.6, +(cameraZoom - 0.1).toFixed(2)))}
                 className="rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-white"
