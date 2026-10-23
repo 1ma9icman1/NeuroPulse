@@ -2572,7 +2572,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            3D Orbit Cube
+            3D Space Cube
           </button>
           <button
             onClick={() => onUpdateCameraView('top')}
@@ -2582,7 +2582,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Top Plane
+            Earth View
           </button>
           <button
             onClick={() => onUpdateCameraView('front')}
@@ -2592,7 +2592,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Front Elevation
+            Earth Elevation
           </button>
 
           <button
