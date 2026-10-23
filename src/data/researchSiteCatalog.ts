@@ -14,6 +14,7 @@ export interface ResearchCatalogSite {
   tags: string[];
   desc: string;
   sourceUrl?: string;
+  geometry?: string;
 }
 
 const UNESCO = 'https://whc.unesco.org/en/list/';
