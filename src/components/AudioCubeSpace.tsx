@@ -689,15 +689,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [earthLocateLoading, setEarthLocateLoading] = useState(false);
   const [earthLocateImageLoading, setEarthLocateImageLoading] = useState(false);
   const [earthMapView, setEarthMapView] = useState<'map' | 'terrain' | 'satellite'>('map');
-  const [earthStreetViewFallback, setEarthStreetViewFallback] = useState(false);
-  useEffect(() => {
-    if (!earthLocateTarget) return;
-    setEarthStreetViewFallback(false);
-    // Street View can silently show a blank/error frame when no nearby panorama exists.
-    // Fall back to a close satellite image instead of leaving an empty panel.
-    const fallbackTimer = window.setTimeout(() => setEarthStreetViewFallback(true), 10000);
-    return () => window.clearTimeout(fallbackTimer);
-  }, [earthLocateTarget]);
   const [selectedEarthSite, setSelectedEarthSite] = useState<EarthSiteSelection | null>(null);
   const openEarthSite = (site: EarthSiteSelection) => {
     setSelectedEarthSite(site);
@@ -3082,33 +3073,21 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               </div>
             </div>
             <div className="min-h-[260px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
-              <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                <div className="text-[10px] font-mono font-bold tracking-wider text-emerald-200">{earthStreetViewFallback ? 'NEARBY SATELLITE FALLBACK' : 'NEAREST AVAILABLE STREET VIEW'}</div>
-                <div className="flex gap-1">
-                  {earthStreetViewFallback && <button onClick={() => setEarthStreetViewFallback(false)} className="rounded border border-sky-700 bg-sky-950 px-2 py-1 text-[9px] font-mono font-bold text-sky-200 hover:bg-sky-900">RETRY STREET VIEW</button>}
-                  <a className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-mono font-bold text-slate-300 hover:text-white" href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${earthLocateTarget.latitude},${earthLocateTarget.longitude}`} target="_blank" rel="noreferrer">OPEN IN MAPS ↗</a>
-                </div>
-              </div>
-              {earthStreetViewFallback ? (
-                <img
-                  src={`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${earthLocateTarget.longitude - 0.025},${Math.max(-85, earthLocateTarget.latitude - 0.018)},${earthLocateTarget.longitude + 0.025},${Math.min(85, earthLocateTarget.latitude + 0.018)}&bboxSR=4326&imageSR=4326&size=1200,760&format=jpg&transparent=false&f=image`}
-                  alt={`Satellite imagery near ${earthLocateTarget.latitude.toFixed(4)}, ${earthLocateTarget.longitude.toFixed(4)}`}
-                  className="w-full h-[300px] md:h-[430px] object-cover bg-slate-900"
-                  onError={(event) => { event.currentTarget.style.display = 'none'; }}
-                />
+              <div className="px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-emerald-200">LOCATION PHOTOGRAPH / SATELLITE CONTEXT</div>
+              {earthLocateImage?.url ? (
+                <>
+                  <img src={earthLocateImage.url} alt={earthLocateImage.title} className="w-full h-[240px] md:h-[330px] object-cover bg-slate-900" loading="lazy" />
+                  <div className="p-3">
+                    <div className="text-xs font-semibold text-slate-100">{earthLocateImage.title}</div>
+                    <div className="mt-1 text-[10px] text-slate-400 line-clamp-3">{earthLocateImage.description}</div>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-500"><span>Source: {earthLocateImage.source}</span>{earthLocateImage.pageUrl && <a href={earthLocateImage.pageUrl} target="_blank" rel="noreferrer" className="text-sky-300 hover:text-sky-100">Image source ↗</a>}</div>
+                  </div>
+                </>
               ) : (
-                <iframe
-                  title={`Nearest Google Street View panorama near ${earthLocateTarget.latitude.toFixed(4)}, ${earthLocateTarget.longitude.toFixed(4)}`}
-                  className="w-full h-[300px] md:h-[430px] border-0 bg-slate-900"
-                  src={`https://maps.google.com/maps?q=&layer=c&cbll=${earthLocateTarget.latitude},${earthLocateTarget.longitude}&output=svembed`}
-                  loading="eager"
-                  allowFullScreen
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
+                <div className="flex min-h-[240px] md:min-h-[330px] items-center justify-center p-6 text-center text-xs font-mono text-slate-400">
+                  {earthLocateImageLoading ? 'Searching nearby open-license photographs, then NASA imagery…' : 'No suitable photo was returned. The map remains available; try opening the full map for this location.'}
+                </div>
               )}
-              <div className="px-3 py-2 text-[10px] text-slate-500">
-                {earthStreetViewFallback ? 'Street View did not confirm a usable panorama in time; showing high-detail satellite imagery at the same coordinates.' : 'Google Street View attempts the nearest available panorama to the calculated coordinate. Satellite imagery automatically replaces it after 10 seconds if Street View does not load.'}
-              </div>
             </div>
           </div>
           <div className="mt-3 text-[9px] text-slate-500">Images are best-effort geographic context, not guaranteed to be a photograph of the exact coordinate. Map data © OpenStreetMap contributors.</div>
