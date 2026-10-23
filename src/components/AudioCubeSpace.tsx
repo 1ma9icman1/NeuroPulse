@@ -2772,7 +2772,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             title="Display interior triangle vertex angles (∠A, ∠B, ∠C) inside the 3D triangle (Sum: 180°)"
           >
             <Triangle className={`w-3.5 h-3.5 ${showTriangleAngles ? 'fill-current' : ''}`} />
-            <span>{showTriangleAngles ? 'ANGLES' : 'ANGLES'}</span>
+            <span>ANGLES</span>
             {clickedStarCount >= 3 && (
               <span className="text-[9px] bg-black/25 px-1 rounded ml-0.5">3/3</span>
             )}
@@ -3345,7 +3345,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         document.querySelector('.atlas-left') as HTMLElement
       )}
 
-remove old timeline button      {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
+      {/* Historical Earth / sky timeline is off by default to keep the initial space view clean. */}
       {isTimelineActive ? (
         <div className="absolute top-[4.6rem] left-3 right-3 z-20 pointer-events-auto max-w-2xl rounded-xl border border-amber-500/40 bg-[#07101d]/95 backdrop-blur-md px-3 py-2 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-1">
