@@ -469,7 +469,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       lead.position.set(x, -0.42, 0);
       group.add(lead);
     }
-    group.scale.setScalar(0.24 + Math.min(0.10, Number(site.size || 0.1) * 0.35));
+    group.scale.setScalar(0.12 + Math.min(0.045, Number(site.size || 0.1) * 0.12));
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.045, 75, 5, 1, true), new THREE.MeshBasicMaterial({ color: ledColor, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }));
+    beam.position.y = 38;
+    beam.userData.isLaserSpaceBeam = true;
+    group.add(beam);
+    const beamCore = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.009, 75, 4, 1, true), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.65, depthWrite: false }));
+    beamCore.position.y = 38;
+    beamCore.userData.isLaserSpaceBeam = true;
+    group.add(beamCore);
     group.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
     group.userData.ledLens = bulb;
     group.userData.ledColor = color;
@@ -483,6 +491,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       if (!scene) return;
       const now = performance.now() * 0.001;
       scene.traverse((object: any) => {
+        if (object.userData?.isLaserSpaceBeam) { const parent = object.parent; object.visible = !!parent?.userData?.showLaserSpaceOverlay; if (object.material) object.material.opacity = 0.2 + ((Math.sin(now * 1.8 + Number(parent?.userData?.ledPhase || 0)) + 1) * 0.5) * 0.5; return; }
         if (!object.userData?.isRetroLedLens) return;
         const parent = object.parent;
         const phase = Number(parent?.userData?.ledPhase || 0);
@@ -499,6 +508,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
   const [triangulationOverlay, setTriangulationOverlay] = useState<{ edges: Array<{ startLat: number; startLng: number; endLat: number; endLng: number }>; polygons: Array<{ name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }>; siteCount: number }>({ edges: [], polygons: [], siteCount: 0 });
   const [showCosmicBeam, setShowCosmicBeam] = useState<boolean>(false);
+  const [showLaserSpaceOverlay, setShowLaserSpaceOverlay] = useState<boolean>(false);
+  const [showLaserStarIntersections, setShowLaserStarIntersections] = useState<boolean>(true);
+
   const [showLocationMenu, setShowLocationMenu] = useState<boolean>(false);
   const [showMeasuredSoundSites, setShowMeasuredSoundSites] = useState<boolean>(true);
   const [showSolfeggioReference, setShowSolfeggioReference] = useState<boolean>(false);
@@ -3356,6 +3368,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
           <input aria-label="Historical year from 10,000 BCE to present" type="range" min="-10000" max={new Date().getUTCFullYear()} step="10" value={timelineYear} onChange={(e) => setTimelineYear(Number(e.target.value))} className="w-full accent-amber-400 cursor-pointer" />
           <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400"><span>10,000 BCE</span><span>{timelineYearsAgo.toLocaleString()} years before present</span><span>Present</span></div>
+          <div className="mt-2 rounded-lg border border-cyan-800/60 bg-slate-950/80 p-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[10px] font-mono font-bold tracking-wide text-cyan-200">LASER SPACE OVERLAY</div>
+              <button type="button" onClick={() => setShowLaserSpaceOverlay(v => !v)} className={`rounded border px-2 py-1 text-[9px] font-bold ${showLaserSpaceOverlay ? 'border-cyan-400 bg-cyan-950 text-cyan-200' : 'border-slate-700 text-slate-400'}`}>{showLaserSpaceOverlay ? 'ON' : 'OFF'}</button>
+            </div>
+            <p className="mt-1 text-[9px] leading-relaxed text-slate-400">Projects outward rays from visible cities and sites beyond the globe view. Apparent star alignments are geometric comparisons, not confirmed physical connections.</p>
+            <label className="mt-2 flex items-center gap-2 text-[9px] text-slate-300"><input type="checkbox" checked={showLaserStarIntersections} onChange={e => setShowLaserStarIntersections(e.target.checked)} /> Show star-intersection analysis</label>
+            {showLaserSpaceOverlay && <div className="mt-1 text-[9px] text-cyan-300">{visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures).length.toLocaleString()} visible origins · rays rendered to 75 globe units</div>}
+          </div>
           <div className="mt-1 text-[9px] leading-tight text-slate-400">Orange markers appear after each site's approximate founding era. With STAR MODE on, Sun and planets move with this year using a local Stardroid-derived ephemeris. {planetEphemerisYearIsPreferred ? 'Orbital elements are within their preferred 1800–2050 CE range.' : 'Planet positions outside 1800–2050 CE are illustrative, not precision historical ephemerides.'} Sky precession is first-order (~50.29″/yr); year-only rotation phase is not an exact historical time-of-day.</div>
         </div>
       ) : (
@@ -3383,7 +3404,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               labelsData={[]}
               pointsData={visibleEarthSites.filter((site: any) => site.isCity ? showCities : site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
-              customThreeObject={(d: any) => makeRetroLed(d)} customThreeObjectUpdate={(obj: any, d: any) => { obj.scale.setScalar(0.24 + Math.min(0.10, Number(d.size || 0.1) * 0.35)); }}
+              customThreeObject={(d: any) => { const obj = makeRetroLed(d); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; return obj; }} customThreeObjectUpdate={(obj: any, d: any) => { obj.scale.setScalar(0.12 + Math.min(0.045, Number(d.size || 0.1) * 0.12)); obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay; obj.children.forEach((child: any) => { if (child.userData?.isLaserSpaceBeam) child.visible = showLaserSpaceOverlay; }); }}
               pointLabel={(d: any) => {
                 if (!d || d.isChannelTarget) return '';
                 const escapeHtml = (value: unknown) => String(value ?? '')
