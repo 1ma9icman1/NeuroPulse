@@ -49,6 +49,12 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const [terrainScale, setTerrainScale] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [datasetInfo, setDatasetInfo] = useState('Connecting to NOAA elevation service…');
+  // Keep the latest slider values available to the asynchronous NOAA scene initializer.
+  // Otherwise a slider move during loading can be overwritten by stale initial values.
+  const seaLevelRef = useRef(seaLevel);
+  const terrainScaleRef = useRef(terrainScale);
+  seaLevelRef.current = seaLevel;
+  terrainScaleRef.current = terrainScale;
 
   useEffect(() => {
     let cancelled = false;
@@ -144,9 +150,11 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
             const elevation = heights[y * gridWidth + x];
             // Flood any terrain below the selected water datum: those vertices sit at
             // the water surface and turn ocean blue, so the slider changes the globe itself.
-            const submerged = elevation < seaLevel;
-            const visibleHeight = submerged ? seaLevel : elevation;
-            const radius = BASE_RADIUS + visibleHeight * HEIGHT_SCALE * terrainScale;
+            const activeSeaLevel = seaLevelRef.current;
+            const activeTerrainScale = terrainScaleRef.current;
+            const submerged = elevation < activeSeaLevel;
+            const visibleHeight = submerged ? activeSeaLevel : elevation;
+            const radius = BASE_RADIUS + visibleHeight * HEIGHT_SCALE * activeTerrainScale;
             positions.push(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
             const color = submerged ? new THREE.Color('#168bd2') : elevationColor(elevation);
             colors.push(color.r, color.g, color.b);
@@ -176,7 +184,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         earthGroup.add(sitePoints);
 
         water = new THREE.Mesh(
-          new THREE.SphereGeometry(BASE_RADIUS, 128, 64),
+          new THREE.SphereGeometry(BASE_RADIUS + seaLevelRef.current * HEIGHT_SCALE * terrainScaleRef.current, 128, 64),
           new THREE.MeshStandardMaterial({ color: '#168bd2', transparent: true, opacity: 0.58, roughness: 0.28, metalness: 0.08, depthWrite: false, side: THREE.DoubleSide })
         );
         water.renderOrder = 2;
@@ -201,7 +209,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
               const elevation = heights[sy * gridWidth + sx] || 0;
               const lat = site.lat * Math.PI / 180;
               const lon = site.lon * Math.PI / 180;
-              const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.8;
+              const radius = BASE_RADIUS + Math.max(elevation, seaLevelRef.current) * HEIGHT_SCALE * terrainScaleRef.current + 0.8;
               const raw = String(site.color || '').toLowerCase();
               const row = /orange|fb923c|f97316|red|ef4444|f87171/.test(raw) ? 0
                 : /yellow|gold|facc15|fbbf24/.test(raw) ? 1
@@ -327,6 +335,11 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     positionAttribute.needsUpdate = true;
     colorAttribute.needsUpdate = true;
     state.geometry.computeVertexNormals();
+    // Recalculate bounds after changing vertex positions so Three.js doesn't cull the raised globe.
+    state.geometry.computeBoundingSphere();
+    // Keep the visible water surface locked to the exact same datum as flooded terrain.
+    state.water.geometry.dispose();
+    state.water.geometry = new THREE.SphereGeometry(BASE_RADIUS + seaLevel * HEIGHT_SCALE * terrainScale, 128, 64);
   }, [terrainScale, seaLevel]);
 
   useEffect(() => {
@@ -348,12 +361,6 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     }
   }, [terrainScale, siteCatalogue, seaLevel]);
 
-  useEffect(() => {
-    const state = sceneRef.current;
-    if (!state) return;
-    state.water.geometry.dispose();
-    state.water.geometry = new THREE.SphereGeometry(BASE_RADIUS + seaLevel * HEIGHT_SCALE * terrainScale, 128, 64);
-  }, [seaLevel, terrainScale]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
