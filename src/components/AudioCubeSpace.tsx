@@ -502,7 +502,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   }, []);
 
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
-  const [triangulationOverlay, setTriangulationOverlay] = useState<{ edges: Array<{ startLat: number; startLng: number; endLat: number; endLng: number }>; polygons: Array<{ name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }>; siteCount: number }>({ edges: [], polygons: [], siteCount: 0 });
+  const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(false);
+  const [triangulationOverlay, setTriangulationOverlay] = useState<{ edges: Array<{ startLat: number; startLng: number; endLat: number; endLng: number }>; polygons: Array<{ name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }>; angleLabels: Array<{ name: string; lat: number; lon: number; label: string; isTriangleAngleLabel: true }>; siteCount: number }>({ edges: [], polygons: [], angleLabels: [], siteCount: 0 });
   const [showCosmicBeam, setShowCosmicBeam] = useState<boolean>(false);
   const [showLaserSpaceOverlay, setShowLaserSpaceOverlay] = useState<boolean>(false);
   const [showLaserStarIntersections, setShowLaserStarIntersections] = useState<boolean>(true);
@@ -547,6 +548,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const siteKey = (site: any) => String(site.name || '') + '|' + Number(site.lat).toFixed(5) + '|' + Number(site.lon).toFixed(5);
     const edgeMap = new Map<string, { startLat: number; startLng: number; endLat: number; endLng: number }>();
     const triangleMap = new Map<string, { name: string; geometry: { type: 'Polygon'; coordinates: number[][][] } }>();
+    const angleLabels: Array<{ name: string; lat: number; lon: number; label: string; isTriangleAngleLabel: true }> = [];
     const nearestBySite = new Map<string, any[]>();
     sites.forEach((site: any) => {
       const nearest = sites.filter((other: any) => siteKey(other) !== siteKey(site))
@@ -575,9 +577,27 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           name: [a.name, b.name, c.name].join(' / '),
           geometry: { type: 'Polygon', coordinates: [[[a.lon, a.lat], [b.lon, b.lat], [c.lon, c.lat], [a.lon, a.lat]]] },
         });
+        // Calculate the three interior angles on a local tangent plane and place their
+        // compact readout at the triangle center. These labels are independently toggleable.
+        const project = (p: any) => ({ x: (p.lon - a.lon) * Math.cos(a.lat * Math.PI / 180), y: p.lat - a.lat });
+        const pa = project(a), pb = project(b), pc = project(c);
+        const angleAt = (p: {x:number;y:number}, q: {x:number;y:number}, r: {x:number;y:number}) => {
+          const u = { x: q.x - p.x, y: q.y - p.y }, v = { x: r.x - p.x, y: r.y - p.y };
+          const denom = Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y);
+          if (!denom) return 0;
+          return Math.acos(Math.max(-1, Math.min(1, (u.x * v.x + u.y * v.y) / denom))) * 180 / Math.PI;
+        };
+        const angles = [angleAt(pa, pb, pc), angleAt(pb, pa, pc), angleAt(pc, pa, pb)];
+        angleLabels.push({
+          name: [a.name, b.name, c.name].join(' / '),
+          lat: (a.lat + b.lat + c.lat) / 3,
+          lon: (a.lon + b.lon + c.lon) / 3,
+          label: angles.map((value) => `${Math.round(value)}°`).join(' · '),
+          isTriangleAngleLabel: true,
+        });
       }
     });
-    setTriangulationOverlay({ edges: Array.from(edgeMap.values()), polygons: Array.from(triangleMap.values()), siteCount: sites.length });
+    setTriangulationOverlay({ edges: Array.from(edgeMap.values()), polygons: Array.from(triangleMap.values()), angleLabels, siteCount: sites.length });
     setShowAlignmentTriangles(true);
   };
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
@@ -3197,7 +3217,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               })}</div>}
               <div className="text-[9px] leading-relaxed text-slate-500">All 88 constellation stick figures use sourced J2000 right-ascension/declination line paths. These are traditional sky-chart connections, not the IAU constellation boundary outlines. Data source: d3-celestial.</div>
             </div>
-            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowLocationMenu((open) => !open)} className="rounded-lg border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-sky-100 hover:bg-sky-900"><MapPin className="mr-1 inline h-3.5 w-3.5" />{showLocationMenu ? 'CLOSE LOCATION LAYERS' : 'CITY / LOCATION LAYERS'} · {showCities || showAncientStructures || showMeasuredSoundSites ? 'ON' : 'OFF'}</button><button type="button" onClick={triangulateEarthLocations} className="rounded-lg border border-cyan-300/50 bg-gradient-to-r from-cyan-950/90 to-slate-900 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)] hover:border-cyan-200 hover:bg-cyan-900">△ TRIANGULATE CITIES / LOCATIONS</button>{showAlignmentTriangles && <><button type="button" onClick={() => setShowAlignmentTriangles(false)} className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-[10px] font-mono text-slate-300 hover:text-white">HIDE MESH</button><span className="self-center text-[9px] font-mono text-cyan-200">{triangulationOverlay.polygons.length.toLocaleString()} TRIANGLES · {triangulationOverlay.siteCount.toLocaleString()} LOCATIONS</span></>}<label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCosmicBeam} onChange={(e) => setShowCosmicBeam(e.target.checked)} className="accent-orange-400" /><span><strong>Cosmic beam</strong></span></label></div>
+            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowLocationMenu((open) => !open)} className="rounded-lg border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-sky-100 hover:bg-sky-900"><MapPin className="mr-1 inline h-3.5 w-3.5" />{showLocationMenu ? 'CLOSE LOCATION LAYERS' : 'CITY / LOCATION LAYERS'} · {showCities || showAncientStructures || showMeasuredSoundSites ? 'ON' : 'OFF'}</button><div className="flex flex-col items-stretch gap-1"><button type="button" onClick={triangulateEarthLocations} className="rounded-lg border border-cyan-300/50 bg-gradient-to-r from-cyan-950/90 to-slate-900 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)] hover:border-cyan-200 hover:bg-cyan-900">△ TRIANGULATE CITIES / LOCATIONS</button><button type="button" disabled={!showAlignmentTriangles} onClick={() => setShowTriangleAngles((v) => !v)} className="rounded-lg border border-violet-400/50 bg-slate-950/90 px-3 py-1.5 text-[9px] font-mono font-bold tracking-wider text-violet-100 hover:bg-violet-950 disabled:cursor-not-allowed disabled:opacity-40" title="Toggle the three interior-angle labels for each triangle">△ {showTriangleAngles ? 'HIDE TRIANGLE ANGLES' : 'SHOW TRIANGLE ANGLES'}</button></div>{showAlignmentTriangles && <><button type="button" onClick={() => setShowAlignmentTriangles(false)} className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-[10px] font-mono text-slate-300 hover:text-white">HIDE MESH</button><span className="self-center text-[9px] font-mono text-cyan-200">{triangulationOverlay.polygons.length.toLocaleString()} TRIANGLES · {triangulationOverlay.siteCount.toLocaleString()} LOCATIONS</span></>}<label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCosmicBeam} onChange={(e) => setShowCosmicBeam(e.target.checked)} className="accent-orange-400" /><span><strong>Cosmic beam</strong></span></label></div>
             {showLocationMenu && <div className="mt-2 rounded-xl border border-sky-500/30 bg-slate-950/90 p-3"><div className="mb-2 text-[10px] font-mono font-bold tracking-widest text-sky-200">LOCATION LAYERS · ON / OFF</div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label className="flex items-center gap-2 rounded-lg border border-sky-400/30 px-2 py-2 text-xs text-slate-100 cursor-pointer"><input type="checkbox" checked={showCities} onChange={(e) => setShowCities(e.target.checked)} className="accent-sky-400" /><span><strong className="text-sky-200">CITIES</strong><span className="block text-[9px] text-slate-400">Blue dots · city locations</span></span></label>
             <label className="flex items-center gap-2 rounded-lg border border-yellow-400/30 px-2 py-2 text-xs text-slate-100 cursor-pointer"><input type="checkbox" checked={showAncientStructures} onChange={(e) => setShowAncientStructures(e.target.checked)} className="accent-yellow-400" /><span><strong className="text-yellow-200">ANCIENT SITES / MONUMENTS</strong><span className="block text-[9px] text-slate-400">Yellow dots · monuments and structures</span></span></label>
@@ -3405,7 +3425,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               arcsData={showAlignmentTriangles ? triangleEdges : []}
               arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
               arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
-              arcColor={() => '#67e8f9'} arcStroke={0.28} arcAltitude={0}
+              arcColor={() => '#67e8f9'} arcStroke={0.2} arcAltitude={0}
               // Triangulation is lines-only; reserve filled polygons for the Sea Level flood overlay.
               polygonsData={showSeaLevelOverlay ? seaLevelFloodPolygons : []}
               polygonGeoJsonGeometry={(d: any) => d.geometry}
@@ -3449,9 +3469,26 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   <div style="font-size:10px;color:#cbd5e1;margin-top:3px">Click the location, then use ADD TO A/B/C to assign a channel.</div>
                 </div>`;
               }}
-              htmlElementsData={[...earthChannelMarkers, ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
+              htmlElementsData={[...earthChannelMarkers, ...(showTriangleAngles && showAlignmentTriangles ? triangulationOverlay.angleLabels : []), ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : [])]}
               htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
               htmlElement={(d: any) => {
+                if (d.isTriangleAngleLabel) {
+                  const angle = document.createElement('div');
+                  angle.textContent = d.label;
+                  angle.title = `Approximate interior angles · ${d.name}`;
+                  angle.setAttribute('aria-label', `Triangle interior angles: ${d.label}`);
+                  angle.style.padding = '2px 4px';
+                  angle.style.border = '1px solid rgba(196,181,253,.72)';
+                  angle.style.borderRadius = '4px';
+                  angle.style.background = 'rgba(8,12,28,.88)';
+                  angle.style.color = '#ddd6fe';
+                  angle.style.font = '700 9px ui-monospace, monospace';
+                  angle.style.whiteSpace = 'nowrap';
+                  angle.style.pointerEvents = 'none';
+                  angle.style.transform = 'translate(-50%, -50%)';
+                  angle.style.boxShadow = '0 0 5px rgba(167,139,250,.22)';
+                  return angle;
+                }
                 if (d.isEarthSiteLabel) {
                   const label = document.createElement('button');
                   label.type = 'button';
