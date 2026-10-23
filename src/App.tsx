@@ -15,7 +15,7 @@ import { DEFAULT_EARTH_POINTS } from './data/earthData';
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
 import { ACOUSTIC_SITE_EVIDENCE } from './data/acousticSiteEvidence';
 
-const INITIAL_CONFIG: TrinauralConfig = { aFreq:432,aFineTune:0,aWaveform:'sine',aGain:0.85,aMuted:false,aPos:{x:-4.5,y:1.5,z:0}, bFreq:442,bFineTune:0,bWaveform:'sine',bGain:0.85,bMuted:false,bPos:{x:4.5,y:1.5,z:0}, cFreq:452,cFineTune:0,cWaveform:'sine',cGain:0.85,cMuted:false,cPos:{x:0,y:2.5,z:3.5},isDeltaLocked:true,lockedDeltaAB:10,lockedDeltaBC:10,masterVolume:0.8,spatialMode:'trinaural-isolated',cameraView:'top',cameraYaw:30,cameraPitch:22,cameraZoom:1 };
+const INITIAL_CONFIG: TrinauralConfig = { aFreq:432,aFineTune:0,aWaveform:'sine',aGain:0.85,aMuted:false,aPos:{x:-4.5,y:1.5,z:0}, bFreq:442,bFineTune:0,bWaveform:'sine',bGain:0.85,bMuted:false,bPos:{x:4.5,y:1.5,z:0}, cFreq:452,cFineTune:0,cWaveform:'sine',cGain:0.85,cMuted:false,cPos:{x:0,y:2.5,z:3.5},isDeltaLocked:true,lockedDeltaAB:10,lockedDeltaBC:10,masterVolume:0.8,spatialMode:'trinaural-isolated',cameraView:'top',cameraYaw:30,cameraPitch:22,cameraZoom:4.3 };
 const CENTER: SpatialPosition = { x: 0, y: 0, z: 0 };
 const NAV_ITEMS = [
   { label: 'GLOBAL SEARCH', icon: Radar },
@@ -48,6 +48,7 @@ function formatCoordinate(value: number, positive: string, negative: string) {
 export default function App() {
   const [config, setConfig] = useState<TrinauralConfig>(INITIAL_CONFIG);
   const [isRunning, setIsRunning] = useState(false);
+  const [positionPitchMode, setPositionPitchMode] = useState(false);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   useEffect(() => { const engine = new AudioEngine(INITIAL_CONFIG); audioEngineRef.current = engine; return () => { engine.stop(); audioEngineRef.current = null; }; }, []);
   const handleUpdateConfig = useCallback((patch: Partial<TrinauralConfig>) => { setConfig((previous) => { const next = { ...previous, ...patch }; audioEngineRef.current?.updateConfig(next); return next; }); }, []);
@@ -192,11 +193,12 @@ export default function App() {
               cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
               aFreq={config.aFreq + config.aFineTune} bFreq={config.bFreq + config.bFineTune} cFreq={config.cFreq + config.cFineTune}
               isRunning={isRunning}
+              positionPitchMode={positionPitchMode} onTogglePositionPitchMode={() => setPositionPitchMode(value => !value)}
               onUpdateAPos={(position) => updatePosition('a', position)} onUpdateBPos={(position) => updatePosition('b', position)} onUpdateCPos={(position) => updatePosition('c', position)}
               onUpdateSpatialMode={(spatialMode) => handleUpdateConfig({ spatialMode })} onUpdateCameraView={(cameraView) => handleUpdateConfig({ cameraView })}
               onUpdateCameraAngles={(cameraYaw, cameraPitch) => handleUpdateConfig({ cameraYaw, cameraPitch })}
               onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
-              onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 1, cameraView: 'top' })}
+              onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 4.3, cameraView: 'top' })}
               onSiteSelect={handleGlobeSiteSelect}
             />
             <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
