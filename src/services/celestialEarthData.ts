@@ -143,6 +143,43 @@ export interface PlaceImage {
 
 /** Nearby, geotagged Commons photos first; NASA is a contextual fallback when Commons has none. */
 export async function fetchPlaceImages(latitude: number, longitude: number, placeName: string): Promise<PlaceImage[]> {
+  // Prefer photographs whose titles match the actual place name; nearby geotags alone
+  // often return unrelated streets, landscapes, or generic regional images.
+  try {
+    const params = new URLSearchParams({
+      action: 'query', generator: 'search', gsrsearch: `\"${placeName}\" OR ${placeName}`,
+      gsrnamespace: '6', gsrlimit: '18', prop: 'imageinfo',
+      iiprop: 'url|extmetadata', iiurlwidth: '1000', format: 'json', origin: '*',
+    });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 4500);
+    try {
+      const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, { signal: controller.signal });
+      if (!response.ok) throw new Error('Commons place search unavailable');
+      const json = await response.json();
+      const pages = Object.values(json.query?.pages || {}) as Array<any>;
+      const normalizedPlace = placeName.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const images = pages.map((page) => {
+        const info = page.imageinfo?.[0];
+        const url = info?.thumburl || info?.url;
+        if (!url || !(url.startsWith('https://') || url.startsWith('http://'))) return null;
+        const title = String(page.title || 'Location photograph').replace(/^File:/, '');
+        const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const exactNameMatch = normalizedTitle.includes(normalizedPlace);
+        const description = String(info.extmetadata?.ImageDescription?.value || `Photograph search result for ${placeName}.`).replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();
+        return {
+          title, url, description,
+          source: exactNameMatch ? 'Wikimedia Commons · site-name match' : 'Wikimedia Commons · related place search',
+          pageUrl: info.descriptionurl,
+        } as PlaceImage & { exactNameMatch: boolean };
+      }).filter((image): image is PlaceImage & { exactNameMatch: boolean } => Boolean(image))
+        .filter((image, index, all) => all.findIndex((other) => other.url === image.url) === index)
+        .sort((a, b) => Number(b.exactNameMatch) - Number(a.exactNameMatch))
+        .slice(0, 12);
+      if (images.length) return images.map(({ exactNameMatch: _match, ...image }) => image);
+    } finally { window.clearTimeout(timeout); }
+  } catch { /* Try coordinate-based photo discovery next. */ }
+
   try {
     const params = new URLSearchParams({
       action: 'query', generator: 'geosearch', ggscoord: `${latitude}|${longitude}`,
