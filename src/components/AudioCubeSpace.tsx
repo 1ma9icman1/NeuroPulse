@@ -507,6 +507,9 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
   const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(false);
   const [triangleAngleSearch, setTriangleAngleSearch] = useState<string>('');
+  const [abcAngleSearch, setAbcAngleSearch] = useState<string>('');
+  const [starAngleScanResults, setStarAngleScanResults] = useState<Array<{ constellation: string; angle: number; siteTriangle: string; siteAngle: number; difference: number }>>([]);
+  const [starAngleScanMessage, setStarAngleScanMessage] = useState<string>('');
   const [triangulationOverlay, setTriangulationOverlay] = useState<{ edges: Array<{ startLat: number; startLng: number; endLat: number; endLng: number; triangleNames: string[] }>; polygons: Array<{ name: string; angles: number[]; geometry: { type: 'Polygon'; coordinates: number[][][] } }>; angleLabels: Array<{ name: string; lat: number; lon: number; label: string; isTriangleAngleLabel: true }>; siteCount: number }>({ edges: [], polygons: [], angleLabels: [], siteCount: 0 });
   const [showCosmicBeam, setShowCosmicBeam] = useState<boolean>(false);
   const [showLaserSpaceOverlay, setShowLaserSpaceOverlay] = useState<boolean>(false);
@@ -705,6 +708,58 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     setShowAlignmentTriangles(true);
   };
   const [isStarPanelExpanded, setIsStarPanelExpanded] = useState<boolean>(false);
+
+  // Compare apparent angles formed by constellation line vertices against the
+  // current Earth-site triangulation. These are geometric comparisons, not claims
+  // that ancient builders intentionally aligned sites to those constellations.
+  const scanConstellationAngles = () => {
+    setIsStarModeActive(true);
+    setShowConstellationLines(true);
+    setAllConstellations(true);
+    if (!showAlignmentTriangles || triangulationOverlay.polygons.length === 0) {
+      setStarAngleScanResults([]);
+      setStarAngleScanMessage('Run TRIANGULATE CITIES / LOCATIONS first so there are Earth-site angles to compare.');
+      return;
+    }
+    const toVector = (raDeg: number, decDeg: number) => {
+      const ra = raDeg * Math.PI / 180;
+      const dec = decDeg * Math.PI / 180;
+      return { x: Math.cos(dec) * Math.cos(ra), y: Math.cos(dec) * Math.sin(ra), z: Math.sin(dec) };
+    };
+    const angleAt = (a: {x:number;y:number;z:number}, b: {x:number;y:number;z:number}, c: {x:number;y:number;z:number}) => {
+      const u = { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+      const v = { x: c.x - b.x, y: c.y - b.y, z: c.z - b.z };
+      const un = Math.hypot(u.x, u.y, u.z), vn = Math.hypot(v.x, v.y, v.z);
+      if (un < 1e-9 || vn < 1e-9) return null;
+      const dot = (u.x*v.x + u.y*v.y + u.z*v.z) / (un*vn);
+      return Math.acos(Math.max(-1, Math.min(1, dot))) * 180 / Math.PI;
+    };
+    const starAngles: Array<{ constellation: string; angle: number }> = [];
+    CONSTELLATION_LINE_SHAPES.forEach((shape) => {
+      if (!isConstellationEnabled(shape.name)) return;
+      shape.lines.forEach((path) => {
+        for (let i = 1; i < path.length - 1; i++) {
+          const a = toVector(path[i - 1][0], path[i - 1][1]);
+          const b = toVector(path[i][0], path[i][1]);
+          const c = toVector(path[i + 1][0], path[i + 1][1]);
+          const angle = angleAt(a, b, c);
+          if (angle !== null && Number.isFinite(angle)) starAngles.push({ constellation: shape.name, angle });
+        }
+      });
+    });
+    const matches: Array<{ constellation: string; angle: number; siteTriangle: string; siteAngle: number; difference: number }> = [];
+    triangulationOverlay.polygons.forEach((triangle) => triangle.angles.forEach((siteAngle) => {
+      starAngles.forEach((star) => {
+        const difference = Math.abs(siteAngle - star.angle);
+        if (difference <= 2) matches.push({ constellation: star.constellation, angle: star.angle, siteTriangle: triangle.name, siteAngle, difference });
+      });
+    }));
+    matches.sort((a, b) => a.difference - b.difference);
+    setStarAngleScanResults(matches.slice(0, 30));
+    setStarAngleScanMessage(matches.length
+      ? `Found ${matches.length.toLocaleString()} angle pairs within 2°; showing the 30 closest. Star angles use line vertices from the displayed constellation stick figures.`
+      : `Scanned ${starAngles.length.toLocaleString()} constellation angles against ${triangulationOverlay.polygons.length.toLocaleString()} Earth triangles; no pairs were within 2°. Try a wider comparison threshold later.`);
+  };
   // Keep the Star Search / alignment controls visibly open in the right sidebar when STARS is clicked.
   useEffect(() => {
     if (!isStarPanelExpanded) return;
@@ -3274,7 +3329,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               })}</div>}
               <div className="text-[9px] leading-relaxed text-slate-500">All 88 constellation stick figures use sourced J2000 right-ascension/declination line paths. These are traditional sky-chart connections, not the IAU constellation boundary outlines. Data source: d3-celestial.</div>
             </div>
-            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowLocationMenu((open) => !open)} className="rounded-lg border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-sky-100 hover:bg-sky-900"><MapPin className="mr-1 inline h-3.5 w-3.5" />{showLocationMenu ? 'CLOSE LOCATION LAYERS' : 'CITY / LOCATION LAYERS'} · {showCities || showAncientStructures || showMeasuredSoundSites ? 'ON' : 'OFF'}</button><div className="flex flex-col items-stretch gap-1"><button type="button" onClick={triangulateEarthLocations} className="rounded-lg border border-cyan-300/50 bg-gradient-to-r from-cyan-950/90 to-slate-900 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)] hover:border-cyan-200 hover:bg-cyan-900">△ TRIANGULATE CITIES / LOCATIONS</button>{showAlignmentTriangles && <div className="rounded-lg border border-violet-400/40 bg-slate-950/80 p-2"><label htmlFor="triangle-angle-search" className="mb-1 block text-[9px] font-mono font-bold tracking-wider text-violet-200">SEARCH TRIANGLE ANGLE (°)</label><div className="flex gap-1"><input id="triangle-angle-search" type="number" min="0" max="180" step="1" inputMode="numeric" value={triangleAngleSearch} onChange={(e) => setTriangleAngleSearch(e.target.value)} placeholder="Enter angle, e.g. 90" className="min-w-0 w-full rounded-md border border-violet-400/40 bg-slate-900 px-2 py-1.5 text-[11px] font-mono text-white placeholder:text-slate-500 focus:border-violet-300 focus:outline-none" /><button type="button" onClick={() => setTriangleAngleSearch('')} className="rounded-md border border-slate-600 px-2 text-[9px] font-mono text-slate-300 hover:bg-slate-800" title="Clear angle filter">CLEAR</button></div><div className="mt-1 text-[9px] text-slate-400">{triangleAngleSearch.trim() === '' ? 'Shows all triangles' : validTriangleAngleSearch ? `${filteredTrianglePolygons.length} matching triangles · matches rounded whole-degree angles` : 'Enter an angle from 0 to 180°'}</div></div>}<button type="button" disabled={!showAlignmentTriangles} onClick={() => setShowTriangleAngles((v) => !v)} className="rounded-lg border border-violet-400/50 bg-slate-950/90 px-3 py-1.5 text-[9px] font-mono font-bold tracking-wider text-violet-100 hover:bg-violet-950 disabled:cursor-not-allowed disabled:opacity-40" title="Toggle the three interior-angle labels for each triangle">△ {showTriangleAngles ? 'HIDE TRIANGLE ANGLES' : 'SHOW TRIANGLE ANGLES'}</button></div>{showAlignmentTriangles && <><button type="button" onClick={() => setShowAlignmentTriangles(false)} className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-[10px] font-mono text-slate-300 hover:text-white">HIDE MESH</button><span className="self-center text-[9px] font-mono text-cyan-200">{triangulationOverlay.polygons.length.toLocaleString()} TRIANGLES · {triangulationOverlay.siteCount.toLocaleString()} LOCATIONS</span></>}<label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCosmicBeam} onChange={(e) => setShowCosmicBeam(e.target.checked)} className="accent-orange-400" /><span><strong>Cosmic beam</strong></span></label></div>
+            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowLocationMenu((open) => !open) className="rounded-lg border border-sky-400/60 bg-sky-950/70 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-sky-100 hover:bg-sky-900"><MapPin className="mr-1 inline h-3.5 w-3.5" />{showLocationMenu ? 'CLOSE LOCATION LAYERS' : 'CITY / LOCATION LAYERS'} · {showCities || showAncientStructures || showMeasuredSoundSites ? 'ON' : 'OFF'}</button><div className="flex flex-col items-stretch gap-1"><button type="button" onClick={triangulateEarthLocations} className="rounded-lg border border-cyan-300/50 bg-gradient-to-r from-cyan-950/90 to-slate-900 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)] hover:border-cyan-200 hover:bg-cyan-900">△ TRIANGULATE CITIES / LOCATIONS</button>{showAlignmentTriangles && <div className="rounded-lg border border-violet-400/40 bg-slate-950/80 p-2"><label htmlFor="triangle-angle-search" className="mb-1 block text-[9px] font-mono font-bold tracking-wider text-violet-200">SEARCH TRIANGLE ANGLE (°)</label><div className="flex gap-1"><input id="triangle-angle-search" type="number" min="0" max="180" step="1" inputMode="numeric" value={triangleAngleSearch} onChange={(e) => setTriangleAngleSearch(e.target.value)} placeholder="Enter angle, e.g. 90" className="min-w-0 w-full rounded-md border border-violet-400/40 bg-slate-900 px-2 py-1.5 text-[11px] font-mono text-white placeholder:text-slate-500 focus:border-violet-300 focus:outline-none" /><button type="button" onClick={() => setTriangleAngleSearch('')} className="rounded-md border border-slate-600 px-2 text-[9px] font-mono text-slate-300 hover:bg-slate-800" title="Clear angle filter">CLEAR</button></div><div className="mt-1 text-[9px] text-slate-400">{triangleAngleSearch.trim() === '' ? 'Shows all triangles' : validTriangleAngleSearch ? `${filteredTrianglePolygons.length} matching triangles · matches rounded whole-degree angles` : 'Enter an angle from 0 to 180°'}</div></div>}<button type="button" disabled={!showAlignmentTriangles} onClick={() => setShowTriangleAngles((v) => !v)} className="rounded-lg border border-violet-400/50 bg-slate-950/90 px-3 py-1.5 text-[9px] font-mono font-bold tracking-wider text-violet-100 hover:bg-violet-950 disabled:cursor-not-allowed disabled:opacity-40" title="Toggle the three interior-angle labels for each triangle">△ {showTriangleAngles ? 'HIDE TRIANGLE ANGLES' : 'SHOW TRIANGLE ANGLES'}</button><button type="button" onClick={scanConstellationAngles} className="rounded-lg border border-fuchsia-400/50 bg-fuchsia-950/60 px-3 py-2 text-[10px] font-mono font-bold tracking-wider text-fuchsia-100 hover:bg-fuchsia-900" title="Compare constellation angles to the Earth-site mesh">✦ MATCH TRIANGULATIONS TO STARS</button></div>{starAngleScanMessage && <div className="mt-2 rounded-lg border border-fuchsia-400/30 bg-fuchsia-950/20 p-2 text-[9px] leading-relaxed text-fuchsia-100">{starAngleScanMessage}{starAngleScanResults.length > 0 && <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">{starAngleScanResults.map((match, index) => <div key={match.constellation + match.siteTriangle + index} className="border-t border-fuchsia-400/15 pt-1"><span className="font-bold text-fuchsia-200">{match.constellation}</span> · star angle {match.angle.toFixed(1)}° ↔ site angle {match.siteAngle.toFixed(1)}° ({match.difference.toFixed(1)}° apart)<div className="text-slate-300">{match.siteTriangle}</div></div>)}</div>}</div>}{showAlignmentTriangles && <><button type="button" onClick={() => setShowAlignmentTriangles(false)} className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-[10px] font-mono text-slate-300 hover:text-white">HIDE MESH</button><span className="self-center text-[9px] font-mono text-cyan-200">{triangulationOverlay.polygons.length.toLocaleString()} TRIANGLES · {triangulationOverlay.siteCount.toLocaleString()} LOCATIONS</span></>}<label className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1.5 text-[10px] text-slate-200 cursor-pointer"><input type="checkbox" checked={showCosmicBeam} onChange={(e) => setShowCosmicBeam(e.target.checked)} className="accent-orange-400" /><span><strong>Cosmic beam</strong></span></label></div>
             {showLocationMenu && <div className="mt-2 rounded-xl border border-sky-500/30 bg-slate-950/90 p-3"><div className="mb-2 text-[10px] font-mono font-bold tracking-widest text-sky-200">LOCATION LAYERS · ON / OFF</div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label className="flex items-center gap-2 rounded-lg border border-sky-400/30 px-2 py-2 text-xs text-slate-100 cursor-pointer"><input type="checkbox" checked={showCities} onChange={(e) => setShowCities(e.target.checked)} className="accent-sky-400" /><span><strong className="text-sky-200">CITIES</strong><span className="block text-[9px] text-slate-400">Blue dots · city locations</span></span></label>
             <label className="flex items-center gap-2 rounded-lg border border-yellow-400/30 px-2 py-2 text-xs text-slate-100 cursor-pointer"><input type="checkbox" checked={showAncientStructures} onChange={(e) => setShowAncientStructures(e.target.checked)} className="accent-yellow-400" /><span><strong className="text-yellow-200">ANCIENT SITES / MONUMENTS</strong><span className="block text-[9px] text-slate-400">Yellow dots · monuments and structures</span></span></label>
@@ -3288,6 +3343,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           </div>
 
           {/* Channel to Star Manual Pickers with Lock / Unlock buttons */}
+          <div className="mb-2 flex flex-col gap-1.5 rounded-lg border border-fuchsia-400/30 bg-fuchsia-950/15 p-2">
+            <button type="button" onClick={scanConstellationAngles} className="rounded-lg border border-fuchsia-400/50 bg-fuchsia-950/60 px-2 py-2 text-[10px] font-mono font-bold tracking-wide text-fuchsia-100 hover:bg-fuchsia-900">✦ SCAN STAR CONSTELLATIONS FOR ANGLES</button>
+            <label htmlFor="abc-angle-search" className="text-[9px] font-mono font-bold tracking-wider text-amber-200">SEARCH ANGLES INSIDE A/B/C TRIANGLE (°)</label>
+            <div className="flex gap-1">
+              <input id="abc-angle-search" type="number" min="0" max="180" step="1" value={abcAngleSearch} onChange={(e) => setAbcAngleSearch(e.target.value)} placeholder="e.g. 60" className="min-w-0 w-full rounded-md border border-amber-400/30 bg-slate-900 px-2 py-1.5 text-[10px] font-mono text-white placeholder:text-slate-500 focus:border-amber-300 focus:outline-none" />
+              <button type="button" onClick={() => setAbcAngleSearch('')} className="rounded-md border border-slate-600 px-2 text-[9px] font-mono text-slate-300 hover:bg-slate-800">CLEAR</button>
+            </div>
+            {abcAngleSearch.trim() !== '' && Number.isFinite(Number(abcAngleSearch)) && Number(abcAngleSearch) >= 0 && Number(abcAngleSearch) <= 180 && <div className="text-[9px] text-slate-300">{([{name:'∠A',value:interiorAngles.angleA},{name:'∠B',value:interiorAngles.angleB},{name:'∠C',value:interiorAngles.angleC}] as Array<{name:string;value:number}>).filter((a) => Math.round(a.value) === Math.round(Number(abcAngleSearch))).map((a) => a.name + ' = ' + a.value + '°').join(' · ') || 'No A/B/C angle matches that rounded degree.'}</div>}
+          </div>
           <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-800/80">
             {/* CH-A Star */}
             <div className="flex flex-col gap-1">
