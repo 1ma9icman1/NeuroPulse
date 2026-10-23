@@ -329,7 +329,7 @@ export default function App() {
                 {activeNav === 'FREQUENCY / HZ' || activeNav === 'SOUND PATTERNS' ? 'ACOUSTIC RESEARCH' : activeNav === 'MAP OVERLAYS' ? 'MAP LAYERS' : activeNav === 'SETTINGS' ? 'WORKSPACE SETTINGS' : activeNav}
                 <span className="atlas-panel-count">INTERACTIVE CONTROLS</span>
               </div>
-              {(activeNav === 'ANCIENT SITES' || activeNav === 'HISTORICAL SITES' || activeNav === 'CITIES') && (
+              {(activeNav === 'ANCIENT SITES' || activeNav === 'HISTORICAL SITES' || activeNav === 'CITIES' || activeNav === 'FREQUENCY / HZ' || activeNav === 'SOUND PATTERNS') && (
                 <div className="atlas-module-results">
                   {moduleSites.slice(0, 24).map((site) => (
                     <button key={site.id} className="atlas-result-chip" onClick={() => {
