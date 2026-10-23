@@ -474,6 +474,7 @@ export default function App() {
               <input value={searchText} onChange={(event) => { setSearchText(event.target.value); setShowSiteList(true); setScanRequested(false); }} placeholder="Name, region, keyword..." />
               {searchText && <button aria-label="Clear search" onClick={() => setSearchText('')}><X size={13} /></button>}
             </label>
+            {!showSiteList && <button className="atlas-search-expand" onClick={() => setShowSiteList(true)}><Search size={12} /> SHOW SEARCH RESULTS ({filteredSites.length})</button>}
             <label className="atlas-field-label">SITE CATEGORY</label>
             <select className="atlas-select-like" aria-label="Filter by site category" value={categoryFilter} onChange={event => { setCategoryFilter(event.target.value); setShowSiteList(true); setScanRequested(false); }}><option value="ALL">All documented categories</option>{categoryOptions.map(category => <option key={category} value={category}>{category}</option>)}</select>
             <label className="atlas-field-label">FREQUENCY RANGE (HZ) <strong>{frequencyMax.toLocaleString()} Hz</strong></label>
@@ -523,7 +524,7 @@ export default function App() {
 
           {showSiteList && (
             <div className="atlas-results-strip">
-              <div className="atlas-results-title"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></div>
+              <div className="atlas-results-title"><span className="atlas-results-heading"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></span><button className="atlas-results-minimize" onClick={() => setShowSiteList(false)} aria-label="Minimize search results">MINIMIZE <ChevronDown size={12} /></button></div>
               <div className="atlas-results-list">
                 {filteredSites.slice(0, 80).map((site) => (
                   <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-result-chip chosen' : 'atlas-result-chip'} onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); setEarthAreaView('street'); }}>
