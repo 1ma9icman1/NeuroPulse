@@ -2452,7 +2452,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   ctx!.fillText(name, x + 7 * scale + pad, y + 3 * scale);
                 };
                 DEFAULT_EARTH_POINTS.forEach((point) => drawLabel(point.name, point.lat, point.lon));
-                if (selectedEarthSite) drawLabel(selectedEarthSite.name, selectedEarthSite.lat, selectedEarthSite.lng, true);
+                if (selectedEarthSite) drawLabel(selectedEarthSite.name, selectedEarthSite.lat, selectedEarthSite.lon, true);
                 // Keep the selected city/site name visible in a title overlay even if it is on the far side.
                 const title = selectedEarthSite?.name || spot;
                 ctx.fillStyle = 'rgba(2,6,23,0.88)';
@@ -2462,7 +2462,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 ctx.fillText(`NEUROPULSE EARTH · ${title}`, 12 * scale, 22 * scale);
                 ctx.fillStyle = '#cbd5e1';
                 ctx.font = `${Math.max(10, Math.round(10 * scale))}px Arial, sans-serif`;
-                ctx.fillText(`${Number(pov.lat ?? selectedEarthSite?.lat ?? 0).toFixed(4)}° lat  ·  ${Number(pov.lng ?? selectedEarthSite?.lng ?? 0).toFixed(4)}° lon  ·  ${new Date().toLocaleString()}`, 12 * scale, 34 * scale);
+                ctx.fillText(`${Number(pov.lat ?? selectedEarthSite?.lat ?? 0).toFixed(4)}° lat  ·  ${Number(pov.lng ?? selectedEarthSite?.lon ?? 0).toFixed(4)}° lon  ·  ${new Date().toLocaleString()}`, 12 * scale, 34 * scale);
                 const link = document.createElement('a');
                 link.download = `${safeName}-labeled-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
                 link.href = capture.toDataURL('image/png');
