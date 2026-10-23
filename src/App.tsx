@@ -87,6 +87,7 @@ export default function App() {
   const handleGlobeSiteSelect = useCallback((site: any) => {
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === site.name.toLowerCase());
     setSelectedSiteId(known?.id ?? site.name);
+    setEarthAreaView('street');
     setSelectedGlobeSite({ id: known?.id ?? site.name, name: site.name, lat: site.lat, lon: site.lon, category: site.layerCategory ?? (site.evidenceStatus ? 'Acoustic evidence' : 'Globe site'), desc: known?.desc ?? ([site.measurementSummary, site.heightNote, site.orientationNote, site.ritualContext].filter(Boolean).join(' · ') || 'Selected from the live Earth globe. Coordinates and available catalogue details are shown here.'), layerCategory: site.layerCategory, year: site.year, evidenceStatus: site.evidenceStatus, measuredFrequenciesHz: site.measuredFrequenciesHz, structuralHeightFt: site.structuralHeightFt, numberSystem: site.numberSystem, numberSystemNote: site.numberSystemNote, researchReason: site.researchReason, heightBasis: site.heightBasis, ritualContext: site.ritualContext, orientationNote: site.orientationNote, measurementContext: site.measurementContext });
     setShowSiteList(false);
   }, []);
@@ -262,7 +263,7 @@ export default function App() {
               <div className="atlas-results-title"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></div>
               <div className="atlas-results-list">
                 {filteredSites.slice(0, 8).map((site) => (
-                  <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-result-chip chosen' : 'atlas-result-chip'} onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); }}>
+                  <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-result-chip chosen' : 'atlas-result-chip'} onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); setEarthAreaView('street'); }}>
                     <MapPin size={12} /><span>{site.name}</span>
                   </button>
                 ))}
@@ -307,7 +308,7 @@ export default function App() {
           <section className="atlas-panel atlas-related-panel">
             <div className="atlas-panel-heading"><Orbit size={13} /> NEAREST LISTED SITES</div>
             {includeGeometry && nearestSites.map((site) => (
-              <button key={site.id} className="atlas-related-row" onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); setShowSiteList(false); }}>
+              <button key={site.id} className="atlas-related-row" onClick={() => { setSelectedGlobeSite(null); setSelectedSiteId(site.id); setShowSiteList(false); setEarthAreaView('street'); }}>
                 <span className="atlas-related-marker"><MapPin size={14} /></span>
                 <span className="atlas-related-copy"><strong>{site.name}</strong><small>{formatCoordinate(site.lat, 'N', 'S')} · {formatCoordinate(site.lon, 'E', 'W')}</small></span>
                 <b>{Math.round(site.distance).toLocaleString()} km</b>
@@ -355,7 +356,7 @@ export default function App() {
           <div className="atlas-progress-status"><span className="status-dot" /> {scanRequested ? 'CATALOGUE SEARCH COMPLETE' : 'READY FOR QUERY'}</div>
           <div className="atlas-progress-track"><span style={{ width: scanRequested ? '100%' : '8%' }} /></div>
           <div className="atlas-progress-copy">{scanRequested ? `${filteredSites.length} local site records match the current query.` : 'Run a search to filter the local site catalogue.'}</div>
-          <button className="atlas-secondary-button" onClick={() => { setSearchText(''); setShowSiteList(false); setScanRequested(false); setSelectedSiteId(DEFAULT_EARTH_POINTS[0]?.id ?? ''); }}>RESET SEARCH</button>
+          <button className="atlas-secondary-button" onClick={() => { setSearchText(''); setShowSiteList(false); setScanRequested(false); setSelectedSiteId(DEFAULT_EARTH_POINTS[0]?.id ?? ''); setEarthAreaView('street'); }}>RESET SEARCH</button>
         </section>
       </footer>
       <div className="atlas-tagline">THE PAST LEAVES SIGNALS — WE FIND THEM <span>· EVIDENCE FIRST · HYPOTHESES LABELLED</span></div>
