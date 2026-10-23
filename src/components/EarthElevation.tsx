@@ -59,10 +59,15 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     let geometry: THREE.BufferGeometry | null = null;
     let water: THREE.Mesh | null = null;
     let marker: THREE.Mesh | null = null;
-    let sitePoints: THREE.Points | null = null;
+    let sitePoints: THREE.Group | null = null;
+    let markerBuildFrame = 0;
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
-    const retroLedAtlas = new THREE.TextureLoader().load(new URL('../../Retro LED Tilesheet and Neon Earth Globe.png', import.meta.url).href);
+    let buildMarkers: (() => void) | null = null;
+    const retroLedAtlas = new THREE.TextureLoader().load(
+      new URL('../../Retro LED Tilesheet and Neon Earth Globe.png', import.meta.url).href,
+      () => buildMarkers?.()
+    );
     retroLedAtlas.colorSpace = THREE.SRGBColorSpace;
     retroLedAtlas.magFilter = THREE.NearestFilter;
     retroLedAtlas.minFilter = THREE.LinearMipmapLinearFilter;
@@ -165,34 +170,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         earthGroup.add(terrain);
 
         const sitePoints = new THREE.Group();
-        for (const site of siteCatalogue) {
-          if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
-          const sx = Math.max(0, Math.min(gridWidth - 1, Math.round(((site.lon + 180) / 360) * (gridWidth - 1))));
-          const sy = Math.max(0, Math.min(gridHeight - 1, Math.round(((90 - site.lat) / 180) * (gridHeight - 1))));
-          const elevation = heights[sy * gridWidth + sx] || 0;
-          const lat = site.lat * Math.PI / 180;
-          const lon = site.lon * Math.PI / 180;
-          const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.8;
-          const raw = String(site.color || '').toLowerCase();
-          const row = /orange|fb923c|f97316|red|ef4444|f87171/.test(raw) ? 0
-            : /yellow|gold|facc15|fbbf24/.test(raw) ? 1
-            : /blue|sky|60a5fa|38bdf8/.test(raw) || /city/i.test(site.category || '') ? 2
-            : /green|34d399|10b981|22c55e/.test(raw) ? 3
-            : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
-          const tileTexture = retroLedAtlas.clone();
-          tileTexture.repeat.set(0.5, 0.1);
-          tileTexture.offset.set(0, (9 - row * 2) * 0.1);
-          tileTexture.needsUpdate = true;
-          const spriteMaterial = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.04, depthWrite: false });
-          const sprite = new THREE.Sprite(spriteMaterial);
-          sprite.userData.isRetroLedSprite = true;
-          sprite.userData.ledTexture = tileTexture;
-          sprite.userData.ledColorIndex = row;
-          sprite.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
-          sprite.scale.set(2.8, 2.8, 1);
-          sprite.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
-          sitePoints.add(sprite);
-        }
+        // Attach an empty marker layer immediately. LED atlas decoding and marker
+        // creation happen after the globe is already visible, in small frame batches.
         earthGroup.add(sitePoints);
 
         water = new THREE.Mesh(
@@ -207,6 +186,45 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         earthGroup.add(marker);
 
         sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, heights, width: gridWidth, height: gridHeight };
+
+        buildMarkers = () => {
+          let index = 0;
+          const buildBatch = () => {
+            if (cancelled || !sitePoints || !earthGroup) return;
+            const stop = Math.min(index + 120, siteCatalogue.length);
+            for (; index < stop; index++) {
+              const site = siteCatalogue[index];
+              if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
+              const sx = Math.max(0, Math.min(gridWidth - 1, Math.round(((site.lon + 180) / 360) * (gridWidth - 1))));
+              const sy = Math.max(0, Math.min(gridHeight - 1, Math.round(((90 - site.lat) / 180) * (gridHeight - 1))));
+              const elevation = heights[sy * gridWidth + sx] || 0;
+              const lat = site.lat * Math.PI / 180;
+              const lon = site.lon * Math.PI / 180;
+              const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.8;
+              const raw = String(site.color || '').toLowerCase();
+              const row = /orange|fb923c|f97316|red|ef4444|f87171/.test(raw) ? 0
+                : /yellow|gold|facc15|fbbf24/.test(raw) ? 1
+                : /blue|sky|60a5fa|38bdf8/.test(raw) || /city/i.test(site.category || '') ? 2
+                : /green|34d399|10b981|22c55e/.test(raw) ? 3
+                : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
+              const tileTexture = retroLedAtlas.clone();
+              tileTexture.repeat.set(0.5, 0.1);
+              tileTexture.offset.set(0, (9 - row * 2) * 0.1);
+              tileTexture.needsUpdate = true;
+              const spriteMaterial = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.04, depthWrite: false });
+              const sprite = new THREE.Sprite(spriteMaterial);
+              sprite.userData.isRetroLedSprite = true;
+              sprite.userData.ledTexture = tileTexture;
+              sprite.userData.ledColorIndex = row;
+              sprite.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
+              sprite.scale.set(2.8, 2.8, 1);
+              sprite.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+              sitePoints.add(sprite);
+            }
+            if (index < siteCatalogue.length) markerBuildFrame = window.requestAnimationFrame(buildBatch);
+          };
+          markerBuildFrame = window.requestAnimationFrame(buildBatch);
+        };
         const onPointerDown = (event: PointerEvent) => { dragPointer = event.pointerId; lastX = event.clientX; lastY = event.clientY; renderer?.domElement.setPointerCapture(event.pointerId); };
         const onPointerMove = (event: PointerEvent) => {
           if (dragPointer !== event.pointerId || !earthGroup) return;
@@ -252,6 +270,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(animationFrame);
+      window.cancelAnimationFrame(markerBuildFrame);
       resizeObserver?.disconnect();
       if (sceneRef.current) {
         sceneRef.current.geometry.dispose();
