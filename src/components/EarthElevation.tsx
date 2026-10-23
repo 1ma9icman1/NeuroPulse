@@ -40,7 +40,7 @@ function elevationColor(height: number): THREE.Color {
 
 export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, onBack }) => {
   const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Points; geometry: THREE.BufferGeometry; heights: Float32Array; width: number; height: number } | null>(null);
+  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; heights: Float32Array; width: number; height: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [yearOffset, setYearOffset] = useState(0);
@@ -62,6 +62,10 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     let sitePoints: THREE.Points | null = null;
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
+    const retroLedAtlas = new THREE.TextureLoader().load(new URL('../../Retro LED Tilesheet and Neon Earth Globe.png', import.meta.url).href);
+    retroLedAtlas.colorSpace = THREE.SRGBColorSpace;
+    retroLedAtlas.magFilter = THREE.NearestFilter;
+    retroLedAtlas.minFilter = THREE.LinearMipmapLinearFilter;
     let heights = new Float32Array(0);
     let gridWidth = 0;
     let gridHeight = 0;
@@ -145,8 +149,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         terrain.renderOrder = 1;
         earthGroup.add(terrain);
 
-        const sitePositions: number[] = [];
-        const siteColors: number[] = [];
+        const sitePoints = new THREE.Group();
         for (const site of siteCatalogue) {
           if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
           const sx = Math.max(0, Math.min(gridWidth - 1, Math.round(((site.lon + 180) / 360) * (gridWidth - 1))));
@@ -154,16 +157,27 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           const elevation = heights[sy * gridWidth + sx] || 0;
           const lat = site.lat * Math.PI / 180;
           const lon = site.lon * Math.PI / 180;
-          const radius = BASE_RADIUS + Math.max(elevation, 0) * HEIGHT_SCALE * terrainScale + 0.35;
-          sitePositions.push(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
-          const color = new THREE.Color(site.color || (/city/i.test(site.category || '') ? '#60a5fa' : /acoustic|frequency/i.test(site.category || '') ? '#fb923c' : '#facc15'));
-          siteColors.push(color.r, color.g, color.b);
+          const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.8;
+          const raw = String(site.color || '').toLowerCase();
+          const row = /orange|fb923c|f97316|red|ef4444|f87171/.test(raw) ? 0
+            : /yellow|gold|facc15|fbbf24/.test(raw) ? 1
+            : /blue|sky|60a5fa|38bdf8/.test(raw) || /city/i.test(site.category || '') ? 2
+            : /green|34d399|10b981|22c55e/.test(raw) ? 3
+            : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
+          const tileTexture = retroLedAtlas.clone();
+          tileTexture.repeat.set(0.5, 0.1);
+          tileTexture.offset.set(0, (9 - row * 2) * 0.1);
+          tileTexture.needsUpdate = true;
+          const spriteMaterial = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.04, depthWrite: false });
+          const sprite = new THREE.Sprite(spriteMaterial);
+          sprite.userData.isRetroLedSprite = true;
+          sprite.userData.ledTexture = tileTexture;
+          sprite.userData.ledColorIndex = row;
+          sprite.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
+          sprite.scale.set(2.8, 2.8, 1);
+          sprite.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+          sitePoints.add(sprite);
         }
-        const siteGeometry = new THREE.BufferGeometry();
-        siteGeometry.setAttribute('position', new THREE.Float32BufferAttribute(sitePositions, 3));
-        siteGeometry.setAttribute('color', new THREE.Float32BufferAttribute(siteColors, 3));
-        sitePoints = new THREE.Points(siteGeometry, new THREE.PointsMaterial({ size: 1.45, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0.95 }));
-        sitePoints.renderOrder = 3;
         earthGroup.add(sitePoints);
 
         water = new THREE.Mesh(
@@ -232,8 +246,12 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           (sceneRef.current.marker.geometry as THREE.BufferGeometry).dispose();
           (sceneRef.current.marker.material as THREE.Material).dispose();
         }
-        sceneRef.current.sitePoints.geometry.dispose();
-        (sceneRef.current.sitePoints.material as THREE.Material).dispose();
+        sceneRef.current.sitePoints.children.forEach((child) => {
+          const material = (child as THREE.Sprite).material as THREE.SpriteMaterial;
+          material.map?.dispose();
+          material.dispose();
+        });
+        retroLedAtlas.dispose();
         sceneRef.current.renderer.dispose();
         sceneRef.current.renderer.domElement.remove();
       } else {
@@ -270,21 +288,20 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   useEffect(() => {
     const state = sceneRef.current;
     if (!state) return;
-    const siteAttribute = state.sitePoints.geometry.getAttribute('position') as THREE.BufferAttribute;
     let pointIndex = 0;
     for (const site of siteCatalogue) {
       if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
-      if (pointIndex >= siteAttribute.count) break;
+      const sprite = state.sitePoints.children[pointIndex] as THREE.Sprite | undefined;
+      if (!sprite) break;
       const sx = Math.max(0, Math.min(state.width - 1, Math.round(((site.lon + 180) / 360) * (state.width - 1))));
       const sy = Math.max(0, Math.min(state.height - 1, Math.round(((90 - site.lat) / 180) * (state.height - 1))));
       const elevation = state.heights[sy * state.width + sx] || 0;
       const lat = site.lat * Math.PI / 180;
       const lon = site.lon * Math.PI / 180;
-      const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.35;
-      siteAttribute.setXYZ(pointIndex, radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+      const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.8;
+      sprite.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
       pointIndex++;
     }
-    siteAttribute.needsUpdate = true;
   }, [terrainScale, siteCatalogue, seaLevel]);
 
   useEffect(() => {
@@ -293,6 +310,26 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     state.water.geometry.dispose();
     state.water.geometry = new THREE.SphereGeometry(BASE_RADIUS + seaLevel * HEIGHT_SCALE * terrainScale, 128, 64);
   }, [seaLevel, terrainScale]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const state = sceneRef.current;
+      if (!state) return;
+      const now = performance.now() * 0.001;
+      state.sitePoints.children.forEach((object) => {
+        if (!object.userData.isRetroLedSprite) return;
+        const phase = now * 2.2 + Number(object.userData.ledPhase || 0);
+        const isOn = Math.sin(phase) > -0.05;
+        const row = Number(object.userData.ledColorIndex ?? 1);
+        const texture = object.userData.ledTexture as THREE.Texture | undefined;
+        if (texture) texture.offset.y = (9 - (row * 2 + (isOn ? 1 : 0))) * 0.1;
+        const material = (object as THREE.Sprite).material as THREE.SpriteMaterial;
+        material.opacity = isOn ? 1 : 0.42;
+        material.color.set(isOn ? '#ffffff' : '#9ca3af');
+      });
+    }, 80);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const state = sceneRef.current;
