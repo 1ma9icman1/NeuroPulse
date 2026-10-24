@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { fromBlob } from 'geotiff';
-import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw } from 'lucide-react';
+import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle, Stars, Ruler, Camera, Eye, EyeOff } from 'lucide-react';
+import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 
 type Site = { name: string; lat: number; lon: number } | null;
 type CatalogueSite = { name: string; lat: number; lon: number; category?: string; color?: string };
@@ -52,7 +53,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const hostRef = useRef<HTMLDivElement>(null);
   const onSelectSiteRef = useRef(onSelectSite);
   onSelectSiteRef.current = onSelectSite;
-  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; terrainMaterial: THREE.MeshStandardMaterial; heights: Float32Array; width: number; height: number } | null>(null);
+  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; terrainMaterial: THREE.MeshStandardMaterial; heights: Float32Array; width: number; height: number; geometryOverlay: THREE.Group; constellationOverlay: THREE.Group } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [yearOffset, setYearOffset] = useState(0);
@@ -65,6 +66,10 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const [surfaceMode, setSurfaceMode] = useState<'satellite' | 'relief'>('relief');
   const [surfaceTextureLoaded, setSurfaceTextureLoaded] = useState(false);
   const [surfaceTextureError, setSurfaceTextureError] = useState(false);
+  const [showTriangulation, setShowTriangulation] = useState(false);
+  const [showConstellationLines, setShowConstellationLines] = useState(false);
+  const [showAngleLabels, setShowAngleLabels] = useState(false);
+  const [overlayMessage, setOverlayMessage] = useState('Select a geometry tool to begin.');
   const surfaceTextureRef = useRef<THREE.Texture | null>(null);
   const surfaceModeRef = useRef(surfaceMode);
   surfaceModeRef.current = surfaceMode;
@@ -113,6 +118,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     let water: THREE.Mesh | null = null;
     let marker: THREE.Mesh | null = null;
     let sitePoints: THREE.Group | null = null;
+    let geometryOverlay: THREE.Group | null = null;
+    let constellationOverlay: THREE.Group | null = null;
     let markerBuildFrame = 0;
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
@@ -204,6 +211,9 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         sun.position.set(-120, 100, 180);
         scene.add(sun);
         earthGroup = new THREE.Group();
+        geometryOverlay = new THREE.Group();
+        constellationOverlay = new THREE.Group();
+        earthGroup.add(geometryOverlay, constellationOverlay);
         scene.add(earthGroup);
 
         const positions: number[] = [];
@@ -267,7 +277,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         marker.visible = false;
         earthGroup.add(marker);
 
-        sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, terrainMaterial, heights, width: gridWidth, height: gridHeight };
+        sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, terrainMaterial, heights, width: gridWidth, height: gridHeight, geometryOverlay, constellationOverlay };
 
         buildMarkers = () => {
           let index = 0;
@@ -437,6 +447,136 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     state.water.geometry.dispose();
     state.water.geometry = new THREE.SphereGeometry(BASE_RADIUS + seaLevel * HEIGHT_SCALE * terrainScale, 128, 64);
   }, [terrainScale, seaLevel, surfaceMode, surfaceTextureLoaded, waterOpacity, loading]);
+
+  // Right-column controls dispatch these events so the same research tools are available
+  // in the elevation workspace without duplicating the global navigation menu.
+  useEffect(() => {
+    const onElevationTool = (event: Event) => {
+      const action = (event as CustomEvent<{ action?: string }>).detail?.action;
+      if (action === 'triangulate') {
+        setShowTriangulation(value => !value);
+        setOverlayMessage('Earth-site neighbour mesh toggled.');
+      } else if (action === 'constellations') {
+        setShowConstellationLines(value => !value);
+        setOverlayMessage('Celestial line overlay toggled.');
+      } else if (action === 'angles') {
+        setShowAngleLabels(value => !value);
+        setOverlayMessage('Triangle angle labels toggled.');
+      } else if (action === 'screenshot') {
+        const state = sceneRef.current;
+        if (!state) { setOverlayMessage('Earth renderer is not ready for capture yet.'); return; }
+        try {
+          state.renderer.render(state.scene, state.camera);
+          const link = document.createElement('a');
+          link.download = 'neuropulse-elevation-earth.png';
+          link.href = state.renderer.domElement.toDataURL('image/png');
+          link.click();
+          setOverlayMessage('Elevation screenshot saved as PNG.');
+        } catch (error) {
+          console.error('Elevation screenshot failed:', error);
+          setOverlayMessage('Screenshot failed. Try again after the terrain finishes loading.');
+        }
+      } else if (action === 'clear') {
+        setShowTriangulation(false);
+        setShowConstellationLines(false);
+        setShowAngleLabels(false);
+        setOverlayMessage('Geometry overlays cleared.');
+      }
+    };
+    window.addEventListener('neuro-pulse-elevation-tool', onElevationTool);
+    return () => window.removeEventListener('neuro-pulse-elevation-tool', onElevationTool);
+  }, []);
+
+  useEffect(() => {
+    const state = sceneRef.current;
+    if (!state || loading) return;
+    const group = state.geometryOverlay;
+    group.clear();
+    if (!showTriangulation && !showAngleLabels) return;
+    const valid = siteCatalogue.filter(site => Number.isFinite(site.lat) && Number.isFinite(site.lon)).slice(0, 90);
+    const vectors = valid.map(site => {
+      const sx = Math.max(0, Math.min(state.width - 1, Math.round(((site.lon + 180) / 360) * (state.width - 1))));
+      const sy = Math.max(0, Math.min(state.height - 1, Math.round(((90 - site.lat) / 180) * (state.height - 1))));
+      const elevation = state.heights[sy * state.width + sx] || 0;
+      const lat = site.lat * Math.PI / 180;
+      const lon = site.lon * Math.PI / 180;
+      const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 1.8;
+      return { site, p: new THREE.Vector3(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon)) };
+    });
+    const edgeKeys = new Set<string>();
+    const positions: number[] = [];
+    vectors.forEach((entry, index) => {
+      const nearest = vectors.map((other, otherIndex) => ({ other, otherIndex, d: entry.p.distanceToSquared(other.p) }))
+        .filter(item => item.otherIndex !== index).sort((a,b) => a.d-b.d).slice(0, 2);
+      nearest.forEach(({ other, otherIndex }) => {
+        const key = [index, otherIndex].sort((a,b)=>a-b).join(':');
+        if (edgeKeys.has(key)) return;
+        edgeKeys.add(key);
+        positions.push(entry.p.x, entry.p.y, entry.p.z, other.p.x, other.p.y, other.p.z);
+      });
+    });
+    if (showTriangulation && positions.length) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: '#35d9ff', transparent: true, opacity: 0.78, depthTest: false }));
+      lines.renderOrder = 8;
+      group.add(lines);
+    }
+    if (showAngleLabels) {
+      vectors.slice(0, 28).forEach((entry, index) => {
+        const nearest = vectors.map((other, otherIndex) => ({ other, otherIndex, d: entry.p.distanceToSquared(other.p) }))
+          .filter(item => item.otherIndex !== index).sort((a,b)=>a.d-b.d).slice(0, 2);
+        if (nearest.length !== 2) return;
+        const a = nearest[0].other.p.clone().sub(entry.p).normalize();
+        const b = nearest[1].other.p.clone().sub(entry.p).normalize();
+        const angle = THREE.MathUtils.radToDeg(a.angleTo(b));
+        const canvas = document.createElement('canvas');
+        canvas.width = 160; canvas.height = 48;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.fillStyle = 'rgba(3,10,24,0.92)'; ctx.fillRect(0,0,160,48);
+        ctx.strokeStyle = '#f0abfc'; ctx.lineWidth = 2; ctx.strokeRect(1,1,158,46);
+        ctx.fillStyle = '#f5d0fe'; ctx.font = 'bold 22px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(angle.toFixed(1) + '°',80,24);
+        const texture = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map:texture, transparent:true, depthTest:false, toneMapped:false }));
+        sprite.position.copy(entry.p.clone().multiplyScalar(1.025));
+        sprite.scale.set(8,2.4,1);
+        sprite.renderOrder = 10;
+        group.add(sprite);
+      });
+    }
+    return () => { group.clear(); };
+  }, [showTriangulation, showAngleLabels, siteCatalogue, seaLevel, terrainScale, loading]);
+
+  useEffect(() => {
+    const state = sceneRef.current;
+    if (!state || loading) return;
+    const group = state.constellationOverlay;
+    group.clear();
+    if (!showConstellationLines) return;
+    // These are real constellation-line coordinates from the project's star atlas,
+    // displayed as a separate celestial reference shell around the elevation globe.
+    const preferred = new Set(['Orion','Ursa Major','Ursa Minor','Cassiopeia','Cygnus','Leo','Scorpius','Taurus','Crux','Pegasus','Andromeda','Gemini']);
+    CONSTELLATION_LINE_SHAPES.filter(shape => preferred.has(shape.name)).forEach(shape => {
+      shape.lines.forEach(line => {
+        const points = line.map(([ra, dec]) => {
+          const lat = dec * Math.PI / 180;
+          const lon = ra * Math.PI / 180;
+          const radius = BASE_RADIUS * 1.035;
+          return new THREE.Vector3(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+        });
+        if (points.length < 2) return;
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ color: '#d8a7ff', transparent: true, opacity: 0.82, depthTest: false });
+        const lineObject = new THREE.Line(geometry, material);
+        lineObject.renderOrder = 9;
+        group.add(lineObject);
+      });
+    });
+    return () => { group.clear(); };
+  }, [showConstellationLines, loading]);
+
 
   useEffect(() => {
     const state = sceneRef.current;
