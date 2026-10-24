@@ -3835,6 +3835,22 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 updateEarthZoomTier(Number(globeRef.current?.pointOfView?.()?.altitude));
               }, 90);
             }}>
+            {!earthTextureLoaded && (
+              <div role="status" aria-live="polite" className="absolute inset-0 z-30 flex items-center justify-center bg-[#030814]/65 backdrop-blur-[2px] pointer-events-none">
+                <div className="w-[min(360px,82vw)] rounded-xl border border-cyan-400/35 bg-slate-950/95 px-5 py-4 shadow-[0_0_32px_rgba(34,211,238,0.12)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[10px] font-mono font-bold tracking-[0.22em] text-cyan-200">NEUROPULSE · EARTH</span>
+                    <span className="text-[9px] font-mono text-slate-400 animate-pulse">LOADING TEXTURE</span>
+                  </div>
+                  <div className="mt-2 text-sm font-mono text-slate-100">Preparing Earth view</div>
+                  <div className="mt-1 text-[10px] text-slate-400">Loading global imagery before centering the globe…</div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full border border-cyan-900 bg-slate-900">
+                    <div className="h-full w-[38%] rounded-full bg-gradient-to-r from-cyan-500 via-sky-300 to-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.65)] animate-[earth-loading-sweep_1.35s_ease-in-out_infinite]" />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-slate-500"><span>IMAGERY STREAM</span><span>WAITING FOR COMPLETE FRAME</span></div>
+                </div>
+              </div>
+            )}
             <Globe3D ref={globeRef} rendererConfig={{ preserveDrawingBuffer: true }} width={Math.max(320, containerRef.current?.clientWidth || 800)}
               height={Math.max(320, containerRef.current?.clientHeight || 600)}
               onZoom={(pov: any) => updateEarthZoomTier(Number(pov?.altitude))}
