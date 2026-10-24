@@ -5,7 +5,14 @@ import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw } from 'l
 
 type Site = { name: string; lat: number; lon: number } | null;
 type CatalogueSite = { name: string; lat: number; lon: number; category?: string; color?: string };
-type Props = { selectedSite: Site; siteCatalogue: CatalogueSite[]; onBack: () => void };
+type EarthSiteSelection = { name: string; lat: number; lon: number; category?: string; color?: string };
+type Props = {
+  selectedSite: Site;
+  siteCatalogue: CatalogueSite[];
+  onBack: () => void;
+  onAssignChannel?: (channel: 'a' | 'b' | 'c', latitude: number, longitude: number) => void;
+  onSelectSite?: (site: EarthSiteSelection) => void;
+};
 
 const DEM_WIDTH = 1080;
 const DEM_HEIGHT = 540;
@@ -41,8 +48,10 @@ function elevationColor(height: number): THREE.Color {
   return new THREE.Color('#887d75').lerp(new THREE.Color('#f0eee9'), Math.min(1, (height - 4500) / 4000));
 }
 
-export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, onBack }) => {
+export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, onBack, onAssignChannel, onSelectSite }) => {
   const hostRef = useRef<HTMLDivElement>(null);
+  const onSelectSiteRef = useRef(onSelectSite);
+  onSelectSiteRef.current = onSelectSite;
   const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; terrainMaterial: THREE.MeshStandardMaterial; heights: Float32Array; width: number; height: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -268,6 +277,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
               const spriteMaterial = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.04, depthWrite: false });
               const sprite = new THREE.Sprite(spriteMaterial);
               sprite.userData.isRetroLedSprite = true;
+              sprite.userData.site = { name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color };
               sprite.userData.ledTexture = tileTexture;
               sprite.userData.ledColorIndex = row;
               sprite.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
@@ -281,14 +291,36 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         };
         // If the atlas loaded while NOAA was still downloading, start markers now.
         if (ledAtlasReady) buildMarkers();
-        const onPointerDown = (event: PointerEvent) => { dragPointer = event.pointerId; lastX = event.clientX; lastY = event.clientY; renderer?.domElement.setPointerCapture(event.pointerId); };
+        let pointerStartX = 0;
+        let pointerStartY = 0;
+        const clickRaycaster = new THREE.Raycaster();
+        const clickPointer = new THREE.Vector2();
+        const onPointerDown = (event: PointerEvent) => {
+          dragPointer = event.pointerId;
+          pointerStartX = lastX = event.clientX;
+          pointerStartY = lastY = event.clientY;
+          renderer?.domElement.setPointerCapture(event.pointerId);
+        };
         const onPointerMove = (event: PointerEvent) => {
           if (dragPointer !== event.pointerId || !earthGroup) return;
           earthGroup.rotation.y += (event.clientX - lastX) * 0.006;
           earthGroup.rotation.x = Math.max(-1.4, Math.min(1.4, earthGroup.rotation.x + (event.clientY - lastY) * 0.006));
           lastX = event.clientX; lastY = event.clientY;
         };
-        const onPointerUp = (event: PointerEvent) => { dragPointer = null; try { renderer?.domElement.releasePointerCapture(event.pointerId); } catch { /* ignore */ } };
+        const onPointerUp = (event: PointerEvent) => {
+          const wasClick = dragPointer === event.pointerId && Math.hypot(event.clientX - pointerStartX, event.clientY - pointerStartY) < 5;
+          if (event.type === 'pointerup' && wasClick && renderer && camera && sitePoints) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              clickPointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+              clickRaycaster.setFromCamera(clickPointer, camera);
+              const hit = clickRaycaster.intersectObjects(sitePoints.children, true).find(item => item.object.userData.site);
+              if (hit?.object.userData.site) onSelectSiteRef.current?.(hit.object.userData.site as EarthSiteSelection);
+            }
+          }
+          dragPointer = null;
+          try { renderer?.domElement.releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+        };
         const onWheel = (event: WheelEvent) => { event.preventDefault(); setZoom(current => Math.max(0.7, Math.min(2.2, current - Math.sign(event.deltaY) * 0.08))); };
         renderer.domElement.addEventListener('pointerdown', onPointerDown);
         renderer.domElement.addEventListener('pointermove', onPointerMove);
@@ -489,7 +521,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <div className="mt-1 text-lg font-mono font-bold text-sky-200">{seaLevel > 0 ? '+' : ''}{seaLevel.toFixed(1)} m</div>
           <div className="text-[9px] text-slate-500">{levelMode === 'historical' ? 'historical reference estimate' : 'custom scenario'}</div>
         </div>
-        {selectedSite && <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-rose-400/50 bg-slate-950/85 px-3 py-2 text-[10px] font-mono text-rose-100">{selectedSite.name}<div className="text-[9px] text-slate-400">{selectedSite.lat.toFixed(4)}°, {selectedSite.lon.toFixed(4)}°</div></div>}
+        {selectedSite && <div className="absolute bottom-3 left-3 rounded-lg border border-rose-400/50 bg-slate-950/90 px-3 py-2 text-[10px] font-mono text-rose-100 shadow-lg">{selectedSite.name}<div className="text-[9px] text-slate-400">{selectedSite.lat.toFixed(4)}°, {selectedSite.lon.toFixed(4)}°</div><div className="mt-1 flex gap-1"><button type="button" onClick={() => onAssignChannel?.('a', selectedSite.lat, selectedSite.lon)} className="rounded border border-rose-400/60 px-2 py-0.5 text-[9px] hover:bg-rose-900/60" title="Assign this location to channel A">A</button><button type="button" onClick={() => onAssignChannel?.('b', selectedSite.lat, selectedSite.lon)} className="rounded border border-amber-400/60 px-2 py-0.5 text-[9px] hover:bg-amber-900/60" title="Assign this location to channel B">B</button><button type="button" onClick={() => onAssignChannel?.('c', selectedSite.lat, selectedSite.lon)} className="rounded border border-sky-400/60 px-2 py-0.5 text-[9px] hover:bg-sky-900/60" title="Assign this location to channel C">C</button></div></div>}
       </div>
       <div className="grid gap-3 border-t border-slate-700/80 bg-slate-950/95 p-3 xl:grid-cols-2">
         <div className="space-y-2">
