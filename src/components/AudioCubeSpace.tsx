@@ -514,6 +514,37 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           const cellY = Math.floor(row * image.naturalHeight / rows);
           const cellRight = Math.floor((col + 1) * image.naturalWidth / columns);
           const cellBottom = Math.floor((row + 1) * image.naturalHeight / rows);
+          // Remove a white matte only when it is connected to this cell's border.
+          // This keeps white details inside an icon intact while making the sheet background transparent.
+          const isMatte = (pixel: number) => {
+            const offset = pixel * 4;
+            const red = pixels[offset], green = pixels[offset + 1], blue = pixels[offset + 2];
+            return pixels[offset + 3] > 12 && red > 222 && green > 222 && blue > 222 &&
+              Math.max(red, green, blue) - Math.min(red, green, blue) < 24;
+          };
+          const queue: number[] = [];
+          const enqueueMatte = (x: number, y: number) => {
+            if (x < cellX || x >= cellRight || y < cellY || y >= cellBottom) return;
+            const pixel = y * canvas.width + x;
+            if (!isMatte(pixel)) return;
+            pixels[pixel * 4 + 3] = 0;
+            queue.push(pixel);
+          };
+          for (let x = cellX; x < cellRight; x++) {
+            enqueueMatte(x, cellY);
+            enqueueMatte(x, cellBottom - 1);
+          }
+          for (let y = cellY; y < cellBottom; y++) {
+            enqueueMatte(cellX, y);
+            enqueueMatte(cellRight - 1, y);
+          }
+          for (let head = 0; head < queue.length; head++) {
+            const pixel = queue[head], x = pixel % canvas.width, y = Math.floor(pixel / canvas.width);
+            enqueueMatte(x - 1, y);
+            enqueueMatte(x + 1, y);
+            enqueueMatte(x, y - 1);
+            enqueueMatte(x, y + 1);
+          }
           let minX = cellRight, minY = cellBottom, maxX = cellX - 1, maxY = cellY - 1;
           for (let y = cellY; y < cellBottom; y++) for (let x = cellX; x < cellRight; x++) {
             if (pixels[(y * canvas.width + x) * 4 + 3] > 12) {
@@ -526,7 +557,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
           if (tctx && maxX >= minX && maxY >= minY) {
             const sw = maxX - minX + 1, sh = maxY - minY + 1;
             const scale = Math.min(112 / sw, 112 / sh), dw = sw * scale, dh = sh * scale;
-            tctx.drawImage(image, minX, minY, sw, sh, (128 - dw) / 2, (128 - dh) / 2, dw, dh);
+            ctx.putImageData(new ImageData(pixels, canvas.width, canvas.height), 0, 0);
+            tctx.drawImage(canvas, minX, minY, sw, sh, (128 - dw) / 2, (128 - dh) / 2, dw, dh);
           }
           const texture = new THREE.CanvasTexture(tile);
           texture.colorSpace = THREE.SRGBColorSpace;
