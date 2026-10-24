@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { fromBlob } from 'geotiff';
 import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle, Stars, Ruler, Camera, Eye, EyeOff, Map as MapIcon } from 'lucide-react';
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
+import { FreeStreetImageryPanel } from './FreeStreetImageryPanel';
 
 type Site = { name: string; lat: number; lon: number } | null;
 type CatalogueSite = { name: string; lat: number; lon: number; category?: string; color?: string };
@@ -783,6 +784,11 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
       </div>
       <div className="relative min-h-0 flex-1">
         <div ref={hostRef} className="absolute inset-0" aria-label="Interactive three-dimensional NOAA terrain globe" />
+        <FreeStreetImageryPanel
+          sites={siteCatalogue}
+          selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
+          onSelectSite={site => onSelectSite?.({ name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color })}
+        />
         {loading && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/80 p-6 text-center"><div><LoaderCircle className="mx-auto mb-3 h-7 w-7 animate-spin text-sky-300" /><div className="text-sm font-mono text-sky-100">LOADING NOAA ELEVATION DATA</div><div className="mt-2 text-xs text-slate-400">{datasetInfo}</div></div></div>}
         {loadError && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/95 p-6"><div className="max-w-lg text-center"><Database className="mx-auto mb-3 h-8 w-8 text-rose-300" /><div className="text-sm font-mono font-bold text-rose-200">NOAA DATA COULD NOT BE LOADED</div><p className="mt-2 text-xs text-slate-300">{loadError}</p><p className="mt-2 text-[10px] text-slate-500">This view requires the live NOAA elevation service; it will not substitute a fake terrain model.</p><a className="mt-3 inline-block text-xs text-sky-300 underline" href={NOAA_SOURCE} target="_blank" rel="noreferrer">Open NOAA ETOPO data source ↗</a></div></div>}
         <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-slate-700/80 bg-slate-950/80 px-3 py-2 backdrop-blur">
