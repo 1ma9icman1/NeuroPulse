@@ -121,6 +121,14 @@ export default function App() {
   const [streetFrameLoaded, setStreetFrameLoaded] = useState(false);
   const [mapSnapshotNotice, setMapSnapshotNotice] = useState('');
   const [mapSnapshotLoading, setMapSnapshotLoading] = useState(false);
+  const [elevationTools, setElevationTools] = useState({ triangulation: false, constellations: false, angles: false });
+  const runElevationTool = (action: 'triangulate' | 'constellations' | 'angles' | 'screenshot' | 'clear') => {
+    if (action === 'clear') setElevationTools({ triangulation: false, constellations: false, angles: false });
+    else if (action === 'triangulate') setElevationTools(value => ({ ...value, triangulation: !value.triangulation }));
+    else if (action === 'constellations') setElevationTools(value => ({ ...value, constellations: !value.constellations }));
+    else if (action === 'angles') setElevationTools(value => ({ ...value, angles: !value.angles }));
+    window.dispatchEvent(new CustomEvent('neuro-pulse-elevation-tool', { detail: { action } }));
+  };
 
   // Clear stale fallback notices when the selected location changes. Do not replace a
   // Street View iframe merely because it took longer than a few seconds to render.
@@ -567,6 +575,20 @@ export default function App() {
             </div>
           )}
           </div>}
+
+          {earthAreaView === 'elevation' && <section className="atlas-panel atlas-elevation-tools">
+            <div className="atlas-panel-heading"><Mountain size={13} /> ELEVATION TOOLKIT <span className="atlas-panel-count">3D TERRAIN</span></div>
+            <div className="atlas-elevation-tool-note">NOAA height data and adjustable ocean datum are active. Geometry tools draw directly over the elevation globe.</div>
+            <div className="atlas-elevation-tool-grid">
+              <button type="button" aria-pressed={elevationTools.triangulation} className={elevationTools.triangulation ? 'active' : ''} onClick={() => runElevationTool('triangulate')}><Atom size={14} /> {elevationTools.triangulation ? 'HIDE TRIANGULATION' : 'TRIANGULATE SITES'}</button>
+              <button type="button" aria-pressed={elevationTools.constellations} className={elevationTools.constellations ? 'active' : ''} onClick={() => { runElevationTool('constellations'); setIncludeStars(true); }}><Star size={14} /> {elevationTools.constellations ? 'HIDE CONSTELLATIONS' : 'CONSTELLATION LINES'}</button>
+              <button type="button" aria-pressed={elevationTools.angles} className={elevationTools.angles ? 'active' : ''} onClick={() => runElevationTool('angles')}><Compass size={14} /> {elevationTools.angles ? 'HIDE ANGLES' : 'SHOW ANGLES'}</button>
+              <button type="button" onClick={() => runElevationTool('screenshot')}><Camera size={14} /> SCREENSHOT ELEVATION</button>
+              <button type="button" onClick={() => runElevationTool('clear')}><X size={14} /> CLEAR GEOMETRY</button>
+              <button type="button" onClick={() => setEarthAreaView('globe')}><Globe2 size={14} /> FLAT / GLOBE EARTH</button>
+            </div>
+            <div className="atlas-elevation-tool-status" role="status">{[elevationTools.triangulation && 'SITE MESH ON', elevationTools.constellations && 'CONSTELLATIONS ON', elevationTools.angles && 'ANGLE LABELS ON'].filter(Boolean).join(' · ') || 'GEOMETRY OVERLAYS OFF'}</div>
+          </section>}
           <section className="atlas-panel atlas-site-card">
             <div className="atlas-panel-heading"><MapPin size={13} /> SELECTED SITE <span className="atlas-panel-count">REFERENCE DATA</span></div>
             {selectedSite ? <>
