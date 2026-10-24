@@ -124,32 +124,98 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
     let buildMarkers: (() => void) | null = null;
-    // Use crisp category-specific research icons for site markers.
+    // Load and slice the user's transparent archaeology/science tilesheet.
+    const atlasTiles: THREE.CanvasTexture[] = [];
+    const atlasUrl = 'https://raw.githubusercontent.com/1ma9icman1/NeuroPulse/main/Archaeology%20and%20Science%20Icon%20Grid.png';
+    const loadIconAtlas = async () => {
+      try {
+        const image = new Image();
+        image.crossOrigin = 'anonymous';
+        image.src = atlasUrl;
+        await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('Icon tilesheet failed to load')); });
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) throw new Error('Canvas unavailable for icon tilesheet');
+        ctx.drawImage(image, 0, 0);
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const colInk = new Uint32Array(canvas.width), rowInk = new Uint32Array(canvas.height);
+        for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
+          if (pixels[(y * canvas.width + x) * 4 + 3] > 12) { colInk[x]++; rowInk[y]++; }
+        }
+        const bands = (counts: Uint32Array) => {
+          const found: Array<[number, number]> = [];
+          let begin = -1, last = -1;
+          for (let i = 0; i < counts.length; i++) {
+            if (counts[i] > 0) {
+              if (begin < 0) begin = i;
+              if (last >= 0 && i - last > 3) { found.push([begin, last + 1]); begin = i; }
+              last = i;
+            }
+          }
+          if (begin >= 0) found.push([begin, last + 1]);
+          return found.filter(([a,b]) => b-a >= 4);
+        };
+        const columns = bands(colInk), rows = bands(rowInk);
+        const cells: Array<{x:number;y:number;w:number;h:number}> = [];
+        for (const [y0,y1] of rows) for (const [x0,x1] of columns) {
+          let ink = 0;
+          for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (pixels[(y * canvas.width + x) * 4 + 3] > 12) ink++;
+          if (ink > 8) cells.push({x:x0,y:y0,w:x1-x0,h:y1-y0});
+        }
+        for (const cell of cells) {
+          const tileCanvas = document.createElement('canvas'); tileCanvas.width = 128; tileCanvas.height = 128;
+          const tileCtx = tileCanvas.getContext('2d'); if (!tileCtx) continue;
+          const insetX = Math.max(0, Math.round(cell.w * 0.04)), insetY = Math.max(0, Math.round(cell.h * 0.04));
+          const sw = Math.max(1, cell.w-insetX*2), sh = Math.max(1, cell.h-insetY*2);
+          const scale = Math.min(112/sw,112/sh), dw=sw*scale, dh=sh*scale;
+          tileCtx.drawImage(image,cell.x+insetX,cell.y+insetY,sw,sh,(128-dw)/2,(128-dh)/2,dw,dh);
+          const texture = new THREE.CanvasTexture(tileCanvas); texture.colorSpace=THREE.SRGBColorSpace; texture.needsUpdate=true;
+          atlasTiles.push(texture);
+        }
+        console.info('[NeuroPulse] Loaded archaeology/science icon atlas:',atlasTiles.length,'tiles');
+      } catch (error) { console.warn('[NeuroPulse] Icon tilesheet unavailable; fallback markers active:',error); }
+    };
+    const atlasIndexFor = (category = '', name = '') => {
+      const value=(category+' '+name).toLowerCase();
+      const categories=[
+        /pyramid|temple|ziggurat|monument|megalith|structure/,
+        /city|settlement|village|urban/,
+        /stone|crystal|rock|mineral/,
+        /cave|cavern|grotto|underground/,
+        /mound|burial|tumulus|tomb|dolmen|barrow/,
+        /water|spring|lake|river|well|ocean|sea/,
+        /sound|audio|acoustic|frequency|music|resonance|hz/,
+        /star|astronom|observatory|alignment|celestial|constellation/,
+        /ruin|archaeolog|historic|ancient|site/,
+        /mountain|volcano|elevation|terrain/,
+        /artifact|tool|pottery|metalwork/,
+        /geometry|triangle|angle/,
+      ];
+      const index=categories.findIndex(pattern=>pattern.test(value));
+      return index<0?Math.min(8,Math.max(0,atlasTiles.length-1)):index;
+    };
     function createSiteIconTexture(category = '', name = ''): THREE.CanvasTexture {
-      const value = (category + ' ' + name).toLowerCase();
-      let glyph = '◆';
-      if (/sound|audio|acoustic|frequency|music|resonance|hz/.test(value)) glyph = '♫';
-      else if (/pyramid|temple|ziggurat|monument|megalith/.test(value)) glyph = '▲';
-      else if (/cave|cavern|grotto|underground/.test(value)) glyph = '◒';
-      else if (/stone|crystal|rock|mineral/.test(value)) glyph = '⬟';
-      else if (/mound|burial|tumulus|tomb|dolmen|barrow/.test(value)) glyph = '⬢';
-      else if (/city|settlement|village|urban/.test(value)) glyph = '⌂';
-      else if (/star|astronom|observatory|alignment|celestial/.test(value)) glyph = '✦';
-      else if (/water|spring|lake|river|well|ocean/.test(value)) glyph = '≈';
-      else if (/ruin|archaeolog|historic|site/.test(value)) glyph = '⌖';
-      const canvas = document.createElement('canvas');
-      canvas.width = 128; canvas.height = 128;
-      const ctx = canvas.getContext('2d')!;
-      ctx.clearRect(0, 0, 128, 128);
-      ctx.beginPath(); ctx.arc(64, 64, 54, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(8,17,32,0.9)'; ctx.fill();
-      ctx.lineWidth = 5; ctx.strokeStyle = '#7dd3fc'; ctx.stroke();
-      ctx.font = 'bold 72px "Segoe UI Symbol", "Arial Unicode MS", sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#f8fafc'; ctx.fillText(glyph, 64, 66);
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      return texture;
+      const atlasIndex=atlasIndexFor(category,name);
+      if (atlasTiles[atlasIndex]) return atlasTiles[atlasIndex];
+      // Fallback only if the authored image cannot be loaded or parsed.
+      const value=(category+' '+name).toLowerCase();
+      let glyph='◆';
+      if (/sound|audio|acoustic|frequency|music|resonance|hz/.test(value)) glyph='♫';
+      else if (/pyramid|temple|ziggurat|monument|megalith/.test(value)) glyph='▲';
+      else if (/cave|cavern|grotto|underground/.test(value)) glyph='◒';
+      else if (/stone|crystal|rock|mineral/.test(value)) glyph='⬟';
+      else if (/mound|burial|tumulus|tomb|dolmen|barrow/.test(value)) glyph='⬢';
+      else if (/city|settlement|village|urban/.test(value)) glyph='⌂';
+      else if (/star|astronom|observatory|alignment|celestial/.test(value)) glyph='✦';
+      else if (/water|spring|lake|river|well|ocean/.test(value)) glyph='≈';
+      else if (/ruin|archaeolog|historic|site/.test(value)) glyph='⌖';
+      const iconCanvas=document.createElement('canvas'); iconCanvas.width=128; iconCanvas.height=128;
+      const ctx=iconCanvas.getContext('2d')!; ctx.clearRect(0,0,128,128); ctx.beginPath(); ctx.arc(64,64,54,0,Math.PI*2);
+      ctx.fillStyle='rgba(8,17,32,0.9)'; ctx.fill(); ctx.lineWidth=5; ctx.strokeStyle='#7dd3fc'; ctx.stroke();
+      ctx.font='bold 72px "Segoe UI Symbol", "Arial Unicode MS", sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#f8fafc'; ctx.fillText(glyph,64,66);
+      const texture=new THREE.CanvasTexture(iconCanvas); texture.colorSpace=THREE.SRGBColorSpace; return texture;
     }
     let heights = new Float32Array(0);
     let gridWidth = 0;
@@ -160,6 +226,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
 
     const init = async () => {
       try {
+        await loadIconAtlas();
+        if (cancelled) return;
         setLoading(true);
         setLoadError('');
         setDatasetInfo('Requesting real elevation values from NOAA NCEI…');
