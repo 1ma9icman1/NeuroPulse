@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
 import { EarthElevation } from './components/EarthElevation';
+import { SiteResearchNotes } from './components/SiteResearchNotes';
 import { OscillatorDeck } from './components/OscillatorDeck';
 import { DeltaHUD } from './components/DeltaHUD';
 import { FrequencyMatrix } from './components/FrequencyMatrix';
@@ -630,6 +631,16 @@ export default function App() {
                 <div><span>LONGITUDE</span><strong>{formatCoordinate(selectedSite.lon, 'E', 'W')}</strong></div>
               </div>
               <p className="atlas-site-description">{selectedSite.desc ?? 'Coordinates are included in the local site catalogue.'}</p>
+              <SiteResearchNotes
+                key={`${selectedSite.id ?? selectedSite.name}-${selectedSite.lat}-${selectedSite.lon}`}
+                site={selectedSite}
+                sites={researchSites}
+                onSelectSite={(site) => {
+                  setSelectedGlobeSite(null);
+                  setSelectedSiteId(site.id ?? site.name);
+                  setEarthAreaView('street');
+                }}
+              />
               {(selectedSite as any).sourceUrl && <p className="atlas-site-source"><strong>RESEARCH SOURCE</strong><br /><a href={(selectedSite as any).sourceUrl} target="_blank" rel="noreferrer">Open official UNESCO site record ↗</a></p>}
               <div className="atlas-data-table">
                 <div><span>Nearest listed site</span><strong>{nearestSites[0]?.name ?? '—'}</strong></div>
