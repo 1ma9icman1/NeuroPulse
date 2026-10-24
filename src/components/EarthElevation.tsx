@@ -255,7 +255,11 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
 
         sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, terrainMaterial, heights, width: gridWidth, height: gridHeight };
 
-        buildMarkers = () => {\n          if (!ledAtlas) {\n            void ledAtlasPromise.then(() => { if (!cancelled) buildMarkers?.(); }).catch(error => console.error('Unable to load LED sprite sheet:', error));\n            return;\n          }
+        buildMarkers = () => {
+          if (!ledAtlas) {
+            void ledAtlasPromise.then(() => { if (!cancelled) buildMarkers?.(); }).catch(error => console.error('Unable to load LED sprite sheet:', error));
+            return;
+          }
           let index = 0;
           const buildBatch = () => {
             if (cancelled || !sitePoints || !earthGroup) return;
