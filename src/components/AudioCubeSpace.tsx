@@ -109,6 +109,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const earthTextureRef = useRef<HTMLImageElement | null>(null);
   const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
+  const ledAtlasCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [ledAtlasLoaded, setLedAtlasLoaded] = useState(false);
   const isEarthModeActive = cameraView === 'top';
   const globeRef = useRef<any>(null);
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
@@ -278,6 +280,31 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     texture.onerror = () => setEarthTextureLoaded(false);
     texture.src = 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png';
     return () => { texture.onload = null; texture.onerror = null; };
+  }, []);
+
+  // Load and key the LED tilesheet once. The dark tile backing becomes transparent,
+  // allowing the real bulb sprites to sit directly over either Earth view.
+  useEffect(() => {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) return;
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        const brightest = Math.max(pixels.data[i], pixels.data[i + 1], pixels.data[i + 2]);
+        if (brightest < 27) pixels.data[i + 3] = 0;
+      }
+      context.putImageData(pixels, 0, 0);
+      ledAtlasCanvasRef.current = canvas;
+      setLedAtlasLoaded(true);
+    };
+    image.onerror = () => setLedAtlasLoaded(false);
+    image.src = new URL('../../ledBULBS-on-off.png', import.meta.url).href;
+    return () => { image.onload = null; image.onerror = null; };
   }, []);
 
   // Star Celestial Alignment Mode
@@ -765,6 +792,33 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         ctx.restore();
       }
 
+      // Flat Earth/top-plane markers: use the equirectangular lat/lon projection and
+      // the same LED sprites, overlaid on the existing Earth image/texture.
+      if (isEarthModeActive && ledAtlasLoaded && ledAtlasCanvasRef.current) {
+        const atlas = ledAtlasCanvasRef.current;
+        const tileW = atlas.width / 8;
+        const tileH = atlas.height / 10;
+        const planeSize = 2 * bound * baseScale * 1.25 * (overlay.visible ? overlay.scale : 1);
+        const planeLeft = cx - planeSize / 2;
+        const planeTop = cy - planeSize / 2;
+        const drawFlatLed = (lat: number, lon: number, color: string, isCity = false) => {
+          if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
+          const x = planeLeft + ((lon + 180) / 360) * planeSize;
+          const y = planeTop + ((90 - lat) / 180) * planeSize;
+          const normalized = String(color).toLowerCase();
+          const colorRow = /orange|fb923c|f97316|red|ef4444|f87171/.test(normalized) ? 0
+            : /blue|sky|60a5fa|38bdf8|dbeafe/.test(normalized) ? 2
+            : /green|34d399|10b981|22c55e/.test(normalized) ? 3
+            : /purple|violet|a78bfa|f472b6|fuchsia/.test(normalized) ? 4 : 1;
+          const bulbSize = isCity ? 15 : 21;
+          ctx.drawImage(atlas, 0, (colorRow * 2 + 1) * tileH, tileW, tileH,
+            x - bulbSize / 2, y - bulbSize * 0.78, bulbSize, bulbSize * 1.2);
+        };
+        visibleEarthSites.forEach((site: any) => {
+          drawFlatLed(Number(site.lat), Number(site.lon), site.isCity ? '#60a5fa' : site.color || '#facc15', Boolean(site.isCity));
+        });
+      }
+
       // No synthetic background particles: render catalogued celestial objects only.
 
       // 3. Draw 3D AudioCube Room Wireframe
@@ -935,13 +989,27 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         const v = earthPoint(lat, lon, earthRadius * 1.012);
         if (!cameraFront(v)) return;
         const p = project3D(v.x, v.y, v.z, width, height);
-        ctx.beginPath();
-        ctx.arc(p.sx, p.sy, isCity ? 1.7 : 2.8, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = isCity ? 3 : 7;
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        const ledAtlas = ledAtlasCanvasRef.current;
+        if (ledAtlasLoaded && ledAtlas) {
+          const normalized = String(color).toLowerCase();
+          const colorRow = /orange|fb923c|f97316|red|ef4444|f87171/.test(normalized) ? 0
+            : /blue|sky|60a5fa|38bdf8|dbeafe/.test(normalized) ? 2
+            : /green|34d399|10b981|22c55e/.test(normalized) ? 3
+            : /purple|violet|a78bfa|f472b6|fuchsia/.test(normalized) ? 4 : 1;
+          const tileW = ledAtlas.width / 8;
+          const tileH = ledAtlas.height / 10;
+          const bulbSize = Math.max(15, Math.min(29, (isCity ? 17 : 21) * Math.max(0.85, cameraZoom * 0.7)));
+          ctx.drawImage(ledAtlas, 0, (colorRow * 2 + 1) * tileH, tileW, tileH,
+            p.sx - bulbSize / 2, p.sy - bulbSize * 0.78, bulbSize, bulbSize * 1.2);
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.sx, p.sy, isCity ? 1.7 : 2.8, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.shadowColor = color;
+          ctx.shadowBlur = isCity ? 3 : 7;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
         // Keep the globe clean at orbital scale; reveal names once zoomed closer.
         if (cameraZoom >= (isCity ? 1.35 : 1.08)) {
           const isMeasuredAcousticSite = name.includes('MEASURED') || ACOUSTIC_SITE_EVIDENCE.some((site) => name.includes(site.name));
