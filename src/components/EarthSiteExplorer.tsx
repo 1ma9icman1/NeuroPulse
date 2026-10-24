@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { calculateGeodesic } from '../services/geospatialAnalysis';
 import { X, MapPin, ExternalLink } from 'lucide-react';
 
 export interface EarthSiteSelection {
@@ -17,10 +18,8 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description,
     ? 'https://www.openstreetmap.org/export/embed.html?bbox=' + bounds + '&layer=mapnik&marker=' + site.lat + ',' + site.lon
     : 'https://maps.google.com/maps?q=' + site.lat + ',' + site.lon + '&t=' + (mapView === 'satellite' ? 'k' : 'p') + '&z=14&output=embed';
   const nearestSites = site ? alignmentSites.filter((other) => other.name !== site.name).map((other) => {
-    const dLat = (other.lat - site.lat) * Math.PI / 180;
-    const dLon = (other.lon - site.lon) * Math.PI / 180;
-    const h = Math.sin(dLat / 2) ** 2 + Math.cos(site.lat * Math.PI / 180) * Math.cos(other.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-    return { ...other, distanceKm: 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h))) };
+    const geodesic = calculateGeodesic(site, other);
+    return { ...other, distanceKm: geodesic.distanceKm, bearingDegrees: geodesic.initialBearingDegrees, approximate: geodesic.approximate };
   }).sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 2) : [];
   const localXY = (point: { lat: number; lon: number }) => ({ x: point.lon * Math.cos((site?.lat || 0) * Math.PI / 180), y: point.lat });
   const triangleAngles = site && nearestSites.length === 2 ? (() => {
@@ -69,7 +68,7 @@ export const EarthSiteExplorer: React.FC<Props> = ({ site, onClose, description,
           <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-3"><div className="text-[10px] font-mono font-bold text-amber-200">FREQUENCY CHECK · NO ASSUMED MATCH</div><div className="mt-2 grid grid-cols-2 gap-2"><div className="rounded border border-slate-800 p-2"><div className="text-lg font-mono text-white">432 Hz</div><div className="text-[10px] text-slate-400">Alternative A4 tuning reference; not a measured Earth/site resonance.</div></div><div className="rounded border border-slate-800 p-2"><div className="text-lg font-mono text-white">110 Hz</div><div className="text-[10px] text-slate-400">A2 note under A4 = 440 Hz tuning; not a measured resonance for this site.</div></div></div><p className="mt-2 text-[10px] leading-relaxed text-slate-500">No frequency is assigned unless traceable measurements, units, method, uncertainty, and source are available.</p></div>
           <div className="rounded-lg border border-sky-500/30 bg-slate-950/80 p-3">
             <div className="text-[10px] font-mono font-bold text-sky-200">SITE TRIANGLE · NEAREST NEIGHBORS</div>
-            {nearestSites.length === 2 ? <><div className="mt-2 text-xs text-white">{site.name} · {nearestSites[0].name} · {nearestSites[1].name}</div><div className="mt-1 text-[10px] leading-relaxed text-slate-300">Approximate local-plane interior angles: {triangleAngles.join('° · ')}°. Nearby site distances: {nearestSites.map((near) => near.name + ' ' + Math.round(near.distanceKm).toLocaleString() + ' km').join(' · ')}.</div><div className="mt-1 text-[9px] text-slate-500">Geographic triangle for exploration only; the local-plane approximation is not a surveyed ancient alignment.</div></> : <div className="mt-2 text-[10px] text-slate-400">Not enough reference sites to calculate a triangle.</div>}
+            {nearestSites.length === 2 ? <><div className="mt-2 text-xs text-white">{site.name} · {nearestSites[0].name} · {nearestSites[1].name}</div><div className="mt-1 text-[10px] leading-relaxed text-slate-300">Approximate local-plane interior angles: {triangleAngles.join('° · ')}°. Nearby geodesics: {nearestSites.map((near) => near.name + ' ' + Math.round(near.distanceKm).toLocaleString() + ' km, bearing ' + Math.round(near.bearingDegrees) + '°' + (near.approximate ? ' (spherical fallback)' : '')).join(' · ')}.</div><div className="mt-1 text-[9px] text-slate-500">Geographic triangle for exploration only; the local-plane approximation is not a surveyed ancient alignment.</div></> : <div className="mt-2 text-[10px] text-slate-400">Not enough reference sites to calculate a triangle.</div>}
           </div>
           <div className="rounded-lg border border-violet-500/30 bg-slate-950/80 p-3">
             <div className="text-[10px] font-mono font-bold text-violet-200">STAR & MOON COMPARISON</div>
