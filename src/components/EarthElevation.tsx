@@ -117,18 +117,33 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
     let buildMarkers: (() => void) | null = null;
-    // Load the user's real LED sprite sheet. Keep the water/elevation scene independent
-    // from AudioCubeSpace; each marker gets its own cropped texture view.
-    let ledAtlas: THREE.Texture | null = null;
-    const ledAtlasPromise = new THREE.TextureLoader().loadAsync(
-      new URL('../../ledBULBS-on-off.png', import.meta.url).href
-    ).then(texture => {
+    // Use crisp category symbols instead of the unreliable LED atlas.
+    function createSiteIconTexture(category = '', name = ''): THREE.CanvasTexture {
+      const value = (category + ' ' + name).toLowerCase();
+      let glyph = '◆';
+      if (/sound|audio|acoustic|frequency|music|resonance|hz/.test(value)) glyph = '♫';
+      else if (/pyramid|temple|ziggurat|monument|megalith/.test(value)) glyph = '▲';
+      else if (/cave|cavern|grotto|underground/.test(value)) glyph = '◒';
+      else if (/stone|crystal|rock|mineral/.test(value)) glyph = '⬟';
+      else if (/mound|burial|tumulus|tomb|dolmen|barrow/.test(value)) glyph = '⬢';
+      else if (/city|settlement|village|urban/.test(value)) glyph = '⌂';
+      else if (/star|astronom|observatory|alignment|celestial/.test(value)) glyph = '✦';
+      else if (/water|spring|lake|river|well|ocean/.test(value)) glyph = '≈';
+      else if (/ruin|archaeolog|historic|site/.test(value)) glyph = '⌖';
+      const canvas = document.createElement('canvas');
+      canvas.width = 128; canvas.height = 128;
+      const ctx = canvas.getContext('2d')!;
+      ctx.clearRect(0, 0, 128, 128);
+      ctx.beginPath(); ctx.arc(64, 64, 54, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(8,17,32,0.9)'; ctx.fill();
+      ctx.lineWidth = 5; ctx.strokeStyle = '#7dd3fc'; ctx.stroke();
+      ctx.font = 'bold 72px "Segoe UI Symbol", "Arial Unicode MS", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#f8fafc'; ctx.fillText(glyph, 64, 66);
+      const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-      texture.magFilter = THREE.LinearFilter;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
-      ledAtlas = texture;
       return texture;
-    });
+    }
     let heights = new Float32Array(0);
     let gridWidth = 0;
     let gridHeight = 0;
@@ -256,10 +271,6 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, terrainMaterial, heights, width: gridWidth, height: gridHeight };
 
         buildMarkers = () => {
-          if (!ledAtlas) {
-            void ledAtlasPromise.then(() => { if (!cancelled) buildMarkers?.(); }).catch(error => console.error('Unable to load LED sprite sheet:', error));
-            return;
-          }
           let index = 0;
           const buildBatch = () => {
             if (cancelled || !sitePoints || !earthGroup) return;
@@ -273,35 +284,17 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
               const lat = site.lat * Math.PI / 180;
               const lon = site.lon * Math.PI / 180;
               const radius = BASE_RADIUS + Math.max(elevation, seaLevelRef.current) * HEIGHT_SCALE * terrainScaleRef.current + 0.8;
-              const raw = String(site.color || '').toLowerCase();
-              const colorIndex = /red|ef4444|f87171|dc2626/.test(raw) ? 0
-                : /orange|fb923c|f97316|fdba24/.test(raw) ? 1
-                : /blue|sky|60a5fa|38bdf8/.test(raw) || /city/i.test(site.category || '') ? 2
-                : /green|lime|34d399|10b981|22c55e|a3e635|84cc16/.test(raw) ? 3
-                : /purple|violet|a78bfa|8b6cf8|pink|f472b6|ec4899/.test(raw) ? 4 : 2;
-              const ledTexture = ledAtlas!.clone();
-              ledTexture.wrapS = THREE.ClampToEdgeWrapping;
-              ledTexture.wrapT = THREE.ClampToEdgeWrapping;
-              ledTexture.repeat.set(1 / 8, 1 / 10);
-              ledTexture.offset.set(0, (9 - colorIndex * 2) / 10);
-              ledTexture.needsUpdate = true;
+              const iconTexture = createSiteIconTexture(site.category || '', site.name || '');
               const spriteMaterial = new THREE.SpriteMaterial({
-                map: ledTexture, color: '#ffffff', transparent: true, alphaTest: 0.04,
-                depthWrite: false, toneMapped: false
+                map: iconTexture, transparent: true, depthWrite: false, toneMapped: false
               });
-              spriteMaterial.onBeforeCompile = (shader) => {
-                shader.fragmentShader = shader.fragmentShader.replace(
-                  '#include <map_fragment>',
-                  '#include <map_fragment>\\nif (max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) < 0.055) discard;'
-                );
-              };
               const sprite = new THREE.Sprite(spriteMaterial);
-              sprite.userData.isRetroLedSprite = true;
+              sprite.userData.isRetroLedSprite = false;
               sprite.userData.site = { name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color };
-              sprite.userData.ledTexture = ledTexture;
-              sprite.userData.ledColorIndex = colorIndex;
-              sprite.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
-              sprite.scale.set(2.2, 2.2, 1);
+              sprite.userData.siteIconTexture = iconTexture;
+              
+              
+              sprite.scale.set(2.7, 2.7, 1);
               sprite.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
               sitePoints.add(sprite);
             }
