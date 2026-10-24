@@ -3845,7 +3845,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                   <div className="mt-2 text-sm font-mono text-slate-100">Preparing Earth view</div>
                   <div className="mt-1 text-[10px] text-slate-400">Loading global imagery before centering the globe…</div>
                   <div className="mt-3 h-1.5 overflow-hidden rounded-full border border-cyan-900 bg-slate-900">
-                    <div className="h-full w-[38%] rounded-full bg-gradient-to-r from-cyan-500 via-sky-300 to-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.65)] animate-[earth-loading-sweep_1.35s_ease-in-out_infinite]" />
+                    <div className="h-full w-[38%] rounded-full bg-gradient-to-r from-cyan-500 via-sky-300 to-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.65)] animate-pulse" />
                   </div>
                   <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-slate-500"><span>IMAGERY STREAM</span><span>WAITING FOR COMPLETE FRAME</span></div>
                 </div>
