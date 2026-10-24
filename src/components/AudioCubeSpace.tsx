@@ -505,11 +505,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         if (!ctx) return;
         ctx.drawImage(image, 0, 0);
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        // The authored sheet is a regular 4-column × 3-row atlas (12 category icons).
-        // Slice fixed cells instead of guessing gutters from alpha projections: the old
-        // heuristic could merge cells and occasionally use the entire sheet as one marker.
+        // The authored 1254×1254 sheet is an 8-column × 8-row atlas (64 icons).
+        // Fixed cell boundaries prevent the whole sheet or neighboring icons becoming a marker.
         const tiles: THREE.CanvasTexture[] = [];
-        const columns = 4, rows = 3;
+        const columns = 8, rows = 8;
         for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
           const cellX = Math.floor(col * image.naturalWidth / columns);
           const cellY = Math.floor(row * image.naturalHeight / rows);
