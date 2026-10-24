@@ -453,7 +453,13 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   useEffect(() => {
     const onElevationTool = (event: Event) => {
       const action = (event as CustomEvent<{ action?: string }>).detail?.action;
-      if (action === 'triangulate') {
+      if (action === 'water-level') {
+        const value = (event as CustomEvent<{ value?: number }>).detail?.value;
+        if (typeof value === 'number' && Number.isFinite(value)) { setSeaLevel(value); setLevelMode('custom'); }
+      } else if (action === 'water-opacity') {
+        const value = (event as CustomEvent<{ value?: number }>).detail?.value;
+        if (typeof value === 'number' && Number.isFinite(value)) setWaterOpacity(Math.max(0.05, Math.min(1, value)));
+      } else if (action === 'triangulate') {
         setShowTriangulation(value => !value);
         setOverlayMessage('Earth-site neighbour mesh toggled.');
       } else if (action === 'constellations') {
@@ -486,6 +492,10 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     window.addEventListener('neuro-pulse-elevation-tool', onElevationTool);
     return () => window.removeEventListener('neuro-pulse-elevation-tool', onElevationTool);
   }, []);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('neuro-pulse-elevation-state', { detail: { seaLevel, waterOpacity } }));
+  }, [seaLevel, waterOpacity]);
 
   useEffect(() => {
     const state = sceneRef.current;
