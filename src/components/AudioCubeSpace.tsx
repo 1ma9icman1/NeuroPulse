@@ -489,10 +489,17 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
 
-  // Use the dedicated LED bulb tileset on the Earth surface. Its first column
-  // contains the clean bulb artwork; dark background/grid pixels are keyed out in the shader.
+  // Wait for the sprite sheet image to finish loading before creating per-marker
+  // texture clones. Cloning the TextureLoader placeholder before onLoad copies an
+  // empty image, leaving every marker sprite invisible even after the atlas loads.
+  const [retroLedAtlasReady, setRetroLedAtlasReady] = useState(false);
   const retroLedAtlas = useMemo(() => {
-    const texture = new THREE.TextureLoader().load(new URL('../../ledBULBS-on-off.png', import.meta.url).href);
+    const texture = new THREE.TextureLoader().load(
+      new URL('../../ledBULBS-on-off.png', import.meta.url).href,
+      () => setRetroLedAtlasReady(true),
+      undefined,
+      (error) => console.error('Unable to load Earth LED tileset:', error),
+    );
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.magFilter = THREE.LinearFilter;
     texture.minFilter = THREE.LinearMipmapLinearFilter;
@@ -528,7 +535,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     const sprite = new THREE.Sprite(material);
     sprite.userData.isRetroLedSprite = true;
     sprite.userData.ledTexture = tileTexture;
-    sprite.scale.set(2.0, 2.0, 1);
+    sprite.scale.set(3.2, 3.2, 1);
     group.add(sprite);
     group.scale.setScalar(1.0);
     group.userData.ledColorIndex = row;
@@ -3880,7 +3887,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
               labelColor={(d: any) => d.isCity ? '#e2e8f0' : d.evidenceStatus ? '#fdba74' : '#fde68a'}
               labelSize={(d: any) => d.isCity ? 0.40 : 0.31} labelAltitude={0.016} labelDotRadius={(d: any) => d.isCity ? 0.065 : 0.045}
-              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? (showCities && (earthZoomTier >= 2 || isMajorZoomCity(site))) : (earthZoomTier >= 2 && (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)))} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointsData={retroLedAtlasReady ? visibleEarthSites.filter((site: any) => site.isCity ? (showCities && (earthZoomTier >= 2 || isMajorZoomCity(site))) : (earthZoomTier >= 2 && (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures))) : []} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               {...({
                 // Use the points-layer API so the LED sprites replace default point dots.
