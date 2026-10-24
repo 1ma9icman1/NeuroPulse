@@ -489,49 +489,113 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
 
+  // The same authored transparent icon tilesheet powers the main/flat Earth markers.
+  const [researchIconAtlas, setResearchIconAtlas] = useState<THREE.CanvasTexture[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.src = 'https://raw.githubusercontent.com/1ma9icman1/NeuroPulse/main/Archaeology%20and%20Science%20Icon%20Grid.png';
+    image.onload = () => {
+      if (cancelled) return;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+        ctx.drawImage(image, 0, 0);
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const colInk = new Uint32Array(canvas.width), rowInk = new Uint32Array(canvas.height);
+        for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
+          if (pixels[(y * canvas.width + x) * 4 + 3] > 12) { colInk[x]++; rowInk[y]++; }
+        }
+        const bands = (counts: Uint32Array) => {
+          const out: Array<[number, number]> = [];
+          let begin = -1, last = -1;
+          for (let i = 0; i < counts.length; i++) if (counts[i] > 0) {
+            if (begin < 0) begin = i;
+            if (last >= 0 && i - last > 3) { out.push([begin, last + 1]); begin = i; }
+            last = i;
+          }
+          if (begin >= 0) out.push([begin, last + 1]);
+          return out.filter(([a,b]) => b-a >= 4);
+        };
+        const cols=bands(colInk), rows=bands(rowInk), tiles: THREE.CanvasTexture[]=[];
+        for (const [y0,y1] of rows) for (const [x0,x1] of cols) {
+          let ink=0;
+          for (let y=y0;y<y1;y++) for (let x=x0;x<x1;x++) if (pixels[(y*canvas.width+x)*4+3]>12) ink++;
+          if (ink<8) continue;
+          const tile=document.createElement('canvas'); tile.width=128; tile.height=128;
+          const tctx=tile.getContext('2d'); if(!tctx) continue;
+          const ix=Math.max(0,Math.round((x1-x0)*0.04)), iy=Math.max(0,Math.round((y1-y0)*0.04));
+          const sw=Math.max(1,x1-x0-ix*2), sh=Math.max(1,y1-y0-iy*2), scale=Math.min(112/sw,112/sh), dw=sw*scale, dh=sh*scale;
+          tctx.drawImage(image,x0+ix,y0+iy,sw,sh,(128-dw)/2,(128-dh)/2,dw,dh);
+          const texture=new THREE.CanvasTexture(tile); texture.colorSpace=THREE.SRGBColorSpace; tiles.push(texture);
+        }
+        if (!cancelled && tiles.length) {
+          setResearchIconAtlas(tiles);
+          console.info('[NeuroPulse] Main Earth markers loaded authored icon tiles:', tiles.length);
+        }
+      } catch (error) { console.warn('[NeuroPulse] Could not slice archaeology/science icon tilesheet:', error); }
+    };
+    image.onerror = () => console.warn('[NeuroPulse] Could not load archaeology/science icon tilesheet.');
+    return () => { cancelled = true; image.onload = null; image.onerror = null; };
+  }, []);
+
   // Category-based research icons replace the old animated LED bulbs.
   // The LED PNG files remain in the repository as archived assets, but are not loaded or rendered.
   const makeResearchIcon = useCallback((site: any) => {
-    const value = `${site.category || ''} ${site.layerCategory || ''} ${site.name || ''} `.toLowerCase();
-    let glyph = '◆';
-    if (/sound|audio|acoustic|frequency|music|resonance|hz|solfeggio/.test(value)) glyph = '♫';
-    else if (/pyramid|temple|ziggurat|monument|megalith|structure|archaeolog|ancient/.test(value)) glyph = '▲';
-    else if (/cave|cavern|grotto|underground/.test(value)) glyph = '◒';
-    else if (/stone|crystal|rock|mineral/.test(value)) glyph = '⬟';
-    else if (/mound|burial|tumulus|tomb|dolmen|barrow/.test(value)) glyph = '⬢';
-    else if (/city|settlement|village|urban/.test(value) || site.isCity) glyph = '⌂';
-    else if (/star|astronom|observatory|alignment|celestial|constellation/.test(value)) glyph = '✦';
-    else if (/water|spring|lake|river|well|ocean|sea level/.test(value)) glyph = '≈';
-    else if (/reference|location|historic|site/.test(value)) glyph = '⌖';
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.clearRect(0, 0, 128, 128);
-      ctx.beginPath();
-      ctx.arc(64, 64, 55, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(3, 12, 27, 0.94)';
-      ctx.fill();
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = String(site.color || '#7dd3fc');
-      ctx.stroke();
-      ctx.font = 'bold 70px "Segoe UI Symbol", "Arial Unicode MS", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillText(glyph, 64, 66);
+    const value = `${site.category || ''} ${site.layerCategory || ''} ${site.name || ''}`.toLowerCase();
+    const tileRules = [
+      /pyramid|temple|ziggurat|monument|megalith|structure|archaeolog|ancient/,
+      /city|settlement|village|urban/,
+      /stone|crystal|rock|mineral/,
+      /cave|cavern|grotto|underground/,
+      /mound|burial|tumulus|tomb|dolmen|barrow/,
+      /water|spring|lake|river|well|ocean|sea level/,
+      /sound|audio|acoustic|frequency|music|resonance|hz|solfeggio/,
+      /star|astronom|observatory|alignment|celestial|constellation/,
+      /reference|location|historic|site/,
+      /mountain|volcano|elevation|terrain/,
+      /artifact|tool|pottery|metalwork/,
+      /geometry|triangle|angle/,
+    ];
+    const matchedIndex = tileRules.findIndex(rule => rule.test(value));
+    const atlasIndex = matchedIndex < 0 ? 8 : matchedIndex;
+    const atlasTexture = researchIconAtlas[atlasIndex];
+    let texture: THREE.CanvasTexture;
+    if (atlasTexture) {
+      texture = atlasTexture;
+    } else {
+      // Temporary fallback only while the authored atlas is loading or if it is unavailable.
+      let glyph = '◆';
+      if (/sound|audio|acoustic|frequency|music|resonance|hz|solfeggio/.test(value)) glyph = '♫';
+      else if (/pyramid|temple|ziggurat|monument|megalith|structure|archaeolog|ancient/.test(value)) glyph = '▲';
+      else if (/cave|cavern|grotto|underground/.test(value)) glyph = '◒';
+      else if (/stone|crystal|rock|mineral/.test(value)) glyph = '⬟';
+      else if (/mound|burial|tumulus|tomb|dolmen|barrow/.test(value)) glyph = '⬢';
+      else if (/city|settlement|village|urban/.test(value) || site.isCity) glyph = '⌂';
+      else if (/star|astronom|observatory|alignment|celestial|constellation/.test(value)) glyph = '✦';
+      else if (/water|spring|lake|river|well|ocean|sea level/.test(value)) glyph = '≈';
+      else if (/reference|location|historic|site/.test(value)) glyph = '⌖';
+      const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, 128, 128); ctx.beginPath(); ctx.arc(64, 64, 55, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(3, 12, 27, 0.94)'; ctx.fill(); ctx.lineWidth = 5;
+        ctx.strokeStyle = String(site.color || '#7dd3fc'); ctx.stroke();
+        ctx.font = 'bold 70px "Segoe UI Symbol", "Arial Unicode MS", sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#f8fafc'; ctx.fillText(glyph, 64, 66);
+      }
+      texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
     }
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.025, depthWrite: false, toneMapped: false });
     const sprite = new THREE.Sprite(material);
     sprite.userData.isResearchIcon = true;
     sprite.userData.siteIconTexture = texture;
     sprite.scale.set(site.isCity ? 2.2 : 2.8, site.isCity ? 2.2 : 2.8, 1);
     return sprite;
-  }, []);
+  }, [researchIconAtlas]);;
 
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
   const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(false);
