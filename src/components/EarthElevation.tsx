@@ -274,38 +274,33 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
               const lon = site.lon * Math.PI / 180;
               const radius = BASE_RADIUS + Math.max(elevation, seaLevelRef.current) * HEIGHT_SCALE * terrainScaleRef.current + 0.8;
               const raw = String(site.color || '').toLowerCase();
-              const row = /red|ef4444|f87171|dc2626/.test(raw) ? 0
+              // Atlas layout: 8 columns x 10 rows; each color has an OFF row then an ON row.
+              // Rows from top: red OFF/ON, orange OFF/ON, blue OFF/ON, green OFF/ON, purple OFF/ON.
+              const colorIndex = /red|ef4444|f87171|dc2626/.test(raw) ? 0
                 : /orange|fb923c|f97316|fdba74/.test(raw) ? 1
-                : /yellow|gold|facc15|fbbf24/.test(raw) ? 2
-                : /lime|a3e635|84cc16/.test(raw) ? 3
-                : /green|34d399|10b981|22c55e/.test(raw) ? 4
-                : /cyan|22d3ee|06b6d4/.test(raw) ? 5
-                : /blue|sky|60a5fa|38bdf8/.test(raw) || /city/i.test(site.category || '') ? 6
-                : /purple|violet|a78bfa|8b6cf8/.test(raw) ? 7
-                : /pink|f472b6|ec4899/.test(raw) ? 8
-                : /white|silver|e2e8f0|cbd5e1/.test(raw) ? 9 : 2;
-              // The source is 8 columns wide; use column zero and the 10 vertical bulb rows.
+                : /blue|sky|60a5fa|38bdf8/.test(raw) || /city/i.test(site.category || '') ? 2
+                : /green|lime|34d399|10b981|22c55e|a3e635|84cc16/.test(raw) ? 3
+                : /purple|violet|a78bfa|8b6cf8|pink|f472b6|ec4899/.test(raw) ? 4 : 2;
               const ledTexture = ledAtlas!.clone();
               ledTexture.repeat.set(1 / 8, 1 / 10);
-              ledTexture.offset.set(0, (9 - row) / 10);
+              ledTexture.offset.set(0, (9 - colorIndex * 2 - 1) / 10);
               ledTexture.needsUpdate = true;
               const spriteMaterial = new THREE.SpriteMaterial({
                 map: ledTexture, color: '#ffffff', transparent: true, alphaTest: 0.04,
                 depthWrite: false, toneMapped: false
               });
-              // The supplied sprite sheet has an opaque black canvas. Discard near-black
-              // pixels in the fragment shader so only the bulb itself remains visible.
+              // The PNG has an opaque black canvas. Discard its dark pixels so only the bulb shows.
               spriteMaterial.onBeforeCompile = (shader) => {
                 shader.fragmentShader = shader.fragmentShader.replace(
                   '#include <map_fragment>',
-                  '#include <map_fragment>\nif (max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) < 0.055) discard;'
+                  '#include <map_fragment>\\nif (max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) < 0.035) discard;'
                 );
               };
               const sprite = new THREE.Sprite(spriteMaterial);
               sprite.userData.isRetroLedSprite = true;
               sprite.userData.site = { name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color };
               sprite.userData.ledTexture = ledTexture;
-              sprite.userData.ledColorIndex = row;
+              sprite.userData.ledColorIndex = colorIndex;
               sprite.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
               sprite.scale.set(2.2, 2.2, 1);
               sprite.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
@@ -483,8 +478,13 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         const phase = now * 2.2 + Number(object.userData.ledPhase || 0);
         const isOn = Math.sin(phase) > -0.05;
         const material = (object as THREE.Sprite).material as THREE.SpriteMaterial;
-        material.opacity = isOn ? 1 : 0.16;
-        material.color.set(isOn ? '#ffffff' : '#64748b');
+        if (material.map) {
+          const colorIndex = Number(object.userData.ledColorIndex || 0);
+          material.map.offset.y = (9 - colorIndex * 2 - (isOn ? 1 : 0)) / 10;
+          material.map.needsUpdate = true;
+        }
+        material.opacity = 1;
+        material.color.set('#ffffff');
       });
     }, 80);
     return () => window.clearInterval(timer);
