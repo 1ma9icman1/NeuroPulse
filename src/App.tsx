@@ -122,6 +122,17 @@ export default function App() {
   const [mapSnapshotNotice, setMapSnapshotNotice] = useState('');
   const [mapSnapshotLoading, setMapSnapshotLoading] = useState(false);
   const [elevationTools, setElevationTools] = useState({ triangulation: false, constellations: false, angles: false });
+  const [elevationWaterLevel, setElevationWaterLevel] = useState(0);
+  const [elevationWaterOpacity, setElevationWaterOpacity] = useState(0.58);
+  useEffect(() => {
+    const onElevationState = (event: Event) => {
+      const detail = (event as CustomEvent<{ seaLevel?: number; waterOpacity?: number }>).detail;
+      if (typeof detail?.seaLevel === 'number') setElevationWaterLevel(detail.seaLevel);
+      if (typeof detail?.waterOpacity === 'number') setElevationWaterOpacity(detail.waterOpacity);
+    };
+    window.addEventListener('neuro-pulse-elevation-state', onElevationState);
+    return () => window.removeEventListener('neuro-pulse-elevation-state', onElevationState);
+  }, []);
   const runElevationTool = (action: 'triangulate' | 'constellations' | 'angles' | 'screenshot' | 'clear') => {
     if (action === 'clear') setElevationTools({ triangulation: false, constellations: false, angles: false });
     else if (action === 'triangulate') setElevationTools(value => ({ ...value, triangulation: !value.triangulation }));
@@ -578,7 +589,16 @@ export default function App() {
 
           {earthAreaView === 'elevation' && <section className="atlas-panel atlas-elevation-tools">
             <div className="atlas-panel-heading"><Mountain size={13} /> ELEVATION TOOLKIT <span className="atlas-panel-count">3D TERRAIN</span></div>
-            <div className="atlas-elevation-tool-note">NOAA height data and adjustable ocean datum are active. Geometry tools draw directly over the elevation globe.</div>
+            <div className="atlas-elevation-tool-note">NOAA height data and adjustable ocean datum are active. Water and terrain controls are first; geometry overlays are below.</div>
+            <div className="atlas-elevation-water-controls">
+              <label>WATER ELEVATION <strong>{elevationWaterLevel > 0 ? '+' : ''}{elevationWaterLevel.toFixed(1)} m</strong></label>
+              <input aria-label="Elevation workspace water level" type="range" min="-120" max="1000" step="1" value={elevationWaterLevel} onChange={event => { const value = Number(event.target.value); setElevationWaterLevel(value); window.dispatchEvent(new CustomEvent('neuro-pulse-elevation-tool', { detail: { action: 'water-level', value } })); }} />
+              <div className="atlas-elevation-water-labels"><span>-120 m</span><span>0 m datum</span><span>+1,000 m</span></div>
+              <label>WATER TRANSPARENCY <strong>{Math.round((1 - elevationWaterOpacity) * 100)}%</strong></label>
+              <input aria-label="Elevation workspace water transparency" type="range" min="0" max="0.95" step="0.05" value={1 - elevationWaterOpacity} onChange={event => { const value = 1 - Number(event.target.value); setElevationWaterOpacity(value); window.dispatchEvent(new CustomEvent('neuro-pulse-elevation-tool', { detail: { action: 'water-opacity', value } })); }} />
+              <div className="atlas-elevation-water-labels"><span>Transparent</span><span>Opaque</span></div>
+              <button type="button" className="atlas-elevation-reset-water" onClick={() => { setElevationWaterLevel(0); setElevationWaterOpacity(0.58); window.dispatchEvent(new CustomEvent('neuro-pulse-elevation-tool', { detail: { action: 'water-level', value: 0 } })); window.dispatchEvent(new CustomEvent('neuro-pulse-elevation-tool', { detail: { action: 'water-opacity', value: 0.58 } })); }}>RESET WATER TO PRESENT DATUM</button>
+            </div>
             <div className="atlas-elevation-tool-grid">
               <button type="button" aria-pressed={elevationTools.triangulation} className={elevationTools.triangulation ? 'active' : ''} onClick={() => runElevationTool('triangulate')}><Atom size={14} /> {elevationTools.triangulation ? 'HIDE TRIANGULATION' : 'TRIANGULATE SITES'}</button>
               <button type="button" aria-pressed={elevationTools.constellations} className={elevationTools.constellations ? 'active' : ''} onClick={() => { runElevationTool('constellations'); setIncludeStars(true); }}><Star size={14} /> {elevationTools.constellations ? 'HIDE CONSTELLATIONS' : 'CONSTELLATION LINES'}</button>
