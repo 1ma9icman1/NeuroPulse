@@ -105,6 +105,7 @@ interface AudioCubeSpaceProps {
   siteCatalogue?: Array<{ name: string; lat: number; lon: number; year?: number; category?: string; isCity?: boolean; color?: string; desc?: string; [key: string]: any }>;
   showChannelElevationControls?: boolean;
   openWaterElevationRequest?: number;
+  openEarthSearchRequest?: number;
   onOpenWaterElevation?: () => void;
 }
 
@@ -135,6 +136,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   siteCatalogue = [],
   showChannelElevationControls = false,
   openWaterElevationRequest = 0,
+  openEarthSearchRequest = 0,
   onOpenWaterElevation,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -188,6 +190,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
   const [seaLevelFloodPolygons, setSeaLevelFloodPolygons] = useState<Array<{ layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } }>>([]);
   const activateSeaLevelOverlay = (enabled: boolean) => setShowSeaLevelOverlay(enabled);
+  useEffect(() => {
+    if (openEarthSearchRequest > 0) setShowAddEarthSite(true);
+  }, [openEarthSearchRequest]);
+
   useEffect(() => {
     if (openWaterElevationRequest > 0) {
       setShowSeaLevelOverlay(true);
