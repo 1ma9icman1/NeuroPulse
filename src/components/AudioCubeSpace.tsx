@@ -509,19 +509,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const makeRetroLed = useCallback((site: any) => {
     const group = new THREE.Group();
     const raw = String(site.color || '#facc15').toLowerCase();
-    const row = /orange|fb923c|f97316|red|ef4444|f87171/.test(raw) ? 0
-      : /yellow|gold|facc15|fbbf24/.test(raw) ? 1
-      : /blue|sky|60a5fa|38bdf8/.test(raw) ? 2
-      : /green|34d399|10b981|22c55e/.test(raw) ? 3
-      : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
+    const row = /red|ef4444|f87171|dc2626/.test(raw) ? 0
+      : /orange|fb923c|f97316|fdba74/.test(raw) ? 1
+      : /yellow|gold|facc15|fbbf24/.test(raw) ? 2
+      : /lime|a3e635|84cc16/.test(raw) ? 3
+      : /green|34d399|10b981|22c55e/.test(raw) ? 4
+      : /cyan|22d3ee|06b6d4/.test(raw) ? 5
+      : /blue|sky|60a5fa|38bdf8/.test(raw) ? 6
+      : /purple|violet|a78bfa|8b5cf6/.test(raw) ? 7
+      : /pink|f472b6|ec4899/.test(raw) ? 8
+      : /white|silver|e2e8f0|cbd5e1/.test(raw) ? 9 : 2;
     // Use a camera-facing sprite, not a flat plane that can turn edge-on to the globe camera.
     // Each marker gets a cloned texture view so its UV crop cannot change other markers.
-    // Ten vertical states: OFF/ON for red, yellow, blue, green, purple.
-    // The right-hand column duplicates the artwork; deliberately use column one only.
+    // The supplied sprite sheet is one column: ten colors, each with ON/OFF states.
+    // Crop the full width and one twentieth of the image height per state.
     const tileTexture = retroLedAtlas.clone();
-    // Tilesheet is 8 columns x 10 rows; use column one and the color's OFF/ON rows.
-    tileTexture.repeat.set(0.125, 0.1);
-    tileTexture.offset.set(0, (9 - row * 2) * 0.1);
+    tileTexture.repeat.set(1, 0.05);
+    tileTexture.offset.set(0, (19 - (row * 2 + 1)) * 0.05);
     tileTexture.needsUpdate = true;
     const material = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.04, depthWrite: false });
     // The source tilesheet has a near-black backing. Discard only those dark pixels
@@ -564,7 +568,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         if (object.userData?.isRetroLedSprite) {
           const colorIndex = Number(parent?.userData?.ledColorIndex ?? 1);
           const texture = object.userData.ledTexture as THREE.Texture | undefined;
-          if (texture) texture.offset.y = (9 - (colorIndex * 2 + (isOn ? 1 : 0))) * 0.1;
+          if (texture) texture.offset.y = (19 - (colorIndex * 2 + (isOn ? 1 : 0))) * 0.05;
           const material = object.material as THREE.SpriteMaterial | undefined;
           if (material) {
             material.opacity = isOn ? 1 : 0.38;
