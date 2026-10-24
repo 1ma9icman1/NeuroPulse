@@ -522,7 +522,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     material.onBeforeCompile = (shader) => {
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <map_fragment>',
-        '#include <map_fragment>\\nif (max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) < 0.055) discard;'
+        '#include <map_fragment>\nif (max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) < 0.055) discard;'
       );
     };
     const sprite = new THREE.Sprite(material);
