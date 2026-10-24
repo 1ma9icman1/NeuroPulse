@@ -11,6 +11,7 @@ import type { CameraView, SpatialPosition, SpatialRoutingMode } from './types';
 import { DEFAULT_EARTH_POINTS } from './data/earthData';
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
 import { ACOUSTIC_SITE_EVIDENCE } from './data/acousticSiteEvidence';
+import { calculateGeodesic, geodesicDistanceKm } from './services/geospatialAnalysis';
 
 const INITIAL_CONFIG: TrinauralConfig = { aFreq:432,aFineTune:0,aWaveform:'sine',aGain:0.85,aMuted:false,aPos:{x:-4.5,y:1.5,z:0}, bFreq:442,bFineTune:0,bWaveform:'sine',bGain:0.85,bMuted:false,bPos:{x:4.5,y:1.5,z:0}, cFreq:452,cFineTune:0,cWaveform:'sine',cGain:0.85,cMuted:false,cPos:{x:0,y:2.5,z:3.5},isDeltaLocked:true,lockedDeltaAB:10,lockedDeltaBC:10,masterVolume:0.8,spatialMode:'trinaural-isolated',cameraView:'top',cameraYaw:30,cameraPitch:22,cameraZoom:1 };
 const CENTER: SpatialPosition = { x: 0, y: 0, z: 0 };
@@ -27,14 +28,6 @@ const NAV_ITEMS = [
   { label: 'DATABASE', icon: Database },
   { label: 'SETTINGS', icon: Settings2 },
 ];
-
-function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
-  const rad = Math.PI / 180;
-  const dLat = (b.lat - a.lat) * rad;
-  const dLon = (b.lon - a.lon) * rad;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
-  return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
-}
 
 function formatCoordinate(value: number, positive: string, negative: string) {
   return `${Math.abs(value).toFixed(4)}° ${value >= 0 ? positive : negative}`;
@@ -70,7 +63,7 @@ export default function App() {
     if (!selectedSite) return [];
     return DEFAULT_EARTH_POINTS
       .filter((site) => site.id !== selectedSite.id)
-      .map((site) => ({ ...site, distance: distanceKm(selectedSite, site) }))
+      .map((site) => ({ ...site, distance: calculateGeodesic(selectedSite, site).distanceKm, bearing: calculateGeodesic(selectedSite, site).initialBearingDegrees, geodesicMethod: calculateGeodesic(selectedSite, site).method, approximate: calculateGeodesic(selectedSite, site).approximate }))
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 4);
   }, [selectedSite]);
@@ -78,7 +71,7 @@ export default function App() {
   const linkedAcousticRecords = useMemo(() => {
     if (!selectedSite) return [];
     return ACOUSTIC_SITE_EVIDENCE
-      .map((record) => ({ ...record, distance: distanceKm(selectedSite, record) }))
+      .map((record) => ({ ...record, distance: geodesicDistanceKm(selectedSite, record) }))
       .filter((record) => record.distance < 100 && record.measuredFrequenciesHz.some((hz) => hz <= frequencyMax))
       .sort((a, b) => a.distance - b.distance);
   }, [selectedSite, frequencyMax]);
@@ -240,7 +233,7 @@ export default function App() {
             {includeGeometry && nearestSites.map((site) => (
               <button key={site.id} className="atlas-related-row" onClick={() => { setSelectedSiteId(site.id); setShowSiteList(false); }}>
                 <span className="atlas-related-marker"><MapPin size={14} /></span>
-                <span className="atlas-related-copy"><strong>{site.name}</strong><small>{formatCoordinate(site.lat, 'N', 'S')} · {formatCoordinate(site.lon, 'E', 'W')}</small></span>
+                <span className="atlas-related-copy"><strong>{site.name}</strong><small>{formatCoordinate(site.lat, 'N', 'S')} · {formatCoordinate(site.lon, 'E', 'W')} · BRG {Math.round(site.bearing)}° {site.approximate ? '· APPROX.' : '· WGS84'}</small></span>
                 <b>{Math.round(site.distance).toLocaleString()} km</b>
               </button>
             ))}
