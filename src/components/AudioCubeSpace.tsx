@@ -148,13 +148,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
   // Public, no-sign-in Earth imagery sources. The original globe and every existing overlay remain intact.
   const [earthImageryPanelOpen, setEarthImageryPanelOpen] = useState(false);
-  const [earthImagerySource, setEarthImagerySource] = useState<'satellite' | 'blue-marble' | 'land-ocean'>('blue-marble');
+  const [earthImagerySource, setEarthImagerySource] = useState<'satellite' | 'blue-marble' | 'land-ocean'>('satellite');
   const earthImagerySources = {
-    satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-180,-85,180,85&bboxSR=4326&imageSR=4326&size=2048,1024&format=jpg&transparent=false&f=image',
+    satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-180,-85,180,85&bboxSR=4326&imageSR=4326&size=4096,2048&format=jpg&transparent=false&f=image',
     'blue-marble': 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
     'land-ocean': 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png',
   };
-  const [earthTextureUrl, setEarthTextureUrl] = useState<string>(earthImagerySources['blue-marble']);
+  const [earthTextureUrl, setEarthTextureUrl] = useState<string>(earthImagerySources.satellite);
   // Sea-level mode uses measured DEM elevations and ocean-connected flood fill.
   const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
   const [seaLevelFloodPolygons, setSeaLevelFloodPolygons] = useState<Array<{ layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } }>>([]);
