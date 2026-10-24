@@ -489,12 +489,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
 
-  // Load the repository's LED sheet once. Each sprite shares the live texture so it
-  // still appears when the browser finishes loading the PNG after markers are created.
+  // Use the dedicated LED bulb tileset on the Earth surface. Its first column
+  // contains the clean bulb artwork; dark background/grid pixels are keyed out in the shader.
   const retroLedAtlas = useMemo(() => {
-    const texture = new THREE.TextureLoader().load(new URL('../../Retro LED Tilesheet and Neon Earth Globe.png', import.meta.url).href);
+    const texture = new THREE.TextureLoader().load(new URL('../../ledBULBS-on-off.png', import.meta.url).href);
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.magFilter = THREE.NearestFilter;
+    texture.magFilter = THREE.LinearFilter;
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     return texture;
   }, []);
@@ -512,10 +512,19 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     // Ten vertical states: OFF/ON for red, yellow, blue, green, purple.
     // The right-hand column duplicates the artwork; deliberately use column one only.
     const tileTexture = retroLedAtlas.clone();
-    tileTexture.repeat.set(0.5, 0.1);
+    // Tilesheet is 8 columns x 10 rows; use column one and the color's OFF/ON rows.
+    tileTexture.repeat.set(0.125, 0.1);
     tileTexture.offset.set(0, (9 - row * 2) * 0.1);
     tileTexture.needsUpdate = true;
     const material = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.04, depthWrite: false });
+    // The source tilesheet has a near-black backing. Discard only those dark pixels
+    // so the bulbs float cleanly over the Earth texture without black rectangles.
+    material.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <map_fragment>',
+        '#include <map_fragment>\\nif (max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) < 0.055) discard;'
+      );
+    };
     const sprite = new THREE.Sprite(material);
     sprite.userData.isRetroLedSprite = true;
     sprite.userData.ledTexture = tileTexture;
