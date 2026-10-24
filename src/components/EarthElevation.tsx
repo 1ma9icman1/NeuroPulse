@@ -116,14 +116,51 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
     let buildMarkers: (() => void) | null = null;
-    let ledAtlasReady = false;
-    const retroLedAtlas = new THREE.TextureLoader().load(
-      new URL('../../Retro LED Tilesheet and Neon Earth Globe.png', import.meta.url).href,
-      () => { ledAtlasReady = true; buildMarkers?.(); }
-    );
-    retroLedAtlas.colorSpace = THREE.SRGBColorSpace;
-    retroLedAtlas.magFilter = THREE.NearestFilter;
-    retroLedAtlas.minFilter = THREE.LinearMipmapLinearFilter;
+    const ledPalette = ['#ff302b', '#ffd52a', '#168dff', '#20ff58', '#e13cff'];
+    const makeLedTexture = (hex: string) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 96;
+      canvas.height = 96;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return new THREE.Texture();
+      const glow = ctx.createRadialGradient(48, 48, 7, 48, 48, 46);
+      glow.addColorStop(0, `${hex}cc`);
+      glow.addColorStop(0.28, `${hex}70`);
+      glow.addColorStop(1, `${hex}00`);
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, 96, 96);
+      ctx.shadowColor = hex;
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = '#07111d';
+      ctx.beginPath();
+      ctx.roundRect(18, 18, 60, 60, 18);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = `${hex}ee`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(20, 20, 56, 56, 16);
+      ctx.stroke();
+      const lens = ctx.createRadialGradient(36, 32, 2, 48, 48, 31);
+      lens.addColorStop(0, '#ffffff');
+      lens.addColorStop(0.16, hex);
+      lens.addColorStop(0.72, `${hex}dd`);
+      lens.addColorStop(1, `${hex}55`);
+      ctx.fillStyle = lens;
+      ctx.beginPath();
+      ctx.roundRect(27, 27, 42, 42, 12);
+      ctx.fill();
+      ctx.fillStyle = '#ffffffaa';
+      ctx.beginPath();
+      ctx.ellipse(39, 34, 8, 3, -0.5, 0, Math.PI * 2);
+      ctx.fill();
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = false;
+      return texture;
+    };
     let heights = new Float32Array(0);
     let gridWidth = 0;
     let gridHeight = 0;
@@ -270,18 +307,15 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
                 : /blue|sky|60a5fa|38bdf8/.test(raw) || /city/i.test(site.category || '') ? 2
                 : /green|34d399|10b981|22c55e/.test(raw) ? 3
                 : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
-              const tileTexture = retroLedAtlas.clone();
-              tileTexture.repeat.set(0.5, 0.1);
-              tileTexture.offset.set(0, (9 - row * 2) * 0.1);
-              tileTexture.needsUpdate = true;
-              const spriteMaterial = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.04, depthWrite: false });
+              const ledTexture = makeLedTexture(ledPalette[row]);
+              const spriteMaterial = new THREE.SpriteMaterial({ map: ledTexture, color: '#ffffff', transparent: true, alphaTest: 0.025, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
               const sprite = new THREE.Sprite(spriteMaterial);
               sprite.userData.isRetroLedSprite = true;
               sprite.userData.site = { name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color };
-              sprite.userData.ledTexture = tileTexture;
+              sprite.userData.ledTexture = ledTexture;
               sprite.userData.ledColorIndex = row;
               sprite.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
-              sprite.scale.set(2.8, 2.8, 1);
+              sprite.scale.set(1.65, 1.65, 1);
               sprite.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
               sitePoints.add(sprite);
             }
@@ -290,7 +324,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           markerBuildFrame = window.requestAnimationFrame(buildBatch);
         };
         // If the atlas loaded while NOAA was still downloading, start markers now.
-        if (ledAtlasReady) buildMarkers();
+        buildMarkers();
         let pointerStartX = 0;
         let pointerStartY = 0;
         const clickRaycaster = new THREE.Raycaster();
@@ -374,7 +408,6 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           material.map?.dispose();
           material.dispose();
         });
-        retroLedAtlas.dispose();
         sceneRef.current.renderer.dispose();
         sceneRef.current.renderer.domElement.remove();
       } else {
@@ -456,11 +489,9 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         const phase = now * 2.2 + Number(object.userData.ledPhase || 0);
         const isOn = Math.sin(phase) > -0.05;
         const row = Number(object.userData.ledColorIndex ?? 1);
-        const texture = object.userData.ledTexture as THREE.Texture | undefined;
-        if (texture) texture.offset.y = (9 - (row * 2 + (isOn ? 1 : 0))) * 0.1;
         const material = (object as THREE.Sprite).material as THREE.SpriteMaterial;
-        material.opacity = isOn ? 1 : 0.42;
-        material.color.set(isOn ? '#ffffff' : '#9ca3af');
+        material.opacity = isOn ? 1 : 0.16;
+        material.color.set(isOn ? '#ffffff' : '#64748b');
       });
     }, 80);
     return () => window.clearInterval(timer);
