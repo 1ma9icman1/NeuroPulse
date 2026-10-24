@@ -7,7 +7,10 @@ type Site = { name: string; lat: number; lon: number } | null;
 type CatalogueSite = { name: string; lat: number; lon: number; category?: string; color?: string };
 type Props = { selectedSite: Site; siteCatalogue: CatalogueSite[]; onBack: () => void };
 
-const NOAA_DEM_URL = 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic/ImageServer/exportImage?bbox=-180,-90,180,90&bboxSR=4326&size=720,360&imageSR=4326&format=tiff&pixelType=F32&interpolation=RSP_BilinearInterpolation&f=image';
+const DEM_WIDTH = 1080;
+const DEM_HEIGHT = 540;
+const NOAA_DEM_URL = `https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic/ImageServer/exportImage?bbox=-180,-90,180,90&bboxSR=4326&size=${DEM_WIDTH},${DEM_HEIGHT}&imageSR=4326&format=tiff&pixelType=F32&interpolation=RSP_BilinearInterpolation&f=image`;
+const NOAA_SATELLITE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-180,-85,180,85&bboxSR=4326&imageSR=4326&size=2048,1024&format=jpg&transparent=false&f=image';
 const NOAA_SOURCE = 'https://www.ncei.noaa.gov/products/etopo-global-relief-model';
 const BASE_RADIUS = 100;
 const HEIGHT_SCALE = 0.0015;
@@ -40,7 +43,7 @@ function elevationColor(height: number): THREE.Color {
 
 export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, onBack }) => {
   const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; heights: Float32Array; width: number; height: number } | null>(null);
+  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; terrainMaterial: THREE.MeshStandardMaterial; heights: Float32Array; width: number; height: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [yearOffset, setYearOffset] = useState(0);
@@ -49,12 +52,46 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const [terrainScale, setTerrainScale] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [datasetInfo, setDatasetInfo] = useState('Connecting to NOAA elevation service…');
+  const [surfaceMode, setSurfaceMode] = useState<'satellite' | 'relief'>('relief');
+  const [surfaceTextureLoaded, setSurfaceTextureLoaded] = useState(false);
+  const [surfaceTextureError, setSurfaceTextureError] = useState(false);
+  const surfaceTextureRef = useRef<THREE.Texture | null>(null);
+  const surfaceModeRef = useRef(surfaceMode);
+  surfaceModeRef.current = surfaceMode;
   // Keep the latest slider values available to the asynchronous NOAA scene initializer.
   // Otherwise a slider move during loading can be overwritten by stale initial values.
   const seaLevelRef = useRef(seaLevel);
   const terrainScaleRef = useRef(terrainScale);
   seaLevelRef.current = seaLevel;
   terrainScaleRef.current = terrainScale;
+
+  useEffect(() => {
+    let cancelled = false;
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      NOAA_SATELLITE_URL,
+      texture => {
+        if (cancelled) { texture.dispose(); return; }
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 8;
+        surfaceTextureRef.current = texture;
+        setSurfaceTextureLoaded(true);
+        setSurfaceMode('satellite');
+      },
+      undefined,
+      () => {
+        if (!cancelled) {
+          setSurfaceTextureError(true);
+          setSurfaceMode('relief');
+        }
+      }
+    );
+    return () => {
+      cancelled = true;
+      surfaceTextureRef.current?.dispose();
+      surfaceTextureRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,11 +141,11 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         const tiff = await fromBlob(rasterBlob);
         if (cancelled) return;
         const image = await tiff.getImage();
-        const raster = await image.readRasters({ width: 720, height: 360, interleave: true });
+        const raster = await image.readRasters({ width: DEM_WIDTH, height: DEM_HEIGHT, interleave: true });
         if (cancelled) return;
         const values = raster as unknown as Float32Array;
-        gridWidth = 720;
-        gridHeight = 360;
+        gridWidth = DEM_WIDTH;
+        gridHeight = DEM_HEIGHT;
         heights = new Float32Array(gridWidth * gridHeight);
         let validCount = 0;
         for (let i = 0; i < heights.length; i++) {
@@ -142,6 +179,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
 
         const positions: number[] = [];
         const colors: number[] = [];
+        const uvs: number[] = [];
         const indices: number[] = [];
         for (let y = 0; y < gridHeight; y++) {
           const lat = (90 - (y / (gridHeight - 1)) * 180) * Math.PI / 180;
@@ -156,8 +194,12 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
             const visibleHeight = submerged ? activeSeaLevel : elevation;
             const radius = BASE_RADIUS + visibleHeight * HEIGHT_SCALE * activeTerrainScale;
             positions.push(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
-            const color = submerged ? new THREE.Color('#168bd2') : elevationColor(elevation);
+            const color = surfaceModeRef.current === 'satellite'
+              ? (submerged ? new THREE.Color('#9ac4dc') : new THREE.Color('#ffffff'))
+              : elevationColor(elevation);
             colors.push(color.r, color.g, color.b);
+            // Geographic equirectangular mapping: west/east across U, north/south across V.
+            uvs.push(x / (gridWidth - 1), 1 - y / (gridHeight - 1));
           }
         }
         for (let y = 0; y < gridHeight - 1; y++) {
@@ -173,9 +215,11 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
         geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geometry.setIndex(indices);
         geometry.computeVertexNormals();
-        const terrain = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 }));
+        const terrainMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 });
+        const terrain = new THREE.Mesh(geometry, terrainMaterial);
         terrain.renderOrder = 1;
         earthGroup.add(terrain);
 
@@ -195,7 +239,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         marker.visible = false;
         earthGroup.add(marker);
 
-        sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, heights, width: gridWidth, height: gridHeight };
+        sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, terrainMaterial, heights, width: gridWidth, height: gridHeight };
 
         buildMarkers = () => {
           let index = 0;
@@ -286,6 +330,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
       resizeObserver?.disconnect();
       if (sceneRef.current) {
         sceneRef.current.geometry.dispose();
+        sceneRef.current.terrainMaterial.dispose();
         (sceneRef.current.water.geometry as THREE.BufferGeometry).dispose();
         (sceneRef.current.water.material as THREE.Material).dispose();
         if (sceneRef.current.marker) {
@@ -317,6 +362,10 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   useEffect(() => {
     const state = sceneRef.current;
     if (!state) return;
+    state.terrainMaterial.map = surfaceMode === 'satellite' && surfaceTextureLoaded ? surfaceTextureRef.current : null;
+    state.terrainMaterial.needsUpdate = true;
+    const waterMaterial = state.water.material as THREE.MeshStandardMaterial;
+    waterMaterial.opacity = surfaceMode === 'satellite' ? 0.20 : 0.58;
     const positionAttribute = state.geometry.getAttribute('position') as THREE.BufferAttribute;
     const colorAttribute = state.geometry.getAttribute('color') as THREE.BufferAttribute;
     for (let y = 0; y < state.height; y++) {
@@ -329,7 +378,9 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         const visibleHeight = submerged ? seaLevel : elevation;
         const radius = BASE_RADIUS + visibleHeight * HEIGHT_SCALE * terrainScale;
         positionAttribute.setXYZ(index, radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
-        const color = submerged ? new THREE.Color('#168bd2') : elevationColor(elevation);
+        const color = surfaceMode === 'satellite'
+          ? (submerged ? new THREE.Color('#9ac4dc') : new THREE.Color('#ffffff'))
+          : elevationColor(elevation);
         colorAttribute.setXYZ(index, color.r, color.g, color.b);
       }
     }
@@ -341,7 +392,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     // Keep the visible water surface locked to the exact same datum as flooded terrain.
     state.water.geometry.dispose();
     state.water.geometry = new THREE.SphereGeometry(BASE_RADIUS + seaLevel * HEIGHT_SCALE * terrainScale, 128, 64);
-  }, [terrainScale, seaLevel]);
+  }, [terrainScale, seaLevel, surfaceMode]);
 
   useEffect(() => {
     const state = sceneRef.current;
@@ -451,8 +502,14 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <input aria-label="Water elevation in metres" type="range" min="-120" max="1000" step="1" value={seaLevel} onChange={event => { setSeaLevel(Number(event.target.value)); setLevelMode('custom'); }} className="w-full accent-cyan-400" />
           <div className="flex justify-between text-[9px] text-slate-500"><span>-120 m</span><span>Current datum 0 m</span><span>+1,000 m hypothetical</span></div>
         </div>
+        <div className="flex flex-wrap items-center gap-2 xl:col-span-2">
+          <span className="text-[9px] font-mono font-bold text-slate-400">SURFACE</span>
+          <button type="button" onClick={() => setSurfaceMode('satellite')} disabled={!surfaceTextureLoaded} aria-pressed={surfaceMode === 'satellite'} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${surfaceMode === 'satellite' ? 'border-cyan-300 bg-cyan-900/70 text-cyan-100' : 'border-slate-700 text-slate-300 hover:border-cyan-500 disabled:opacity-40'}`}>SATELLITE TEXTURE</button>
+          <button type="button" onClick={() => setSurfaceMode('relief')} aria-pressed={surfaceMode === 'relief'} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${surfaceMode === 'relief' ? 'border-emerald-300 bg-emerald-900/70 text-emerald-100' : 'border-slate-700 text-slate-300 hover:border-emerald-500'}`}>ELEVATION RELIEF</button>
+          <span className="text-[9px] text-slate-500">{surfaceTextureError ? 'Satellite service unavailable · shaded relief active' : surfaceMode === 'satellite' ? 'World imagery draped over NOAA height data' : 'Elevation-colored, hill-shaded terrain'}</span>
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3 xl:col-span-2">
-          <div className="min-w-0 text-[9px] text-slate-500">{datasetInfo} <span className="mx-1">·</span> <a className="text-sky-300 underline" href={NOAA_SOURCE} target="_blank" rel="noreferrer">NOAA ETOPO / NCEI source</a></div>
+          <div className="min-w-0 text-[9px] text-slate-500">{datasetInfo} <span className="mx-1">·</span> <a className="text-sky-300 underline" href={NOAA_SOURCE} target="_blank" rel="noreferrer">NOAA ETOPO / NCEI source</a><span className="mx-1">·</span> <span>Imagery © Esri and its data providers</span></div>
           <label className="flex items-center gap-2 text-[9px] font-mono text-slate-400">TERRAIN RELIEF <input type="range" min="0.6" max="1.8" step="0.1" value={terrainScale} onChange={event => setTerrainScale(Number(event.target.value))} className="w-20 accent-emerald-400" /></label>
           <label className="flex items-center gap-2 text-[9px] font-mono text-slate-400">ZOOM <input type="range" min="0.7" max="2.2" step="0.1" value={zoom} onChange={event => setZoom(Number(event.target.value))} className="w-20 accent-sky-400" /></label>
         </div>
