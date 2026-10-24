@@ -117,51 +117,18 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
     let buildMarkers: (() => void) | null = null;
-    const ledPalette = ['#ff302b', '#ffd52a', '#168dff', '#20ff58', '#e13cff'];
-    const makeLedTexture = (hex: string) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 96;
-      canvas.height = 96;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return new THREE.Texture();
-      const glow = ctx.createRadialGradient(48, 48, 7, 48, 48, 46);
-      glow.addColorStop(0, `${hex}cc`);
-      glow.addColorStop(0.28, `${hex}70`);
-      glow.addColorStop(1, `${hex}00`);
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, 96, 96);
-      ctx.shadowColor = hex;
-      ctx.shadowBlur = 16;
-      ctx.fillStyle = '#07111d';
-      ctx.beginPath();
-      ctx.roundRect(18, 18, 60, 60, 18);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = `${hex}ee`;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.roundRect(20, 20, 56, 56, 16);
-      ctx.stroke();
-      const lens = ctx.createRadialGradient(36, 32, 2, 48, 48, 31);
-      lens.addColorStop(0, '#ffffff');
-      lens.addColorStop(0.16, hex);
-      lens.addColorStop(0.72, `${hex}dd`);
-      lens.addColorStop(1, `${hex}55`);
-      ctx.fillStyle = lens;
-      ctx.beginPath();
-      ctx.roundRect(27, 27, 42, 42, 12);
-      ctx.fill();
-      ctx.fillStyle = '#ffffffaa';
-      ctx.beginPath();
-      ctx.ellipse(39, 34, 8, 3, -0.5, 0, Math.PI * 2);
-      ctx.fill();
-      const texture = new THREE.CanvasTexture(canvas);
+    // Load the user's real LED sprite sheet. Keep the water/elevation scene independent
+    // from AudioCubeSpace; each marker gets its own cropped texture view.
+    let ledAtlas: THREE.Texture | null = null;
+    const ledAtlasPromise = new THREE.TextureLoader().loadAsync(
+      new URL('../../ledBULBS-on-off.png', import.meta.url).href
+    ).then(texture => {
       texture.colorSpace = THREE.SRGBColorSpace;
-      texture.minFilter = THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
-      texture.generateMipmaps = false;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      ledAtlas = texture;
       return texture;
-    };
+    });
     let heights = new Float32Array(0);
     let gridWidth = 0;
     let gridHeight = 0;
@@ -288,7 +255,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
 
         sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, terrainMaterial, heights, width: gridWidth, height: gridHeight };
 
-        buildMarkers = () => {
+        buildMarkers = () => {\n          if (!ledAtlas) {\n            void ledAtlasPromise.then(() => { if (!cancelled) buildMarkers?.(); }).catch(error => console.error('Unable to load LED sprite sheet:', error));\n            return;\n          }
           let index = 0;
           const buildBatch = () => {
             if (cancelled || !sitePoints || !earthGroup) return;
@@ -303,20 +270,38 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
               const lon = site.lon * Math.PI / 180;
               const radius = BASE_RADIUS + Math.max(elevation, seaLevelRef.current) * HEIGHT_SCALE * terrainScaleRef.current + 0.8;
               const raw = String(site.color || '').toLowerCase();
-              const row = /orange|fb923c|f97316|red|ef4444|f87171/.test(raw) ? 0
-                : /yellow|gold|facc15|fbbf24/.test(raw) ? 1
-                : /blue|sky|60a5fa|38bdf8/.test(raw) || /city/i.test(site.category || '') ? 2
-                : /green|34d399|10b981|22c55e/.test(raw) ? 3
-                : /purple|violet|a78bfa|f472b6|fuchsia/.test(raw) ? 4 : 1;
-              const ledTexture = makeLedTexture(ledPalette[row]);
-              const spriteMaterial = new THREE.SpriteMaterial({ map: ledTexture, color: '#ffffff', transparent: true, alphaTest: 0.025, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+              const row = /red|ef4444|f87171|dc2626/.test(raw) ? 0
+                : /orange|fb923c|f97316|fdba74/.test(raw) ? 1
+                : /yellow|gold|facc15|fbbf24/.test(raw) ? 2
+                : /lime|a3e635|84cc16/.test(raw) ? 3
+                : /green|34d399|10b981|22c55e/.test(raw) ? 4
+                : /cyan|22d3ee|06b6d4/.test(raw) ? 5
+                : /blue|sky|60a5fa|38bdf8/.test(raw) || /city/i.test(site.category || '') ? 6
+                : /purple|violet|a78bfa|8b6cf8/.test(raw) ? 7
+                : /pink|f472b6|ec4899/.test(raw) ? 8
+                : /white|silver|e2e8f0|cbd5e1/.test(raw) ? 9 : 2;
+              // The source is 8 columns wide; use column zero and the 10 vertical bulb rows.
+              const ledTexture = ledAtlas!.clone();
+              ledTexture.repeat.set(1 / 8, 1 / 10);
+              ledTexture.offset.set(0, (9 - row) / 10);
+              ledTexture.needsUpdate = true;
+              const spriteMaterial = new THREE.SpriteMaterial({
+                map: ledTexture, color: '#ffffff', transparent: true, alphaTest: 0.04,
+                depthWrite: false, toneMapped: false
+              });
+              spriteMaterial.onBeforeCompile = (shader) => {
+                shader.fragmentShader = shader.fragmentShader.replace(
+                  '#include <map_fragment>',
+                  '#include <map_fragment>\\nif (max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) < 0.055) discard;'
+                );
+              };
               const sprite = new THREE.Sprite(spriteMaterial);
               sprite.userData.isRetroLedSprite = true;
               sprite.userData.site = { name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color };
               sprite.userData.ledTexture = ledTexture;
               sprite.userData.ledColorIndex = row;
               sprite.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
-              sprite.scale.set(1.65, 1.65, 1);
+              sprite.scale.set(2.2, 2.2, 1);
               sprite.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
               sitePoints.add(sprite);
             }
