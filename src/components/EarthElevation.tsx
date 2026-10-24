@@ -147,36 +147,19 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           const cellY = Math.floor(row * image.naturalHeight / rows);
           const cellRight = Math.floor((col + 1) * image.naturalWidth / columns);
           const cellBottom = Math.floor((row + 1) * image.naturalHeight / rows);
-          // Remove a white matte only when it is connected to this cell's border.
-          // This keeps white details inside an icon intact while making the sheet background transparent.
-          const isMatte = (pixel: number) => {
-            const offset = pixel * 4;
+          // The source can be an opaque PNG even when its filename ends in .png.
+          // Remove white/near-white matte pixels throughout this tile, not only at its edges.
+          // Fade anti-aliased pale pixels instead of leaving a white fringe around the icon.
+          for (let y = cellY; y < cellBottom; y++) for (let x = cellX; x < cellRight; x++) {
+            const offset = (y * canvas.width + x) * 4;
             const red = pixels[offset], green = pixels[offset + 1], blue = pixels[offset + 2];
-            return pixels[offset + 3] > 12 && red > 222 && green > 222 && blue > 222 &&
-              Math.max(red, green, blue) - Math.min(red, green, blue) < 24;
-          };
-          const queue: number[] = [];
-          const enqueueMatte = (x: number, y: number) => {
-            if (x < cellX || x >= cellRight || y < cellY || y >= cellBottom) return;
-            const pixel = y * canvas.width + x;
-            if (!isMatte(pixel)) return;
-            pixels[pixel * 4 + 3] = 0;
-            queue.push(pixel);
-          };
-          for (let x = cellX; x < cellRight; x++) {
-            enqueueMatte(x, cellY);
-            enqueueMatte(x, cellBottom - 1);
-          }
-          for (let y = cellY; y < cellBottom; y++) {
-            enqueueMatte(cellX, y);
-            enqueueMatte(cellRight - 1, y);
-          }
-          for (let head = 0; head < queue.length; head++) {
-            const pixel = queue[head], x = pixel % canvas.width, y = Math.floor(pixel / canvas.width);
-            enqueueMatte(x - 1, y);
-            enqueueMatte(x + 1, y);
-            enqueueMatte(x, y - 1);
-            enqueueMatte(x, y + 1);
+            const brightest = Math.max(red, green, blue);
+            const darkest = Math.min(red, green, blue);
+            const spread = brightest - darkest;
+            if (brightest > 218 && spread < 32) {
+              const matteStrength = Math.min(1, Math.max(0, (brightest - 218) / 30));
+              pixels[offset + 3] = Math.round(pixels[offset + 3] * (1 - matteStrength));
+            }
           }
           let minX = cellRight, minY = cellBottom, maxX = cellX - 1, maxY = cellY - 1;
           for (let y = cellY; y < cellBottom; y++) for (let x = cellX; x < cellRight; x++) {
