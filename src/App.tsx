@@ -39,6 +39,20 @@ const NAV_ITEMS = [
 ];
 
 
+
+function siteGlyphFor(category = '', name = '', isCity = false): string {
+  const value = `${category} ${name}`.toLowerCase();
+  if (isCity || /city|settlement|village|urban/.test(value)) return '⌂';
+  if (/sound|audio|acoustic|frequency|resonance|hz|solfeggio/.test(value)) return '♫';
+  if (/star|astronom|observatory|alignment|celestial|constellation/.test(value)) return '✦';
+  if (/water|spring|lake|river|well|ocean|sea level/.test(value)) return '≈';
+  if (/cave|cavern|grotto|underground/.test(value)) return '◒';
+  if (/stone|crystal|rock|mineral/.test(value)) return '⬟';
+  if (/mound|burial|tumulus|tomb|dolmen|barrow/.test(value)) return '⬢';
+  if (/pyramid|temple|ziggurat|monument|megalith|structure|archaeolog|ancient|historic/.test(value)) return '▲';
+  return '⌖';
+}
+
 function researchModuleForSite(site: (typeof DEFAULT_EARTH_POINTS)[number]): string[] {
   const name = site.name.toLowerCase();
   const description = (site.desc ?? '').toLowerCase();
@@ -406,7 +420,7 @@ export default function App() {
               openWaterElevationRequest={waterElevationRequest}
               onOpenWaterElevation={() => setEarthAreaView('elevation')}
               showChannelElevationControls={audioMenuOpen && ['A/B/C AUDIO CONTROLS', 'TRINAURAL / SOLFEGGIO'].includes(activeNav)}
-            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => { setStreetFallbackNotice(false); setStreetFrameLoaded(false); setEarthAreaView('street'); }}>TRY STREET VIEW IN APP</button>{earthAreaView === 'street' && <button onClick={() => { setStreetFallbackNotice(true); setEarthAreaView('satellite'); }}>AERIAL FALLBACK IN APP</button>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street') setStreetFrameLoaded(true); }} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} loading="eager" src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
+            /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {siteGlyphFor(selectedSite.category || selectedSite.layerCategory || '', selectedSite.name, !!selectedSite.isCity)} {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => { setStreetFallbackNotice(false); setStreetFrameLoaded(false); setEarthAreaView('street'); }}>TRY STREET VIEW IN APP</button>{earthAreaView === 'street' && <button onClick={() => { setStreetFallbackNotice(true); setEarthAreaView('satellite'); }}>AERIAL FALLBACK IN APP</button>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street') setStreetFrameLoaded(true); }} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} loading="eager" src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
             {earthAreaView !== 'elevation' && <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>}
 
           </div>
