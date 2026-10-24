@@ -139,41 +139,45 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         if (!ctx) throw new Error('Canvas unavailable for icon tilesheet');
         ctx.drawImage(image, 0, 0);
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        const colInk = new Uint32Array(canvas.width), rowInk = new Uint32Array(canvas.height);
-        for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
-          if (pixels[(y * canvas.width + x) * 4 + 3] > 12) { colInk[x]++; rowInk[y]++; }
-        }
-        // Ignore sparse glow/anti-alias pixels when detecting transparent gutters.
-        // Otherwise one stray pixel can merge neighboring icons into a giant tile.
-        const bands = (counts: Uint32Array, minInk: number) => {
-          const found: Array<[number, number]> = [];
-          let begin = -1, last = -1;
-          for (let i = 0; i < counts.length; i++) {
-            if (counts[i] >= minInk) {
-              if (begin < 0) begin = i;
-              if (last >= 0 && i - last > 2) { found.push([begin, last + 1]); begin = i; }
-              last = i;
+        // The authored 1254×1254 sheet is an 8-column × 8-row atlas (64 icons).
+        // Fixed cell boundaries prevent transparent glow pixels from joining neighboring icons.
+        const columns = 8, rows = 8;
+        for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
+          const cellX = Math.floor(col * image.naturalWidth / columns);
+          const cellY = Math.floor(row * image.naturalHeight / rows);
+          const cellRight = Math.floor((col + 1) * image.naturalWidth / columns);
+          const cellBottom = Math.floor((row + 1) * image.naturalHeight / rows);
+          // The source can be an opaque PNG even when its filename ends in .png.
+          // Remove white/near-white matte pixels throughout this tile, not only at its edges.
+          // Fade anti-aliased pale pixels instead of leaving a white fringe around the icon.
+          for (let y = cellY; y < cellBottom; y++) for (let x = cellX; x < cellRight; x++) {
+            const offset = (y * canvas.width + x) * 4;
+            const red = pixels[offset], green = pixels[offset + 1], blue = pixels[offset + 2];
+            const brightest = Math.max(red, green, blue);
+            const darkest = Math.min(red, green, blue);
+            const spread = brightest - darkest;
+            if (brightest > 218 && spread < 32) {
+              const matteStrength = Math.min(1, Math.max(0, (brightest - 218) / 30));
+              pixels[offset + 3] = Math.round(pixels[offset + 3] * (1 - matteStrength));
             }
           }
-          if (begin >= 0) found.push([begin, last + 1]);
-          return found.filter(([a,b]) => b-a >= 8);
-        };
-        const columns = bands(colInk, Math.max(2, Math.floor(canvas.height * 0.002))),
-          rows = bands(rowInk, Math.max(2, Math.floor(canvas.width * 0.002)));
-        const cells: Array<{x:number;y:number;w:number;h:number}> = [];
-        for (const [y0,y1] of rows) for (const [x0,x1] of columns) {
-          let ink = 0;
-          for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (pixels[(y * canvas.width + x) * 4 + 3] > 12) ink++;
-          if (ink > 8) cells.push({x:x0,y:y0,w:x1-x0,h:y1-y0});
-        }
-        for (const cell of cells) {
+          let minX = cellRight, minY = cellBottom, maxX = cellX - 1, maxY = cellY - 1;
+          for (let y = cellY; y < cellBottom; y++) for (let x = cellX; x < cellRight; x++) {
+            if (pixels[(y * canvas.width + x) * 4 + 3] > 12) {
+              if (x < minX) minX = x; if (x > maxX) maxX = x;
+              if (y < minY) minY = y; if (y > maxY) maxY = y;
+            }
+          }
           const tileCanvas = document.createElement('canvas'); tileCanvas.width = 128; tileCanvas.height = 128;
-          const tileCtx = tileCanvas.getContext('2d'); if (!tileCtx) continue;
-          const insetX = Math.max(0, Math.round(cell.w * 0.04)), insetY = Math.max(0, Math.round(cell.h * 0.04));
-          const sw = Math.max(1, cell.w-insetX*2), sh = Math.max(1, cell.h-insetY*2);
-          const scale = Math.min(112/sw,112/sh), dw=sw*scale, dh=sh*scale;
-          tileCtx.drawImage(image,cell.x+insetX,cell.y+insetY,sw,sh,(128-dw)/2,(128-dh)/2,dw,dh);
-          const texture = new THREE.CanvasTexture(tileCanvas); texture.colorSpace=THREE.SRGBColorSpace; texture.needsUpdate=true;
+          const tileCtx = tileCanvas.getContext('2d');
+          if (tileCtx && maxX >= minX && maxY >= minY) {
+            const sw = maxX - minX + 1, sh = maxY - minY + 1;
+            const scale = Math.min(112 / sw, 112 / sh), dw = sw * scale, dh = sh * scale;
+            ctx.putImageData(new ImageData(pixels, canvas.width, canvas.height), 0, 0);
+            tileCtx.drawImage(canvas, minX, minY, sw, sh, (128 - dw) / 2, (128 - dh) / 2, dw, dh);
+          }
+          const texture = new THREE.CanvasTexture(tileCanvas);
+          texture.colorSpace = THREE.SRGBColorSpace; texture.needsUpdate = true;
           atlasTiles.push(texture);
         }
         console.info('[NeuroPulse] Loaded archaeology/science icon atlas:',atlasTiles.length,'tiles');
