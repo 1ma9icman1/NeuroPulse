@@ -117,7 +117,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
     let buildMarkers: (() => void) | null = null;
-    // Use crisp category symbols instead of the unreliable LED atlas.
+    // Use crisp category-specific research icons for site markers.
     function createSiteIconTexture(category = '', name = ''): THREE.CanvasTexture {
       const value = (category + ' ' + name).toLowerCase();
       let glyph = '◆';
@@ -253,8 +253,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         earthGroup.add(terrain);
 
         const sitePoints = new THREE.Group();
-        // Attach an empty marker layer immediately. LED atlas decoding and marker
-        // creation happen after the globe is already visible, in small frame batches.
+        // Attach the category-icon marker layer immediately; build markers in small frame batches.
         earthGroup.add(sitePoints);
 
         water = new THREE.Mesh(
@@ -289,8 +288,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
                 map: iconTexture, transparent: true, depthWrite: false, toneMapped: false
               });
               const sprite = new THREE.Sprite(spriteMaterial);
-              sprite.userData.isRetroLedSprite = false;
-              sprite.userData.site = { name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color };
+                            sprite.userData.site = { name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color };
               sprite.userData.siteIconTexture = iconTexture;
               
               
@@ -459,23 +457,6 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     }
   }, [terrainScale, siteCatalogue, seaLevel]);
 
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      const state = sceneRef.current;
-      if (!state) return;
-      const now = performance.now() * 0.001;
-      state.sitePoints.children.forEach((object) => {
-        if (!object.userData.isRetroLedSprite) return;
-        const phase = now * 2.2 + Number(object.userData.ledPhase || 0);
-        const isOn = Math.sin(phase) > -0.05;
-        const material = (object as THREE.Sprite).material as THREE.SpriteMaterial;
-        material.opacity = isOn ? 1 : 0.16;
-        material.color.set(isOn ? '#ffffff' : '#64748b');
-      });
-    }, 80);
-    return () => window.clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     const state = sceneRef.current;
