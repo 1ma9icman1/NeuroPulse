@@ -293,12 +293,6 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
                 map: ledTexture, color: '#ffffff', transparent: true, alphaTest: 0.04,
                 depthWrite: false, toneMapped: false
               });
-              spriteMaterial.onBeforeCompile = (shader) => {
-                shader.fragmentShader = shader.fragmentShader.replace(
-                  '#include <map_fragment>',
-                  '#include <map_fragment>\\nif (max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) < 0.055) discard;'
-                );
-              };
               const sprite = new THREE.Sprite(spriteMaterial);
               sprite.userData.isRetroLedSprite = true;
               sprite.userData.site = { name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color };
