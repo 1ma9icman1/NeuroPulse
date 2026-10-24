@@ -158,7 +158,7 @@ export default function App() {
   const handleGlobeSiteSelect = useCallback((site: any) => {
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === site.name.toLowerCase());
     setSelectedSiteId(known?.id ?? site.name);
-    setEarthAreaView('satellite');
+    setEarthAreaView('street');
     setSelectedGlobeSite({ id: known?.id ?? site.name, name: site.name, lat: site.lat, lon: site.lon, category: site.layerCategory ?? (site.evidenceStatus ? 'Acoustic evidence' : 'Globe site'), desc: known?.desc ?? ([site.measurementSummary, site.heightNote, site.orientationNote, site.ritualContext].filter(Boolean).join(' · ') || 'Selected from the live Earth globe. Coordinates and available catalogue details are shown here.'), layerCategory: site.layerCategory, year: site.year, evidenceStatus: site.evidenceStatus, measuredFrequenciesHz: site.measuredFrequenciesHz, structuralHeightFt: site.structuralHeightFt, numberSystem: site.numberSystem, numberSystemNote: site.numberSystemNote, researchReason: site.researchReason, heightBasis: site.heightBasis, ritualContext: site.ritualContext, orientationNote: site.orientationNote, measurementContext: site.measurementContext });
     setShowSiteList(false);
   }, []);
@@ -229,9 +229,10 @@ export default function App() {
   }, []);
   const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? null;
 
-  // Keep Street View as an explicit in-app choice. Its cross-origin iframe cannot
-  // reliably report whether a panorama exists, so use aerial imagery as the default
-  // and provide a one-way, in-app aerial fallback instead of bouncing between views.
+  // Marker selections open Street View first. Google serves the embedded panorama when
+  // coverage exists; because the iframe is cross-origin, NeuroPulse can detect load/network
+  // failures but cannot inspect Google's internal 'no imagery' message. Keep an explicit
+  // in-app aerial fallback available for those cases.
   const moduleSites = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase();
     return researchSites.filter((site) =>
@@ -404,7 +405,7 @@ export default function App() {
 
       {showFavorites && <section className="atlas-panel" role="dialog" aria-label="Favorite sites" style={{position:'absolute',zIndex:100,top:84,right:20,width:'min(420px, calc(100vw - 32px))',maxHeight:'70vh',overflow:'auto',padding:16}}>
         <div className="atlas-panel-heading"><Star size={14} fill="currentColor"/> FAVORITE SITES <button className="atlas-secondary-button" onClick={() => setShowFavorites(false)}>CLOSE</button></div>
-        {favoriteSites.length ? favoriteSites.map((site: any) => <div key={site.id} className="atlas-favorite-row" style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',padding:'6px 0'}}><button className="atlas-result-chip" onClick={() => { setSelectedGlobeSite(site); setSelectedSiteId(site.id); setEarthAreaView('satellite'); setShowFavorites(false); }}><MapPin size={12}/><span>{site.name}</span></button><button aria-label={'Remove '+site.name+' from favorites'} onClick={() => toggleFavorite(site)}><Star size={14} fill="currentColor"/></button></div>) : <p className="atlas-no-data">No favorites saved yet. Select a site and use Save to Favorites.</p>}
+        {favoriteSites.length ? favoriteSites.map((site: any) => <div key={site.id} className="atlas-favorite-row" style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',padding:'6px 0'}}><button className="atlas-result-chip" onClick={() => { setSelectedGlobeSite(site); setSelectedSiteId(site.id); setEarthAreaView('street'); setShowFavorites(false); }}><MapPin size={12}/><span>{site.name}</span></button><button aria-label={'Remove '+site.name+' from favorites'} onClick={() => toggleFavorite(site)}><Star size={14} fill="currentColor"/></button></div>) : <p className="atlas-no-data">No favorites saved yet. Select a site and use Save to Favorites.</p>}
       </section>}
       <div className="atlas-workspace">
         <section className="atlas-center">
@@ -460,7 +461,7 @@ export default function App() {
                     <button key={site.id} className="atlas-result-chip" onClick={() => {
                       setSelectedGlobeSite(null);
                       setSelectedSiteId(site.id);
-                      setEarthAreaView('satellite');
+                      setEarthAreaView('street');
                       setShowSiteList(false);
                     }}>
                       <MapPin size={12} /><span>{site.name}</span><small>{site.category ?? (activeNav === 'CITIES' ? 'City reference' : 'Historical site')}</small>
@@ -476,7 +477,7 @@ export default function App() {
                       const known = researchSites.find(site => site.name.toLowerCase() === record.name.toLowerCase());
                       if (known) setSelectedSiteId(known.id);
                       setSelectedGlobeSite({ ...record, id: record.id, category: 'Acoustic evidence', desc: record.measurementContext || record.status });
-                      setEarthAreaView('satellite');
+                      setEarthAreaView('street');
                     }}>
                       <AudioWaveform size={12} /><span>{record.name}</span><small>{record.measuredFrequenciesHz.join(' / ')} Hz</small>
                     </button>
