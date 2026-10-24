@@ -133,6 +133,9 @@ export default function App() {
     window.addEventListener('neuro-pulse-elevation-state', onElevationState);
     return () => window.removeEventListener('neuro-pulse-elevation-state', onElevationState);
   }, []);
+  useEffect(() => {
+    if (earthAreaView !== 'elevation') setElevationTools({ triangulation: false, constellations: false, angles: false });
+  }, [earthAreaView]);
   const runElevationTool = (action: 'triangulate' | 'constellations' | 'angles' | 'screenshot' | 'clear') => {
     if (action === 'clear') setElevationTools({ triangulation: false, constellations: false, angles: false });
     else if (action === 'triangulate') setElevationTools(value => ({ ...value, triangulation: !value.triangulation }));
