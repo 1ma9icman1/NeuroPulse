@@ -102,7 +102,7 @@ export function SiteResearchNotes({ site, sites, onSelectSite }: Props) {
       .filter(item => item.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
-  }, [keywords, savedNotes, currentKey]);
+  }, [keywords, savedNotes, currentKey, searchRelated]);
 
   const relatedCatalogue = useMemo(() => {
     if (!keywords.length) return [];
