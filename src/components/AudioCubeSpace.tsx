@@ -524,130 +524,104 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
 
-  // The same authored transparent icon tilesheet powers the main/flat Earth markers.
-  const [researchIconAtlas, setResearchIconAtlas] = useState<THREE.CanvasTexture[]>([]);
+  // Use the authored LED PNG directly as a 10-color × 2-state sprite sheet.
+  // Row 0 = LEDs on; row 1 = LEDs off. Preserve the PNG's alpha channel unchanged.
+  const [ledSpriteAtlas, setLedSpriteAtlas] = useState<THREE.CanvasTexture[]>([]);
   useEffect(() => {
     let cancelled = false;
     const image = new Image();
     image.crossOrigin = 'anonymous';
-    image.src = 'https://raw.githubusercontent.com/1ma9icman1/NeuroPulse/main/Archaeology%20and%20Science%20Icon%20Grid.png';
     image.onload = () => {
-      if (cancelled) return;
+      if (cancelled || !image.naturalWidth || !image.naturalHeight) return;
       try {
-        const canvas = document.createElement('canvas');
-        canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) return;
-        ctx.drawImage(image, 0, 0);
-        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        // The authored 1254×1254 sheet is an 8-column × 8-row atlas (64 icons).
-        // Fixed cell boundaries prevent the whole sheet or neighboring icons becoming a marker.
+        const columns = 10;
+        const rows = 2;
         const tiles: THREE.CanvasTexture[] = [];
-        const columns = 8, rows = 8;
-        for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
-          const cellX = Math.floor(col * image.naturalWidth / columns);
-          const cellY = Math.floor(row * image.naturalHeight / rows);
-          const cellRight = Math.floor((col + 1) * image.naturalWidth / columns);
-          const cellBottom = Math.floor((row + 1) * image.naturalHeight / rows);
-          // The source can be an opaque PNG even when its filename ends in .png.
-          // Remove white/near-white matte pixels throughout this tile, not only at its edges.
-          // Fade anti-aliased pale pixels instead of leaving a white fringe around the icon.
-          for (let y = cellY; y < cellBottom; y++) for (let x = cellX; x < cellRight; x++) {
-            const offset = (y * canvas.width + x) * 4;
-            const red = pixels[offset], green = pixels[offset + 1], blue = pixels[offset + 2];
-            const brightest = Math.max(red, green, blue);
-            const darkest = Math.min(red, green, blue);
-            const spread = brightest - darkest;
-            if (brightest > 218 && spread < 32) {
-              const matteStrength = Math.min(1, Math.max(0, (brightest - 218) / 30));
-              pixels[offset + 3] = Math.round(pixels[offset + 3] * (1 - matteStrength));
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < columns; col++) {
+            const sx = Math.floor(col * image.naturalWidth / columns);
+            const sy = Math.floor(row * image.naturalHeight / rows);
+            const sw = Math.floor((col + 1) * image.naturalWidth / columns) - sx;
+            const sh = Math.floor((row + 1) * image.naturalHeight / rows) - sy;
+            const tile = document.createElement('canvas');
+            tile.width = 128;
+            tile.height = 128;
+            const ctx = tile.getContext('2d');
+            if (ctx) {
+              // Draw only the selected cell. Canvas preserves the source PNG alpha.
+              ctx.clearRect(0, 0, tile.width, tile.height);
+              ctx.drawImage(image, sx, sy, sw, sh, 0, 0, tile.width, tile.height);
             }
+            const texture = new THREE.CanvasTexture(tile);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.needsUpdate = true;
+            tiles.push(texture);
           }
-          let minX = cellRight, minY = cellBottom, maxX = cellX - 1, maxY = cellY - 1;
-          for (let y = cellY; y < cellBottom; y++) for (let x = cellX; x < cellRight; x++) {
-            if (pixels[(y * canvas.width + x) * 4 + 3] > 12) {
-              if (x < minX) minX = x; if (x > maxX) maxX = x;
-              if (y < minY) minY = y; if (y > maxY) maxY = y;
-            }
-          }
-          const tile = document.createElement('canvas'); tile.width = 128; tile.height = 128;
-          const tctx = tile.getContext('2d');
-          if (tctx && maxX >= minX && maxY >= minY) {
-            const sw = maxX - minX + 1, sh = maxY - minY + 1;
-            const scale = Math.min(112 / sw, 112 / sh), dw = sw * scale, dh = sh * scale;
-            ctx.putImageData(new ImageData(pixels, canvas.width, canvas.height), 0, 0);
-            tctx.drawImage(canvas, minX, minY, sw, sh, (128 - dw) / 2, (128 - dh) / 2, dw, dh);
-          }
-          const texture = new THREE.CanvasTexture(tile);
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.needsUpdate = true;
-          // Keep empty cells in the array so category indices never slide.
-          tiles.push(texture);
         }
-        if (!cancelled && tiles.length) {
-          setResearchIconAtlas(tiles);
-          console.info('[NeuroPulse] Main Earth markers loaded authored icon tiles:', tiles.length);
+        if (!cancelled) {
+          setLedSpriteAtlas(tiles);
+          console.info('[NeuroPulse] Transparent LED sprite sheet loaded:', tiles.length, 'tiles');
         }
-      } catch (error) { console.warn('[NeuroPulse] Could not slice archaeology/science icon tilesheet:', error); }
+      } catch (error) {
+        console.warn('[NeuroPulse] Could not load the LED sprite sheet:', error);
+      }
     };
-    image.onerror = () => console.warn('[NeuroPulse] Could not load archaeology/science icon tilesheet.');
+    image.onerror = () => console.warn('[NeuroPulse] LED sprite sheet failed to load.');
+    image.src = 'https://raw.githubusercontent.com/1ma9icman1/NeuroPulse/main/ledBULBS-on-off.png';
     return () => { cancelled = true; image.onload = null; image.onerror = null; };
   }, []);
 
-  // Category-based research icons replace the old animated LED bulbs.
-  // The LED PNG files remain in the repository as archived assets, but are not loaded or rendered.
-  const makeResearchIcon = useCallback((site: any) => {
-    const value = `${site.category || ''} ${site.layerCategory || ''} ${site.name || ''}`.toLowerCase();
-    const tileRules = [
-      /pyramid|temple|ziggurat|monument|megalith|structure|archaeolog|ancient/,
-      /city|settlement|village|urban/,
-      /stone|crystal|rock|mineral/,
-      /cave|cavern|grotto|underground/,
-      /mound|burial|tumulus|tomb|dolmen|barrow/,
-      /water|spring|lake|river|well|ocean|sea level/,
-      /sound|audio|acoustic|frequency|music|resonance|hz|solfeggio/,
-      /star|astronom|observatory|alignment|celestial|constellation/,
-      /reference|location|historic|site/,
-      /mountain|volcano|elevation|terrain/,
-      /artifact|tool|pottery|metalwork/,
-      /geometry|triangle|angle/,
+  // Pick the closest bulb color to the site's existing display color; do not draw replacement bulbs.
+  const ledColorIndex = (site: any) => {
+    const palette = [
+      [239, 68, 68], [249, 115, 22], [250, 204, 21], [132, 204, 22], [34, 197, 94],
+      [6, 182, 212], [59, 130, 246], [139, 92, 246], [236, 72, 153], [248, 250, 252],
     ];
-    const matchedIndex = tileRules.findIndex(rule => rule.test(value));
-    const atlasIndex = matchedIndex < 0 ? 8 : matchedIndex;
-    const atlasTexture = researchIconAtlas[atlasIndex];
-    let texture: THREE.CanvasTexture;
-    if (atlasTexture) {
-      texture = atlasTexture;
-    } else {
-      // Temporary fallback only while the authored atlas is loading or if it is unavailable.
-      let glyph = '◆';
-      if (/sound|audio|acoustic|frequency|music|resonance|hz|solfeggio/.test(value)) glyph = '♫';
-      else if (/pyramid|temple|ziggurat|monument|megalith|structure|archaeolog|ancient/.test(value)) glyph = '▲';
-      else if (/cave|cavern|grotto|underground/.test(value)) glyph = '◒';
-      else if (/stone|crystal|rock|mineral/.test(value)) glyph = '⬟';
-      else if (/mound|burial|tumulus|tomb|dolmen|barrow/.test(value)) glyph = '⬢';
-      else if (/city|settlement|village|urban/.test(value) || site.isCity) glyph = '⌂';
-      else if (/star|astronom|observatory|alignment|celestial|constellation/.test(value)) glyph = '✦';
-      else if (/water|spring|lake|river|well|ocean|sea level/.test(value)) glyph = '≈';
-      else if (/reference|location|historic|site/.test(value)) glyph = '⌖';
-      const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, 128, 128); ctx.beginPath(); ctx.arc(64, 64, 55, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(3, 12, 27, 0.94)'; ctx.fill(); ctx.lineWidth = 5;
-        ctx.strokeStyle = String(site.color || '#7dd3fc'); ctx.stroke();
-        ctx.font = 'bold 70px "Segoe UI Symbol", "Arial Unicode MS", sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#f8fafc'; ctx.fillText(glyph, 64, 66);
-      }
-      texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+    const color = String(site.color || '').trim().toLowerCase();
+    const match = color.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    let rgb: number[] | null = null;
+    if (match) {
+      const hex = match[1].length === 3 ? match[1].split('').map((ch) => ch + ch).join('') : match[1];
+      rgb = [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
     }
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.025, depthWrite: false, toneMapped: false });
+    if (!rgb) {
+      const value = `${site.category || ''} ${site.layerCategory || ''} ${site.name || ''}`.toLowerCase();
+      if (/city|settlement|village|urban/.test(value) || site.isCity) return 6;
+      if (/sound|audio|acoustic|frequency|hz/.test(value)) return 1;
+      if (/water|ocean|sea level|river|lake/.test(value)) return 5;
+      if (/star|astronom|celestial/.test(value)) return 9;
+      if (/crystal|stone|mineral/.test(value)) return 7;
+      return 2;
+    }
+    let nearest = 0, nearestDistance = Infinity;
+    palette.forEach((candidate, index) => {
+      const distance = (candidate[0] - rgb![0]) ** 2 + (candidate[1] - rgb![1]) ** 2 + (candidate[2] - rgb![2]) ** 2;
+      if (distance < nearestDistance) { nearestDistance = distance; nearest = index; }
+    });
+    return nearest;
+  };
+
+  const makeResearchIcon = useCallback((site: any) => {
+    const colorIndex = ledColorIndex(site);
+    // First row is ON, second row is OFF. Use the same state as the program's transport.
+    const stateRow = isRunning ? 0 : 1;
+    const texture = ledSpriteAtlas[stateRow * 10 + colorIndex];
+    const material = new THREE.SpriteMaterial({
+      map: texture || null,
+      transparent: true,
+      alphaTest: 0.015,
+      depthWrite: false,
+      toneMapped: false,
+      opacity: texture ? 1 : 0,
+    });
     const sprite = new THREE.Sprite(material);
     sprite.userData.isResearchIcon = true;
-    sprite.userData.siteIconTexture = texture;
-    sprite.scale.set(site.isCity ? 2.2 : 2.8, site.isCity ? 2.2 : 2.8, 1);
+    sprite.userData.isLedSprite = true;
+    sprite.userData.siteLedColorIndex = colorIndex;
+    sprite.userData.siteLedState = isRunning ? 'on' : 'off';
+    sprite.scale.set(site.isCity ? 1.9 : 2.35, site.isCity ? 1.9 : 2.35, 1);
     return sprite;
-  }, [researchIconAtlas]);;
+  }, [ledSpriteAtlas, isRunning]);
 
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
   const [showTriangleAngles, setShowTriangleAngles] = useState<boolean>(false);
