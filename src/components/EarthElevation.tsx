@@ -57,6 +57,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const [loadError, setLoadError] = useState('');
   const [yearOffset, setYearOffset] = useState(0);
   const [seaLevel, setSeaLevel] = useState(0);
+  const [waterOpacity, setWaterOpacity] = useState(0.58);
   const [levelMode, setLevelMode] = useState<'historical' | 'custom'>('historical');
   const [terrainScale, setTerrainScale] = useState(1);
   const [zoom, setZoom] = useState(1);
@@ -276,7 +277,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
 
         water = new THREE.Mesh(
           new THREE.SphereGeometry(BASE_RADIUS + seaLevelRef.current * HEIGHT_SCALE * terrainScaleRef.current, 128, 64),
-          new THREE.MeshStandardMaterial({ color: '#168bd2', transparent: true, opacity: 0.58, roughness: 0.28, metalness: 0.08, depthWrite: false, side: THREE.DoubleSide })
+          new THREE.MeshStandardMaterial({ color: '#168bd2', transparent: true, opacity: waterOpacity, roughness: 0.28, metalness: 0.08, depthWrite: false, side: THREE.DoubleSide })
         );
         water.renderOrder = 2;
         earthGroup.add(water);
@@ -457,7 +458,11 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     // Keep the visible water surface locked to the exact same datum as flooded terrain.
     state.water.geometry.dispose();
     state.water.geometry = new THREE.SphereGeometry(BASE_RADIUS + seaLevel * HEIGHT_SCALE * terrainScale, 128, 64);
-  }, [terrainScale, seaLevel, surfaceMode, surfaceTextureLoaded, loading]);
+    const waterMaterial = state.water.material as THREE.MeshStandardMaterial;
+    waterMaterial.opacity = waterOpacity;
+    waterMaterial.transparent = waterOpacity < 1;
+    waterMaterial.needsUpdate = true;
+  }, [terrainScale, seaLevel, surfaceMode, surfaceTextureLoaded, waterOpacity, loading]);
 
   useEffect(() => {
     const state = sceneRef.current;
@@ -563,6 +568,9 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <div className="flex items-center justify-between gap-2"><label className="text-[10px] font-mono font-bold text-slate-300">WATER ELEVATION · {seaLevel > 0 ? '+' : ''}{seaLevel.toFixed(1)} m</label><button onClick={() => { setSeaLevel(0); setLevelMode('custom'); }} className="text-[9px] font-mono text-slate-400 hover:text-white">RESET TO 0 m</button></div>
           <input aria-label="Water elevation in metres" type="range" min="-120" max="1000" step="1" value={seaLevel} onChange={event => { setSeaLevel(Number(event.target.value)); setLevelMode('custom'); }} className="w-full accent-cyan-400" />
           <div className="flex justify-between text-[9px] text-slate-500"><span>-120 m</span><span>Current datum 0 m</span><span>+1,000 m hypothetical</span></div>
+          <div className="flex items-center justify-between gap-2"><label htmlFor="water-transparency" className="text-[10px] font-mono font-bold text-slate-300">WATER TRANSPARENCY · {Math.round((1 - waterOpacity) * 100)}%</label><button type="button" onClick={() => setWaterOpacity(0.58)} className="text-[9px] font-mono text-slate-400 hover:text-white">RESET</button></div>
+          <input id="water-transparency" aria-label="Water transparency" type="range" min="0.05" max="1" step="0.05" value={1 - waterOpacity} onChange={event => setWaterOpacity(1 - Number(event.target.value))} className="w-full accent-cyan-400" />
+          <div className="flex justify-between text-[9px] text-slate-500"><span>Clear / transparent</span><span>Opaque</span></div>
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:col-span-2">
           <span className="text-[9px] font-mono font-bold text-slate-400">SURFACE</span>
