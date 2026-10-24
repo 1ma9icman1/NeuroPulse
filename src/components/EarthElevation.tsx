@@ -143,20 +143,23 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
           if (pixels[(y * canvas.width + x) * 4 + 3] > 12) { colInk[x]++; rowInk[y]++; }
         }
-        const bands = (counts: Uint32Array) => {
+        // Ignore sparse glow/anti-alias pixels when detecting transparent gutters.
+        // Otherwise one stray pixel can merge neighboring icons into a giant tile.
+        const bands = (counts: Uint32Array, minInk: number) => {
           const found: Array<[number, number]> = [];
           let begin = -1, last = -1;
           for (let i = 0; i < counts.length; i++) {
-            if (counts[i] > 0) {
+            if (counts[i] >= minInk) {
               if (begin < 0) begin = i;
-              if (last >= 0 && i - last > 3) { found.push([begin, last + 1]); begin = i; }
+              if (last >= 0 && i - last > 2) { found.push([begin, last + 1]); begin = i; }
               last = i;
             }
           }
           if (begin >= 0) found.push([begin, last + 1]);
-          return found.filter(([a,b]) => b-a >= 4);
+          return found.filter(([a,b]) => b-a >= 8);
         };
-        const columns = bands(colInk), rows = bands(rowInk);
+        const columns = bands(colInk, Math.max(2, Math.floor(canvas.height * 0.002))),
+          rows = bands(rowInk, Math.max(2, Math.floor(canvas.width * 0.002)));
         const cells: Array<{x:number;y:number;w:number;h:number}> = [];
         for (const [y0,y1] of rows) for (const [x0,x1] of columns) {
           let ink = 0;
