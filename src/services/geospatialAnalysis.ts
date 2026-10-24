@@ -81,7 +81,9 @@ export function calculateGeodesic(a: GeographicPoint, b: GeographicPoint): Geode
 
   const phi1 = a.lat * DEG_TO_RAD;
   const phi2 = b.lat * DEG_TO_RAD;
-  const L = (b.lon - a.lon) * DEG_TO_RAD;
+  const rawLongitudeDelta = (b.lon - a.lon) * DEG_TO_RAD;
+  // Normalize to the shortest longitude difference across the antimeridian.
+  const L = Math.atan2(Math.sin(rawLongitudeDelta), Math.cos(rawLongitudeDelta));
   const U1 = Math.atan((1 - WGS84_F) * Math.tan(phi1));
   const U2 = Math.atan((1 - WGS84_F) * Math.tan(phi2));
   const sinU1 = Math.sin(U1);
@@ -103,7 +105,7 @@ export function calculateGeodesic(a: GeographicPoint, b: GeographicPoint): Geode
     const first = cosU2 * sinLambda;
     const second = cosU1 * sinU2 - sinU1 * cosU2 * cosLambda;
     sinSigma = Math.hypot(first, second);
-    if (sinSigma === 0) {
+    if (sinSigma < 1e-15) {
       return {
         distanceMeters: 0,
         distanceKm: 0,
