@@ -606,11 +606,31 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
       });
     });
     if (showTriangulation && positions.length) {
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: '#35d9ff', transparent: true, opacity: 0.78, depthTest: false }));
-      lines.renderOrder = 8;
-      group.add(lines);
+      // WebGL line width is effectively fixed to 1px on many browsers/GPU drivers.
+      // Use real tube geometry so the site links remain visibly thick at normal zoom.
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: '#00bfff', transparent: true, opacity: 0.24, depthTest: false,
+        depthWrite: false, toneMapped: false,
+      });
+      const coreMaterial = new THREE.MeshBasicMaterial({
+        color: '#8ff4ff', transparent: true, opacity: 0.98, depthTest: false,
+        depthWrite: false, toneMapped: false,
+      });
+      for (let i = 0; i + 5 < positions.length; i += 6) {
+        const start = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
+        const end = new THREE.Vector3(positions[i + 3], positions[i + 4], positions[i + 5]);
+        const direction = end.clone().sub(start);
+        if (direction.lengthSq() < 1e-8) continue;
+        const path = new THREE.LineCurve3(start, end);
+        const glow = new THREE.Mesh(new THREE.TubeGeometry(path, 8, 0.52, 6, false), glowMaterial);
+        glow.renderOrder = 8;
+        glow.frustumCulled = false;
+        group.add(glow);
+        const core = new THREE.Mesh(new THREE.TubeGeometry(path, 8, 0.22, 6, false), coreMaterial);
+        core.renderOrder = 9;
+        core.frustumCulled = false;
+        group.add(core);
+      }
     }
     if (showAngleLabels) {
       vectors.slice(0, 28).forEach((entry, index) => {
