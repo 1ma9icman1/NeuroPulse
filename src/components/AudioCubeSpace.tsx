@@ -505,36 +505,35 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         if (!ctx) return;
         ctx.drawImage(image, 0, 0);
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        const colInk = new Uint32Array(canvas.width), rowInk = new Uint32Array(canvas.height);
-        for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
-          if (pixels[(y * canvas.width + x) * 4 + 3] > 12) { colInk[x]++; rowInk[y]++; }
-        }
-        // Ignore sparse glow/anti-alias pixels when detecting the gutters. A single
-        // stray alpha pixel must not merge two neighboring icon columns or rows.
-        const bands = (counts: Uint32Array, minInk: number) => {
-          const out: Array<[number, number]> = [];
-          let begin = -1, last = -1;
-          for (let i = 0; i < counts.length; i++) if (counts[i] >= minInk) {
-            if (begin < 0) begin = i;
-            if (last >= 0 && i - last > 2) { out.push([begin, last + 1]); begin = i; }
-            last = i;
+        // The authored sheet is a regular 4-column × 3-row atlas (12 category icons).
+        // Slice fixed cells instead of guessing gutters from alpha projections: the old
+        // heuristic could merge cells and occasionally use the entire sheet as one marker.
+        const tiles: THREE.CanvasTexture[] = [];
+        const columns = 4, rows = 3;
+        for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
+          const cellX = Math.floor(col * image.naturalWidth / columns);
+          const cellY = Math.floor(row * image.naturalHeight / rows);
+          const cellRight = Math.floor((col + 1) * image.naturalWidth / columns);
+          const cellBottom = Math.floor((row + 1) * image.naturalHeight / rows);
+          let minX = cellRight, minY = cellBottom, maxX = cellX - 1, maxY = cellY - 1;
+          for (let y = cellY; y < cellBottom; y++) for (let x = cellX; x < cellRight; x++) {
+            if (pixels[(y * canvas.width + x) * 4 + 3] > 12) {
+              if (x < minX) minX = x; if (x > maxX) maxX = x;
+              if (y < minY) minY = y; if (y > maxY) maxY = y;
+            }
           }
-          if (begin >= 0) out.push([begin, last + 1]);
-          return out.filter(([a,b]) => b-a >= 8);
-        };
-        const cols=bands(colInk, Math.max(2, Math.floor(canvas.height * 0.002))),
-          rows=bands(rowInk, Math.max(2, Math.floor(canvas.width * 0.002))),
-          tiles: THREE.CanvasTexture[]=[];
-        for (const [y0,y1] of rows) for (const [x0,x1] of cols) {
-          let ink=0;
-          for (let y=y0;y<y1;y++) for (let x=x0;x<x1;x++) if (pixels[(y*canvas.width+x)*4+3]>12) ink++;
-          if (ink<8) continue;
-          const tile=document.createElement('canvas'); tile.width=128; tile.height=128;
-          const tctx=tile.getContext('2d'); if(!tctx) continue;
-          const ix=Math.max(0,Math.round((x1-x0)*0.04)), iy=Math.max(0,Math.round((y1-y0)*0.04));
-          const sw=Math.max(1,x1-x0-ix*2), sh=Math.max(1,y1-y0-iy*2), scale=Math.min(112/sw,112/sh), dw=sw*scale, dh=sh*scale;
-          tctx.drawImage(image,x0+ix,y0+iy,sw,sh,(128-dw)/2,(128-dh)/2,dw,dh);
-          const texture=new THREE.CanvasTexture(tile); texture.colorSpace=THREE.SRGBColorSpace; tiles.push(texture);
+          const tile = document.createElement('canvas'); tile.width = 128; tile.height = 128;
+          const tctx = tile.getContext('2d');
+          if (tctx && maxX >= minX && maxY >= minY) {
+            const sw = maxX - minX + 1, sh = maxY - minY + 1;
+            const scale = Math.min(112 / sw, 112 / sh), dw = sw * scale, dh = sh * scale;
+            tctx.drawImage(image, minX, minY, sw, sh, (128 - dw) / 2, (128 - dh) / 2, dw, dh);
+          }
+          const texture = new THREE.CanvasTexture(tile);
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.needsUpdate = true;
+          // Keep empty cells in the array so category indices never slide.
+          tiles.push(texture);
         }
         if (!cancelled && tiles.length) {
           setResearchIconAtlas(tiles);
