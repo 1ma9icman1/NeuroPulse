@@ -489,77 +489,48 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [showAncientStructures, setShowAncientStructures] = useState<boolean>(true);
   const [showAcousticColorSystem, setShowAcousticColorSystem] = useState<boolean>(true);
 
-  // Wait for the sprite sheet image to finish loading before creating per-marker
-  // texture clones. Cloning the TextureLoader placeholder before onLoad copies an
-  // empty image, leaving every marker sprite invisible even after the atlas loads.
-  const [retroLedAtlasReady, setRetroLedAtlasReady] = useState(false);
-  const retroLedAtlas = useMemo(() => {
-    const texture = new THREE.TextureLoader().load(
-      new URL('../../ledBULBS-on-off.png', import.meta.url).href,
-      () => setRetroLedAtlasReady(true),
-      undefined,
-      (error) => console.error('Unable to load Earth LED tileset:', error),
-    );
+  // Category-based research icons replace the old animated LED bulbs.
+  // The LED PNG files remain in the repository as archived assets, but are not loaded or rendered.
+  const makeResearchIcon = useCallback((site: any) => {
+    const value = `${site.category || ''} ${site.layerCategory || ''} ${site.name || ''} `.toLowerCase();
+    let glyph = '◆';
+    if (/sound|audio|acoustic|frequency|music|resonance|hz|solfeggio/.test(value)) glyph = '♫';
+    else if (/pyramid|temple|ziggurat|monument|megalith|structure|archaeolog|ancient/.test(value)) glyph = '▲';
+    else if (/cave|cavern|grotto|underground/.test(value)) glyph = '◒';
+    else if (/stone|crystal|rock|mineral/.test(value)) glyph = '⬟';
+    else if (/mound|burial|tumulus|tomb|dolmen|barrow/.test(value)) glyph = '⬢';
+    else if (/city|settlement|village|urban/.test(value) || site.isCity) glyph = '⌂';
+    else if (/star|astronom|observatory|alignment|celestial|constellation/.test(value)) glyph = '✦';
+    else if (/water|spring|lake|river|well|ocean|sea level/.test(value)) glyph = '≈';
+    else if (/reference|location|historic|site/.test(value)) glyph = '⌖';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, 128, 128);
+      ctx.beginPath();
+      ctx.arc(64, 64, 55, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(3, 12, 27, 0.94)';
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = String(site.color || '#7dd3fc');
+      ctx.stroke();
+      ctx.font = 'bold 70px "Segoe UI Symbol", "Arial Unicode MS", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(glyph, 64, 66);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.magFilter = THREE.LinearFilter;
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
-    return texture;
-  }, []);
-
-  const makeRetroLed = useCallback((site: any) => {
-    const group = new THREE.Group();
-    const raw = String(site.color || '#facc15').toLowerCase();
-    // The supplied 574x805 sprite sheet has 10 bulb rows. Use the first
-    // column only; the repeated columns across the sheet are intentionally ignored.
-    const row = /red|ef4444|f87171|dc2626/.test(raw) ? 0
-      : /orange|fb923c|f97316|fdba74/.test(raw) ? 1
-      : /yellow|gold|facc15|fbbf24/.test(raw) ? 2
-      : /lime|a3e635|84cc16/.test(raw) ? 3
-      : /green|34d399|10b981|22c55e/.test(raw) ? 4
-      : /cyan|22d3ee|06b6d4/.test(raw) ? 5
-      : /blue|sky|60a5fa|38bdf8/.test(raw) ? 6
-      : /purple|violet|a78bfa|8b6cf8/.test(raw) ? 7
-      : /pink|f472b6|ec4899/.test(raw) ? 8
-      : /white|silver|e2e8f0|cbd5e1/.test(raw) ? 9 : 2;
-    // Each marker owns its texture clone, so changing its UV crop cannot affect others.
-    // One vertical strip, ten rows; use column zero and crop exactly one row.
-    const tileTexture = retroLedAtlas.clone();
-    tileTexture.repeat.set(1 / 8, 1 / 10);
-    tileTexture.offset.set(0, (9 - row) / 10);
-    tileTexture.needsUpdate = true;
-    const material = new THREE.SpriteMaterial({ map: tileTexture, transparent: true, alphaTest: 0.04, depthWrite: false });
-    // Remove the source image's dark background while preserving the bulb pixels.
-    material.onBeforeCompile = (shader) => {
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <map_fragment>',
-        '#include <map_fragment>\nif (max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) < 0.055) discard;'
-      );
-    };
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.025, depthWrite: false, toneMapped: false });
     const sprite = new THREE.Sprite(material);
-    sprite.userData.isRetroLedSprite = true;
-    sprite.userData.ledTexture = tileTexture;
-    sprite.scale.set(2.8, 2.8, 1);
-    group.add(sprite);
-    group.userData.ledColorIndex = row;
-    group.userData.ledPhase = Math.abs(Number(site.lat) * 13 + Number(site.lon) * 7) % 6.28;
-    return group;
-  }, [retroLedAtlas]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      const scene = globeRef.current?.scene?.();
-      if (!scene) return;
-      const now = performance.now() * 0.001;
-      scene.traverse((object: any) => {
-        if (!object.userData?.isRetroLedSprite) return;
-        const parent = object.parent;
-        const phase = now * 2.2 + Number(parent?.userData?.ledPhase || 0);
-        const isOn = Math.sin(phase) > -0.05;
-        const material = object.material as THREE.SpriteMaterial | undefined;
-        if (material) material.opacity = isOn ? 1 : 0.28;
-      });
-    }, 80);
-    return () => window.clearInterval(timer);
+    sprite.userData.isResearchIcon = true;
+    sprite.userData.siteIconTexture = texture;
+    sprite.scale.set(site.isCity ? 2.2 : 2.8, site.isCity ? 2.2 : 2.8, 1);
+    return sprite;
   }, []);
 
   const [showAlignmentTriangles, setShowAlignmentTriangles] = useState<boolean>(false);
@@ -3869,12 +3840,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
               labelColor={(d: any) => d.isCity ? '#e2e8f0' : d.evidenceStatus ? '#fdba74' : '#fde68a'}
               labelSize={(d: any) => d.isCity ? 0.40 : 0.31} labelAltitude={0.016} labelDotRadius={(d: any) => d.isCity ? 0.065 : 0.045}
-              pointsData={retroLedAtlasReady ? visibleEarthSites.filter((site: any) => site.isCity ? (showCities && (earthZoomTier >= 2 || isMajorZoomCity(site))) : (earthZoomTier >= 2 && (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures))) : []} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
+              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? (showCities && (earthZoomTier >= 2 || isMajorZoomCity(site))) : (earthZoomTier >= 2 && (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)))} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
               pointColor={(d: any) => showAcousticColorSystem ? d.color : '#e2e8f0'} pointRadius={(d: any) => d.size} pointAltitude={(d: any) => d.altitude}
               {...({
-                // Use the points-layer API so the LED sprites replace default point dots.
+                // Use category-specific research icons instead of generic point dots.
                 pointThreeObject: (d: any) => {
-                  const obj = makeRetroLed(d);
+                  const obj = makeResearchIcon(d);
                   obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay;
                   return obj;
                 },
