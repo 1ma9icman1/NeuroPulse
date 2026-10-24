@@ -63,7 +63,10 @@ export default function App() {
     if (!selectedSite) return [];
     return DEFAULT_EARTH_POINTS
       .filter((site) => site.id !== selectedSite.id)
-      .map((site) => ({ ...site, distance: calculateGeodesic(selectedSite, site).distanceKm, bearing: calculateGeodesic(selectedSite, site).initialBearingDegrees, geodesicMethod: calculateGeodesic(selectedSite, site).method, approximate: calculateGeodesic(selectedSite, site).approximate }))
+      .map((site) => {
+        const geodesic = calculateGeodesic(selectedSite, site);
+        return { ...site, distance: geodesic.distanceKm, bearing: geodesic.initialBearingDegrees, geodesicMethod: geodesic.method, approximate: geodesic.approximate };
+      })
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 4);
   }, [selectedSite]);
