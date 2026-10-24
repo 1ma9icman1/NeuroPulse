@@ -93,13 +93,14 @@ export function SiteResearchNotes({ site, sites, onSelectSite }: Props) {
   const relatedNotes = useMemo(() => {
     if (!keywords.length) return [];
     const keywordSet = new Set(keywords);
+    const query = normalize(searchRelated);
     return savedNotes
       .filter(item => item.siteKey !== currentKey && item.note.trim())
       .map(item => {
         const matched = extractKeywords(item.note).filter(word => keywordSet.has(word));
         return { ...item, matched: [...new Set(matched)].slice(0, 5), score: new Set(matched).size };
       })
-      .filter(item => item.score > 0)
+      .filter(item => item.score > 0 && (!query || normalize(item.siteName).includes(query) || item.matched.some(word => word.includes(query))))
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
   }, [keywords, savedNotes, currentKey, searchRelated]);
