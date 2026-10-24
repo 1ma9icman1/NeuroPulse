@@ -139,9 +139,9 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         if (!ctx) throw new Error('Canvas unavailable for icon tilesheet');
         ctx.drawImage(image, 0, 0);
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        // The authored sheet is a regular 4-column × 3-row atlas (12 category icons).
-        // Fixed cell boundaries prevent transparent glow pixels from joining icons.
-        const columns = 4, rows = 3;
+        // The authored 1254×1254 sheet is an 8-column × 8-row atlas (64 icons).
+        // Fixed cell boundaries prevent transparent glow pixels from joining neighboring icons.
+        const columns = 8, rows = 8;
         for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
           const cellX = Math.floor(col * image.naturalWidth / columns);
           const cellY = Math.floor(row * image.naturalHeight / rows);
