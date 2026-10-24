@@ -117,6 +117,7 @@ export default function App() {
   const [matrixMenuOpen, setMatrixMenuOpen] = useState(false);
   const [earthAreaView, setEarthAreaView] = useState<'globe' | 'road' | 'satellite' | 'street' | 'elevation'>('globe');
   const [waterElevationRequest, setWaterElevationRequest] = useState(0);
+  const [earthSearchRequest, setEarthSearchRequest] = useState(0);
   const [streetFallbackNotice, setStreetFallbackNotice] = useState(false);
   const [streetFrameLoaded, setStreetFrameLoaded] = useState(false);
   const [mapSnapshotNotice, setMapSnapshotNotice] = useState('');
@@ -440,6 +441,7 @@ export default function App() {
               onSiteSelect={handleGlobeSiteSelect}
               siteCatalogue={researchSites}
               openWaterElevationRequest={waterElevationRequest}
+              openEarthSearchRequest={earthSearchRequest}
               onOpenWaterElevation={() => setEarthAreaView('elevation')}
               showChannelElevationControls={audioMenuOpen && ['A/B/C AUDIO CONTROLS', 'TRINAURAL / SOLFEGGIO'].includes(activeNav)}
             /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {siteGlyphFor(selectedSite.category || selectedSite.layerCategory || '', selectedSite.name, !!selectedSite.isCity)} {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => { setStreetFallbackNotice(false); setStreetFrameLoaded(false); setEarthAreaView('street'); }}>TRY STREET VIEW IN APP</button>{earthAreaView === 'street' && <button onClick={() => { setStreetFallbackNotice(true); setEarthAreaView('satellite'); }}>AERIAL FALLBACK IN APP</button>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street') setStreetFrameLoaded(true); }} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} loading="eager" src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
@@ -544,7 +546,7 @@ export default function App() {
           <section className="atlas-panel atlas-navigation">
             <div className="atlas-panel-heading">RESEARCH MODULES</div>
             {NAV_ITEMS.map(({ label, icon: Icon }) => (
-              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'STELLAR ALIGNMENTS') setIncludeStars(true); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
+              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'GLOBAL SEARCH') { setEarthAreaView('globe'); handleUpdateConfig({ cameraView: 'top' }); setEarthSearchRequest(value => value + 1); setShowSearchPanel(false); } if (label === 'STELLAR ALIGNMENTS') setIncludeStars(true); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
                 <Icon size={15} strokeWidth={1.8} /><span>{label}</span><span className="nav-chevron">›</span>
               </button>
             ))}
