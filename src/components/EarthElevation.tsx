@@ -431,7 +431,9 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     state.terrainMaterial.map = surfaceMode === 'satellite' && surfaceTextureLoaded ? surfaceTextureRef.current : null;
     state.terrainMaterial.needsUpdate = true;
     const waterMaterial = state.water.material as THREE.MeshStandardMaterial;
-    waterMaterial.opacity = surfaceMode === 'satellite' ? 0.20 : 0.58;
+    waterMaterial.opacity = waterOpacity;
+    waterMaterial.transparent = waterOpacity < 1;
+    waterMaterial.needsUpdate = true;
     const positionAttribute = state.geometry.getAttribute('position') as THREE.BufferAttribute;
     const colorAttribute = state.geometry.getAttribute('color') as THREE.BufferAttribute;
     for (let y = 0; y < state.height; y++) {
@@ -458,10 +460,6 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     // Keep the visible water surface locked to the exact same datum as flooded terrain.
     state.water.geometry.dispose();
     state.water.geometry = new THREE.SphereGeometry(BASE_RADIUS + seaLevel * HEIGHT_SCALE * terrainScale, 128, 64);
-    const waterMaterial = state.water.material as THREE.MeshStandardMaterial;
-    waterMaterial.opacity = waterOpacity;
-    waterMaterial.transparent = waterOpacity < 1;
-    waterMaterial.needsUpdate = true;
   }, [terrainScale, seaLevel, surfaceMode, surfaceTextureLoaded, waterOpacity, loading]);
 
   useEffect(() => {
