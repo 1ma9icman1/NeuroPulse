@@ -488,7 +488,6 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         if (!object.userData.isRetroLedSprite) return;
         const phase = now * 2.2 + Number(object.userData.ledPhase || 0);
         const isOn = Math.sin(phase) > -0.05;
-        const row = Number(object.userData.ledColorIndex ?? 1);
         const material = (object as THREE.Sprite).material as THREE.SpriteMaterial;
         material.opacity = isOn ? 1 : 0.16;
         material.color.set(isOn ? '#ffffff' : '#64748b');
