@@ -29,6 +29,7 @@ import {
   Layers,
   Maximize,
   Minimize,
+  Map as MapIcon,
   Lock,
   Unlock,
   Pin,
@@ -143,6 +144,34 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const earthSphereCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const earthSphereCacheKeyRef = useRef('');
   const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
+  const [showCountryBorders, setShowCountryBorders] = useState(true);
+  const [countryBorderPaths, setCountryBorderPaths] = useState<Array<{ points: number[][]; name?: string }>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+      .then(response => {
+        if (!response.ok) throw new Error('Country boundary dataset unavailable');
+        return response.json();
+      })
+      .then((geojson: any) => {
+        if (cancelled) return;
+        const paths: Array<{ points: number[][]; name?: string }> = [];
+        const addRing = (ring: number[][], name?: string) => {
+          if (ring.length < 2) return;
+          paths.push({ name, points: ring.map(coord => [coord[1], coord[0]]) });
+        };
+        const visitGeometry = (geometry: any, name?: string) => {
+          if (!geometry) return;
+          if (geometry.type === 'Polygon') geometry.coordinates.forEach((ring: number[][]) => addRing(ring, name));
+          else if (geometry.type === 'MultiPolygon') geometry.coordinates.forEach((polygon: number[][][]) => polygon.forEach((ring: number[][]) => addRing(ring, name)));
+          else if (geometry.type === 'GeometryCollection') geometry.geometries.forEach((item: any) => visitGeometry(item, name));
+        };
+        (geojson.features || []).forEach((feature: any) => visitGeometry(feature.geometry, feature.properties?.ADMIN || feature.properties?.name));
+        setCountryBorderPaths(paths);
+      })
+      .catch(error => console.warn('[NeuroPulse] Country border paths unavailable:', error));
+    return () => { cancelled = true; };
+  }, []);
   const isEarthModeActive = cameraView === 'top';
   const globeRef = useRef<any>(null);
   const [earthAtmosphere, setEarthAtmosphere] = useState(true);
@@ -3901,6 +3930,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 </div>
               </div>
             )}
+            <button type="button" onClick={() => setShowCountryBorders(value => !value)} aria-pressed={showCountryBorders} title="Toggle country borders on the Earth map" className={`absolute right-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[10px] font-mono font-bold shadow-lg backdrop-blur transition-colors ${showCountryBorders ? 'border-amber-300/80 bg-slate-950/90 text-amber-100' : 'border-slate-600 bg-slate-950/80 text-slate-300 hover:border-amber-400'}`}><MapIcon className="h-3.5 w-3.5" /> BORDERS {showCountryBorders ? 'ON' : 'OFF'}</button>
             <Globe3D ref={globeRef} rendererConfig={{ preserveDrawingBuffer: true }} width={Math.max(320, containerRef.current?.clientWidth || 800)}
               height={Math.max(320, containerRef.current?.clientHeight || 600)}
               onZoom={(pov: any) => updateEarthZoomTier(Number(pov?.altitude))}
@@ -3917,6 +3947,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               polygonGeoJsonGeometry={(d: any) => d.geometry}
               polygonCapColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(56,189,248,0.42)' : 'rgba(34,211,238,0.055)'}
               polygonSideColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(14,165,233,0.32)' : 'rgba(8,145,178,0.22)'} polygonStrokeColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(125,211,252,0.85)' : 'rgba(165,243,252,0.92)'} polygonAltitude={(d: any) => d.layerType === 'sea-level-flood' ? 0.022 : 0.018}
+              pathsData={showCountryBorders ? countryBorderPaths : []}
+              pathPoints={(d: any) => d.points}
+              pathPointLat={(point: number[]) => point[0]}
+              pathPointLng={(point: number[]) => point[1]}
+              pathColor={() => 'rgba(255,255,255,0.88)'}
+              pathStroke={0.45}
+              pathAltitude={0.0015}
               labelsData={[]}
               labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
               labelColor={(d: any) => d.isCity ? '#e2e8f0' : d.evidenceStatus ? '#fdba74' : '#fde68a'}
