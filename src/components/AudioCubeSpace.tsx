@@ -3898,7 +3898,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
                 if (d.isEarthSiteLabel) {
                   const label = document.createElement('button');
                   label.type = 'button';
-                  label.textContent = d.name;
+                  const labelCategory = `${d.layerCategory || d.category || ''} ${d.name || ''}`.toLowerCase();
+                  const labelGlyph = d.isCity || /city|settlement|village|urban/.test(labelCategory) ? '⌂'
+                    : /sound|audio|acoustic|frequency|resonance|hz|solfeggio/.test(labelCategory) ? '♫'
+                    : /star|astronom|observatory|alignment|celestial|constellation/.test(labelCategory) ? '✦'
+                    : /water|spring|lake|river|well|ocean|sea level/.test(labelCategory) ? '≈'
+                    : /cave|cavern|grotto|underground/.test(labelCategory) ? '◒'
+                    : /stone|crystal|rock|mineral/.test(labelCategory) ? '⬟'
+                    : /mound|burial|tumulus|tomb|dolmen|barrow/.test(labelCategory) ? '⬢'
+                    : /pyramid|temple|ziggurat|monument|megalith|structure|archaeolog|ancient|historic/.test(labelCategory) ? '▲' : '⌖';
+                  label.textContent = `${labelGlyph}  ${d.name}`;
                   label.title = `${d.layerCategory || (d.isCity ? 'CITY' : d.evidenceStatus ? 'ACOUSTIC SITE' : 'ANCIENT SITE')} · ${d.name} · click to inspect`;
                   label.setAttribute('aria-label', `Open site details for ${d.name}`);
                   label.style.maxWidth = '150px';
