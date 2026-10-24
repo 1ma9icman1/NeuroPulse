@@ -358,7 +358,7 @@ export default function App() {
           <div className="atlas-brand-mark"><Globe2 size={28} strokeWidth={1.5} /></div>
           <div className="atlas-brand-copy">
             <div className="atlas-brand-title">NEUROPULSE<span> / ATLAS</span></div>
-            <div className="atlas-brand-subtitle">ANCIENT GLOBAL SEARCH PROGRAM</div>
+            <div className="atlas-brand-subtitle">ANCIENT GLOBAL RESEARCH PROGRAM</div>
             <div className="atlas-brand-micro">ALIGNMENT · FREQUENCY · GEOMETRY · THE STARS</div>
           </div>
         </div>
