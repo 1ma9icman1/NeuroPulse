@@ -1588,6 +1588,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     hoverNode,
     showTriangleAngles,
     interiorAngles,
+    ledAtlasLoaded,
+    visibleEarthSites,
   ]);
 
   // Pointer interactions
