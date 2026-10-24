@@ -756,3 +756,14 @@ button:hover, button:focus-visible {
   min-height: 0;
   height: 100%;
 }
+
+
+/* Elevation workspace research controls live in the existing right-hand dock. */
+.atlas-elevation-tools{border-color:rgba(56,189,248,.45)}
+.atlas-elevation-tool-note{font-size:10px;line-height:1.5;color:#94a3b8;margin:0 0 10px}
+.atlas-elevation-tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.atlas-elevation-tool-grid button{display:flex;align-items:center;justify-content:flex-start;gap:6px;min-height:34px;padding:7px 8px;border:1px solid #25475e;border-radius:4px;background:#071827;color:#bdeeff;font:9px ui-monospace,monospace;letter-spacing:.025em;text-align:left;cursor:pointer}
+.atlas-elevation-tool-grid button:hover{border-color:#38bdf8;background:#0b263a;color:#fff}
+.atlas-elevation-tool-grid button.active,.atlas-elevation-tool-grid button[aria-pressed="true"]{border-color:#67e8f9;background:rgba(8,145,178,.2);color:#cffafe;box-shadow:inset 0 0 0 1px rgba(103,232,249,.12)}
+.atlas-elevation-tool-status{margin-top:8px;padding:6px 7px;border:1px solid rgba(51,65,85,.8);background:rgba(2,6,23,.55);color:#94a3b8;font:9px ui-monospace,monospace;line-height:1.4}
+@media(max-width:900px){.atlas-elevation-tool-grid{grid-template-columns:1fr 1fr}}
