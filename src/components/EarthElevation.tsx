@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { fromBlob } from 'geotiff';
-import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle, Stars, Ruler, Camera, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle, Stars, Ruler, Camera, Eye, EyeOff, Map as MapIcon } from 'lucide-react';
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 
 type Site = { name: string; lat: number; lon: number } | null;
@@ -53,7 +53,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const hostRef = useRef<HTMLDivElement>(null);
   const onSelectSiteRef = useRef(onSelectSite);
   onSelectSiteRef.current = onSelectSite;
-  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; terrainMaterial: THREE.MeshStandardMaterial; heights: Float32Array; width: number; height: number; geometryOverlay: THREE.Group; constellationOverlay: THREE.Group } | null>(null);
+  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; terrainMaterial: THREE.MeshStandardMaterial; heights: Float32Array; width: number; height: number; geometryOverlay: THREE.Group; constellationOverlay: THREE.Group; countryBorders: THREE.Group } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [yearOffset, setYearOffset] = useState(0);
@@ -69,6 +69,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const [showTriangulation, setShowTriangulation] = useState(false);
   const [showConstellationLines, setShowConstellationLines] = useState(false);
   const [showAngleLabels, setShowAngleLabels] = useState(false);
+  const [showCountryBorders, setShowCountryBorders] = useState(true);
   const [overlayMessage, setOverlayMessage] = useState('Select a geometry tool to begin.');
   const surfaceTextureRef = useRef<THREE.Texture | null>(null);
   const surfaceModeRef = useRef(surfaceMode);
@@ -120,6 +121,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     let sitePoints: THREE.Group | null = null;
     let geometryOverlay: THREE.Group | null = null;
     let constellationOverlay: THREE.Group | null = null;
+    let countryBorders: THREE.Group | null = null;
     let markerBuildFrame = 0;
     let scene: THREE.Scene | null = null;
     let camera: THREE.PerspectiveCamera | null = null;
@@ -288,7 +290,9 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         earthGroup = new THREE.Group();
         geometryOverlay = new THREE.Group();
         constellationOverlay = new THREE.Group();
-        earthGroup.add(geometryOverlay, constellationOverlay);
+        countryBorders = new THREE.Group();
+        countryBorders.visible = showCountryBorders;
+        earthGroup.add(geometryOverlay, constellationOverlay, countryBorders);
         scene.add(earthGroup);
 
         const positions: number[] = [];
@@ -352,7 +356,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         marker.visible = false;
         earthGroup.add(marker);
 
-        sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, terrainMaterial, heights, width: gridWidth, height: gridHeight, geometryOverlay, constellationOverlay };
+        sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, terrainMaterial, heights, width: gridWidth, height: gridHeight, geometryOverlay, constellationOverlay, countryBorders };
 
         buildMarkers = () => {
           let index = 0;
@@ -637,6 +641,54 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   useEffect(() => {
     const state = sceneRef.current;
     if (!state || loading) return;
+    state.countryBorders.visible = showCountryBorders;
+  }, [showCountryBorders, loading]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const state = sceneRef.current;
+    if (!state || loading) return;
+    const group = state.countryBorders;
+    group.clear();
+    fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+      .then(response => {
+        if (!response.ok) throw new Error('Country boundary dataset unavailable');
+        return response.json();
+      })
+      .then((geojson: any) => {
+        if (cancelled) return;
+        const material = new THREE.LineBasicMaterial({ color: '#f8fafc', transparent: true, opacity: 0.88, depthWrite: false });
+        const toVector = (lonValue: number, latValue: number) => {
+          const lon = lonValue * Math.PI / 180;
+          const lat = latValue * Math.PI / 180;
+          const x = Math.max(0, Math.min(state.width - 1, Math.round(((lonValue + 180) / 360) * (state.width - 1))));
+          const y = Math.max(0, Math.min(state.height - 1, Math.round(((90 - latValue) / 180) * (state.height - 1))));
+          const elevation = state.heights[y * state.width + x] || 0;
+          const radius = BASE_RADIUS + Math.max(elevation, seaLevelRef.current) * HEIGHT_SCALE * terrainScaleRef.current + 0.16;
+          return new THREE.Vector3(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+        };
+        const addRing = (coordinates: number[][]) => {
+          if (coordinates.length < 2) return;
+          const geometry = new THREE.BufferGeometry().setFromPoints(coordinates.map(coord => toVector(coord[0], coord[1])));
+          const line = new THREE.Line(geometry, material);
+          line.renderOrder = 8;
+          group.add(line);
+        };
+        const visitGeometry = (geometry: any) => {
+          if (!geometry) return;
+          if (geometry.type === 'Polygon') geometry.coordinates.forEach((ring: number[][]) => addRing(ring));
+          else if (geometry.type === 'MultiPolygon') geometry.coordinates.forEach((polygon: number[][][]) => polygon.forEach((ring: number[][]) => addRing(ring)));
+          else if (geometry.type === 'GeometryCollection') geometry.geometries.forEach(visitGeometry);
+        };
+        (geojson.features || []).forEach((feature: any) => visitGeometry(feature.geometry));
+      })
+      .catch(error => console.warn('[NeuroPulse] Country borders could not be loaded:', error));
+    return () => { cancelled = true; group.clear(); };
+  }, [loading]);
+
+  useEffect(() => {
+    const state = sceneRef.current;
+    if (!state || loading) return;
     const group = state.constellationOverlay;
     group.clear();
     if (!showConstellationLines) return;
@@ -758,6 +810,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <span className="text-[9px] font-mono font-bold text-slate-400">SURFACE</span>
           <button type="button" onClick={() => setSurfaceMode('satellite')} disabled={!surfaceTextureLoaded} aria-pressed={surfaceMode === 'satellite'} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${surfaceMode === 'satellite' ? 'border-cyan-300 bg-cyan-900/70 text-cyan-100' : 'border-slate-700 text-slate-300 hover:border-cyan-500 disabled:opacity-40'}`}>SATELLITE TEXTURE</button>
           <button type="button" onClick={() => setSurfaceMode('relief')} aria-pressed={surfaceMode === 'relief'} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${surfaceMode === 'relief' ? 'border-emerald-300 bg-emerald-900/70 text-emerald-100' : 'border-slate-700 text-slate-300 hover:border-emerald-500'}`}>ELEVATION RELIEF</button>
+          <button type="button" onClick={() => setShowCountryBorders(value => !value)} aria-pressed={showCountryBorders} className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${showCountryBorders ? 'border-amber-300 bg-amber-900/60 text-amber-100' : 'border-slate-700 text-slate-300 hover:border-amber-500'}`}><MapIcon className="h-3 w-3" /> COUNTRY BORDERS {showCountryBorders ? 'ON' : 'OFF'}</button>
           <span className="text-[9px] text-slate-500">{surfaceTextureError ? 'Satellite service unavailable · shaded relief active' : surfaceMode === 'satellite' ? 'World imagery draped over NOAA height data' : 'Elevation-colored, hill-shaded terrain'}</span>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 xl:col-span-2">
