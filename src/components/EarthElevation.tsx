@@ -474,17 +474,20 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         material.color.set(isOn ? '#ffffff' : '#64748b');
       });
     }, 80);
-    return () => window.clearInterval(tim        const phase = now * 2.2 + Number(object.userData.ledPhase || 0);
-        const isOn = Math.sin(phase) > -0.05;
-        const material = (object as THREE.Sprite).material as THREE.SpriteMaterial;
-        if (material.map) {
-          const colorIndex = Number(object.userData.ledColorIndex || 0);
-          material.map.offset.y = (9 - colorIndex * 2 - (isOn ? 1 : 0)) / 10;
-          material.map.updateMatrix();
-        }
-        material.opacity = 1;
-        material.color.set('#ffffff');
-return;
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const state = sceneRef.current;
+    if (!state) return;
+    state.camera.position.z = 250 / zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    const state = sceneRef.current;
+    if (!state || !selectedSite) {
+      if (state?.marker) state.marker.visible = false;
+      return;
     }
     const x = Math.max(0, Math.min(state.width - 1, Math.round(((selectedSite.lon + 180) / 360) * (state.width - 1))));
     const y = Math.max(0, Math.min(state.height - 1, Math.round(((90 - selectedSite.lat) / 180) * (state.height - 1))));
