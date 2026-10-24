@@ -392,7 +392,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     // Keep the visible water surface locked to the exact same datum as flooded terrain.
     state.water.geometry.dispose();
     state.water.geometry = new THREE.SphereGeometry(BASE_RADIUS + seaLevel * HEIGHT_SCALE * terrainScale, 128, 64);
-  }, [terrainScale, seaLevel, surfaceMode]);
+  }, [terrainScale, seaLevel, surfaceMode, surfaceTextureLoaded, loading]);
 
   useEffect(() => {
     const state = sceneRef.current;
