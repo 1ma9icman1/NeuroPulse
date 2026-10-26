@@ -4,9 +4,10 @@ import type { TrinauralConfig } from './types/index';
 import {
   Activity, AudioLines, Atom, AudioWaveform, ChevronDown, Compass,
   Database, Globe2, Layers3, Map, MapPin, Orbit, Radar, Search, Settings2,
-  Signal, SlidersHorizontal, Star, Target, Waves, X, Zap
+  Signal, SlidersHorizontal, Star, Target, Waves, X, Zap, Sun
 } from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
+import { SolarFlareResearch } from './components/SolarFlareResearch';
 import type { CameraView, SpatialPosition, SpatialRoutingMode } from './types';
 import { DEFAULT_EARTH_POINTS } from './data/earthData';
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { label: 'TRIGONOMETRY', icon: Atom },
   { label: 'MAP OVERLAYS', icon: Layers3 },
   { label: 'DATABASE', icon: Database },
+  { label: 'SOLAR FLARE RESEARCH', icon: Sun },
   { label: 'SETTINGS', icon: Settings2 },
 ];
 
@@ -96,6 +98,7 @@ export default function App() {
     'TRIGONOMETRY': 'Inspect distances and geometric relationships calculated from site coordinates.',
     'MAP OVERLAYS': 'Use the globe controls to switch map overlays and visualization layers.',
     'DATABASE': 'Browse the site, star, and acoustic reference data already included in this build.',
+    'SOLAR FLARE RESEARCH': 'Inspect live NOAA solar X-ray, proton, electron, and planetary geomagnetic measurements; replay the observed timeline.',
     'SETTINGS': 'Interface and visualization preferences.',
   };
 
@@ -165,48 +168,51 @@ export default function App() {
 
         <section className="atlas-center">
           <div className="atlas-center-heading">
-            <div><div className="atlas-eyebrow">ACTIVE WORKSPACE / EARTH</div><h1>{activeNav === 'GLOBAL SEARCH' ? 'Global Alignment Explorer' : activeNav}</h1><p>{navDescription[activeNav] ?? 'This view is represented in the navigation; its dedicated visualization is not yet connected.'}</p></div>
-            <div className="atlas-live-tag"><span className="status-dot" /> LIVE GLOBE</div>
+            <div><div className="atlas-eyebrow">{activeNav === 'SOLAR FLARE RESEARCH' ? 'ACTIVE WORKSPACE / SPACE WEATHER' : 'ACTIVE WORKSPACE / EARTH'}</div><h1>{activeNav === 'GLOBAL SEARCH' ? 'Global Alignment Explorer' : activeNav}</h1><p>{navDescription[activeNav] ?? 'This view is represented in the navigation; its dedicated visualization is not yet connected.'}</p></div>
+            <div className="atlas-live-tag"><span className="status-dot" /> {activeNav === 'SOLAR FLARE RESEARCH' ? 'LIVE SPACE WEATHER' : 'LIVE GLOBE'}</div>
           </div>
-          <div className="atlas-globe-stage">
-            <div className="atlas-globe-grid" aria-hidden="true" />
-            <AudioCubeSpace
-              aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
-              spatialMode={config.spatialMode} cameraView={config.cameraView}
-              cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
-              aFreq={config.aFreq + config.aFineTune} bFreq={config.bFreq + config.bFineTune} cFreq={config.cFreq + config.cFineTune}
-              isRunning={isRunning}
-              onUpdateAPos={(position) => updatePosition('a', position)} onUpdateBPos={(position) => updatePosition('b', position)} onUpdateCPos={(position) => updatePosition('c', position)}
-              onUpdateSpatialMode={(spatialMode) => handleUpdateConfig({ spatialMode })} onUpdateCameraView={(cameraView) => handleUpdateConfig({ cameraView })}
-              onUpdateCameraAngles={(cameraYaw, cameraPitch) => handleUpdateConfig({ cameraYaw, cameraPitch })}
-              onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
-              onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 1, cameraView: 'top' })}
-            />
-            <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
-            <div className="atlas-globe-overlay atlas-globe-overlay-bottom">
-              <span><i className="legend-dot cyan" /> SITE DATABASE</span>
-              <span><i className="legend-dot gold" /> STAR CATALOGUE {includeStars ? 'ON' : 'OFF'}</span>
-              <span><i className="legend-dot green" /> ACOUSTIC RECORDS {includeAcoustics ? 'ON' : 'OFF'}</span>
-              <span><i className="legend-line" /> GEOMETRY {includeGeometry ? 'ON' : 'OFF'}</span>
-            </div>
-          </div>
-          {showSiteList && (
-            <div className="atlas-results-strip">
-              <div className="atlas-results-title"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></div>
-              <div className="atlas-results-list">
-                {filteredSites.slice(0, 8).map((site) => (
-                  <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-result-chip chosen' : 'atlas-result-chip'} onClick={() => setSelectedSiteId(site.id)}>
-                    <MapPin size={12} /><span>{site.name}</span>
-                  </button>
-                ))}
-                {filteredSites.length === 0 && <span className="atlas-empty">No sites match this search.</span>}
+          
+            <div className="atlas-globe-stage">
+              <div className="atlas-globe-grid" aria-hidden="true" />
+              <AudioCubeSpace
+                aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
+                spatialMode={config.spatialMode} cameraView={config.cameraView}
+                cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
+                aFreq={config.aFreq + config.aFineTune} bFreq={config.bFreq + config.bFineTune} cFreq={config.cFreq + config.cFineTune}
+                isRunning={isRunning}
+                onUpdateAPos={(position) => updatePosition('a', position)} onUpdateBPos={(position) => updatePosition('b', position)} onUpdateCPos={(position) => updatePosition('c', position)}
+                onUpdateSpatialMode={(spatialMode) => handleUpdateConfig({ spatialMode })} onUpdateCameraView={(cameraView) => handleUpdateConfig({ cameraView })}
+                onUpdateCameraAngles={(cameraYaw, cameraPitch) => handleUpdateConfig({ cameraYaw, cameraPitch })}
+                onUpdateCameraZoom={(cameraZoom) => handleUpdateConfig({ cameraZoom })}
+                onResetCamera={() => handleUpdateConfig({ cameraYaw: 30, cameraPitch: 22, cameraZoom: 1, cameraView: 'top' })}
+              />
+              <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>
+              <div className="atlas-globe-overlay atlas-globe-overlay-bottom">
+                <span><i className="legend-dot cyan" /> SITE DATABASE</span>
+                <span><i className="legend-dot gold" /> STAR CATALOGUE {includeStars ? 'ON' : 'OFF'}</span>
+                <span><i className="legend-dot green" /> ACOUSTIC RECORDS {includeAcoustics ? 'ON' : 'OFF'}</span>
+                <span><i className="legend-line" /> GEOMETRY {includeGeometry ? 'ON' : 'OFF'}</span>
               </div>
-              {scanRequested && <div className="atlas-search-note">Catalogue search complete · results reflect local reference data</div>}
             </div>
-          )}
+            {showSiteList && (
+              <div className="atlas-results-strip">
+                <div className="atlas-results-title"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></div>
+                <div className="atlas-results-list">
+                  {filteredSites.slice(0, 8).map((site) => (
+                    <button key={site.id} className={selectedSite?.id === site.id ? 'atlas-result-chip chosen' : 'atlas-result-chip'} onClick={() => setSelectedSiteId(site.id)}>
+                      <MapPin size={12} /><span>{site.name}</span>
+                    </button>
+                  ))}
+                  {filteredSites.length === 0 && <span className="atlas-empty">No sites match this search.</span>}
+                </div>
+                {scanRequested && <div className="atlas-search-note">Catalogue search complete · results reflect local reference data</div>}
+              </div>
+            )}
+  
         </section>
 
         <aside className="atlas-right">
+          {activeNav === 'SOLAR FLARE RESEARCH' ? <SolarFlareResearch /> : <>
           <section className="atlas-panel atlas-site-card">
             <div className="atlas-panel-heading"><MapPin size={13} /> SELECTED SITE <span className="atlas-panel-count">REFERENCE DATA</span></div>
             {selectedSite ? <>
@@ -253,6 +259,7 @@ export default function App() {
             )) : <div className="atlas-no-data">Star catalogue is excluded by the current search filters.</div>}
             <div className="atlas-footnote">Star catalogue coordinates and distances are reference data; a site alignment requires a dated sky calculation and verified architectural axis.</div>
           </section>
+          </>}
         </aside>
       </div>
 
