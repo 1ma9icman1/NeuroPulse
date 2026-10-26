@@ -15,7 +15,18 @@ const SOURCE_LINKS = [
   { label: 'GOES electron flux', href: 'https://www.spaceweather.gov/products/goes-electron-flux' },
   { label: 'NOAA scales', href: 'https://www.spaceweather.gov/noaa-scales-explanation' },
 ];
-const numberValue = (...values: unknown[]): number | null => {
+const HISTORICAL_EVENTS = [
+  { date: '1859-09-01', year: '1859', name: 'Carrington Event', type: 'Solar flare + geomagnetic storm', note: 'Historic extreme geomagnetic disturbance; nineteenth-century measurements do not provide modern GOES X-ray or particle-flux channels.', source: 'Historical observatory reports; NOAA/NASA space-weather history.' },
+  { date: '1921-05-13', year: '1921', name: 'May 1921 geomagnetic storm', type: 'Geomagnetic storm', note: 'Major historical geomagnetic disturbance documented through ground and telegraph-system reports; modern particle-channel measurements are unavailable.', source: 'Historical geomagnetic records.' },
+  { date: '1972-08-04', year: '1972', name: 'August 1972 solar particle event', type: 'Solar energetic particles', note: 'Major solar particle event during the Apollo era; review original particle measurements and mission-era context before drawing exposure conclusions.', source: 'NASA heliophysics and historical solar-particle archives.' },
+  { date: '1989-03-13', year: '1989', name: 'March 1989 geomagnetic storm', type: 'Geomagnetic storm', note: 'Severe geomagnetic storm associated with a major power-grid disturbance in Quebec; this is a terrestrial impact record, not a flare-class measurement.', source: 'NOAA space-weather history and power-system reports.' },
+  { date: '2003-10-28', year: '2003', name: 'Halloween solar storms', type: 'X-class flares + CMEs + geomagnetic activity', note: 'A sequence of major flares and associated space-weather events; inspect individual event timestamps and measurements rather than treating the sequence as one flare.', source: 'NOAA GOES records and NASA DONKI / heliophysics archives.' },
+  { date: '2005-01-20', year: '2005', name: 'Extreme solar proton event', type: 'Solar energetic particles', note: 'A historically significant high-energy proton event. Review energy-specific particle measurements and instrument metadata.', source: 'NOAA GOES particle archives and NASA heliophysics records.' },
+  { date: '2012-07-23', year: '2012', name: 'STEREO-observed extreme CME', type: 'CME / near miss', note: 'An extreme CME observed by STEREO that did not directly strike Earth; included to compare event severity with Earth-directed geometry.', source: 'NASA STEREO and heliophysics publications.' },
+  { date: '2017-09-06', year: '2017', name: 'September 2017 X-class flare sequence', type: 'X-class flare + space weather', note: 'Major September 2017 solar activity including the X9.3 flare. Review measured GOES flux, associated events, and actual Earth observations separately.', source: 'NOAA GOES records and NASA event archives.' },
+  { date: '2024-05-10', year: '2024', name: 'May 2024 G5 geomagnetic storm', type: 'Geomagnetic storm / CME sequence', note: 'The strongest geomagnetic storm category observed in May 2024; review the sequence of CMEs, measured geomagnetic indices, aurora reports, and regional observations.', source: 'NOAA SWPC and NASA heliophysics records.' },
+];
+\nconst numberValue = (...values: unknown[]): number | null => {
   for (const value of values) {
     const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
     if (Number.isFinite(n)) return n;
@@ -57,7 +68,7 @@ export function SolarFlareResearch() {
   const [selectedTime, setSelectedTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState('');\n  const [historyQuery, setHistoryQuery] = useState('');
   const refresh = useCallback(async () => {
     setLoading(true);
     const results = await Promise.all(SOURCES.map(async (source): Promise<Series> => {
@@ -114,7 +125,7 @@ export function SolarFlareResearch() {
   const kpLevel = kpValue === null ? 'No reading' : kpValue >= 5 ? 'Geomagnetic storm threshold reached' : kpValue >= 4 ? 'Elevated' : 'Quiet to unsettled';
   const timeFor = (row: DataRow | null) => row ? fmtTime(timestampOf(row)) : 'No timestamp';
   const selectedFlux = rowFlux(selectedXray ?? {});
-  const kIndexRow = liveKp ?? {};
+  const kIndexRow = liveKp ?? {};\n  const filteredHistory = HISTORICAL_EVENTS.filter((event) => !historyQuery.trim() || [event.year, event.date, event.name, event.type, event.note].some((value) => value.toLowerCase().includes(historyQuery.trim().toLowerCase())));
   return (
     <section className="solar-research" aria-label="Solar flare and space weather research">
       <div className="solar-research-toolbar">
@@ -156,6 +167,12 @@ export function SolarFlareResearch() {
           <div className="solar-source-links"><strong>OFFICIAL NOAA SOURCES</strong>{SOURCE_LINKS.map((source) => <a key={source.href} href={source.href} target="_blank" rel="noreferrer">{source.label}<ExternalLink size={11} /></a>)}</div>
         </article>
       </div>
+      <article className="solar-panel solar-history-panel">
+        <div className="solar-panel-heading"><Clock3 size={14} /> HISTORICAL SPACE-WEATHER INDEX <span>CURATED RESEARCH STARTING POINTS</span></div>
+        <div className="solar-history-tools"><label htmlFor="solar-history-search">Search by year, date, event, or type</label><input id="solar-history-search" value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="e.g. 2003, proton, geomagnetic..." /><span>{filteredHistory.length} records</span></div>
+        <div className="solar-history-list">{filteredHistory.map((event) => <article className="solar-history-row" key={event.year + event.name}><div className="solar-history-date">{event.year}<small>{event.date}</small></div><div className="solar-history-info"><strong>{event.name}</strong><span>{event.type}</span><p>{event.note}</p><small>Source trail: {event.source}</small></div></article>)}{filteredHistory.length === 0 && <div className="solar-chart-empty">No historical events match that search.</div>}</div>
+        <div className="solar-history-disclaimer">This curated index is a research guide, not a complete calibrated measurement archive. Historical classifications and flux values are not invented for periods before the relevant instruments existed. Verify event-level measurements in the cited official archives before analysis.</div>
+      </article>
       <div className="solar-data-footnote"><Clock3 size={12} /> Values come from NOAA SWPC JSON products when available. Time-series slider replays recorded samples, not a forecast of the flare travelling to Earth. Units, energy channel and timestamps should be checked against each source product. {series.filter((item) => item.error).map((item) => item.label + ': ' + item.error).join(' · ')}</div>
     </section>
   );
