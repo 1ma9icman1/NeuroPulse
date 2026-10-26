@@ -171,7 +171,7 @@ export default function App() {
             <div><div className="atlas-eyebrow">{activeNav === 'SOLAR FLARE RESEARCH' ? 'ACTIVE WORKSPACE / SPACE WEATHER' : 'ACTIVE WORKSPACE / EARTH'}</div><h1>{activeNav === 'GLOBAL SEARCH' ? 'Global Alignment Explorer' : activeNav}</h1><p>{navDescription[activeNav] ?? 'This view is represented in the navigation; its dedicated visualization is not yet connected.'}</p></div>
             <div className="atlas-live-tag"><span className="status-dot" /> {activeNav === 'SOLAR FLARE RESEARCH' ? 'LIVE SPACE WEATHER' : 'LIVE GLOBE'}</div>
           </div>
-          {activeNav === 'SOLAR FLARE RESEARCH' ? <SolarFlareResearch /> : <>
+          
             <div className="atlas-globe-stage">
               <div className="atlas-globe-grid" aria-hidden="true" />
               <AudioCubeSpace
@@ -209,10 +209,10 @@ export default function App() {
               </div>
             )}
   
-          </>}
         </section>
 
         <aside className="atlas-right">
+          {activeNav === 'SOLAR FLARE RESEARCH' ? <SolarFlareResearch /> : <>
           <section className="atlas-panel atlas-site-card">
             <div className="atlas-panel-heading"><MapPin size={13} /> SELECTED SITE <span className="atlas-panel-count">REFERENCE DATA</span></div>
             {selectedSite ? <>
@@ -259,6 +259,7 @@ export default function App() {
             )) : <div className="atlas-no-data">Star catalogue is excluded by the current search filters.</div>}
             <div className="atlas-footnote">Star catalogue coordinates and distances are reference data; a site alignment requires a dated sky calculation and verified architectural axis.</div>
           </section>
+          </>}
         </aside>
       </div>
 
