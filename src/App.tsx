@@ -4,11 +4,12 @@ import type { TrinauralConfig } from './types/index';
 import {
   Activity, AudioLines, Atom, AudioWaveform, Building2, Camera, ChevronDown, Compass,
   Database, Globe2, Landmark, Layers3, Map, MapPin, Orbit, Radar, Search, Settings2,
-  Signal, SlidersHorizontal, Star, Target, Waves, X, Zap, Volume2, ChevronUp, Mountain
+  Signal, SlidersHorizontal, Star, Target, Waves, X, Zap, Volume2, ChevronUp, Mountain, Sun
 } from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
 import { EarthElevation } from './components/EarthElevation';
 import { SiteResearchNotes } from './components/SiteResearchNotes';
+import { SolarFlareResearch } from './components/SolarFlareResearch';
 import { OscillatorDeck } from './components/OscillatorDeck';
 import { DeltaHUD } from './components/DeltaHUD';
 import { FrequencyMatrix } from './components/FrequencyMatrix';
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { label: 'TRIGONOMETRY', icon: Atom },
   { label: 'MAP OVERLAYS', icon: Layers3 },
   { label: 'DATABASE', icon: Database },
+  { label: 'SOLAR FLARE RESEARCH', icon: Sun },
   { label: 'A/B/C AUDIO CONTROLS', icon: AudioLines },
   { label: 'TRINAURAL / SOLFEGGIO', icon: AudioWaveform },
   { label: 'SETTINGS', icon: Settings2 },
@@ -542,6 +544,7 @@ export default function App() {
         </section>
 
         <aside className="atlas-right">
+          {activeNav === 'SOLAR FLARE RESEARCH' && <SolarFlareResearch onClose={() => setActiveNav('GLOBAL SEARCH')} />}
           <button type="button" className="atlas-search-right-button" onClick={() => setShowSearchPanel(value => !value)} aria-expanded={showSearchPanel}><Search size={15} /> {showSearchPanel ? "CLOSE SEARCH" : "SEARCH"}</button>
           {showSearchPanel && <div className="atlas-search-drawer">
             <div className="atlas-search-drawer-title"><strong><Search size={14} /> GLOBAL SEARCH</strong><button className="atlas-search-close" onClick={() => setShowSearchPanel(false)} aria-label="Close search"><X size={14} /></button></div>
