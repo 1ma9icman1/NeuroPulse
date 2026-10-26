@@ -172,12 +172,12 @@ export function SolarFlareResearch() {
           <div className="solar-panel-heading"><Sun size={14} /> SUN → EARTH / EVENT TIMELINE <span>SCHEMATIC · NOT TO SCALE</span></div>
           <div className="solar-space-scene">
             <div className="solar-starfield" />
-            <div className="solar-sun"><div className="solar-sun-core" /><div className="solar-flare-arc" /></div>
+            <div className="solar-sun"><img className="solar-sdo-image" src="https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0171.jpg" alt="Latest NASA Solar Dynamics Observatory AIA 171 angstrom solar image" /><div className="solar-flare-arc" /></div>
             <div className="solar-propagation-line"><i /></div>
             <div className="solar-earth"><div /></div>
             <div className="solar-space-label solar-label-sun">SUN <small>{flareLabel}</small></div>
             <div className="solar-space-label solar-label-earth">EARTH <small>{currentTime ? fmtTime(currentTime) : 'Select a timestamp'}</small></div>
-            <div className="solar-propagation-note">{selectedFlux === null ? 'Waiting for measured X-ray data' : selectedFlux >= 1e-5 ? 'Elevated measured X-ray flux · event candidate' : 'Measured X-ray background / lower activity'}</div>
+            <div className="solar-observed-tag">OBSERVED IMAGE · NASA SDO AIA 171 Å</div><div className="solar-propagation-note">{selectedFlux === null ? 'Waiting for measured X-ray data' : selectedFlux >= 1e-5 ? 'Elevated measured X-ray flux · event candidate' : 'Measured X-ray background / lower activity'}</div>
           </div>
           <div className="solar-timeline-controls">
             <div className="solar-timeline-buttons"><button onClick={() => setPlaying((v) => !v)} disabled={xrayRows.length < 2}>{playing ? <Pause size={14} /> : <Play size={14} />}{playing ? 'PAUSE' : 'PLAY TIMELINE'}</button><button onClick={() => { setPlaying(false); setSelectedTime(0); }}>RESET</button><label>PLAYBACK <select value={speed} onChange={(event) => setSpeed(Number(event.target.value))}><option value={1}>1×</option><option value={2}>2×</option><option value={4}>4×</option><option value={8}>8×</option></select></label></div>
