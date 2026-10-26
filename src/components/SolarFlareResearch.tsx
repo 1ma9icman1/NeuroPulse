@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Clock3, ExternalLink, Pause, Play, RefreshCw, Satellite, ShieldAlert, Sun, Zap } from 'lucide-react';
 
-type DataRow = Record<string, unknown>;
+type DataRow = Record<string, unknown>;\ntype NasaFlareEvent = { flrID?: string; beginTime?: string; peakTime?: string; endTime?: string; classType?: string; sourceLocation?: string; activeRegionNum?: number; link?: string };
 type Series = { key: string; label: string; url: string; rows: DataRow[]; error?: string; updatedAt?: string };
 const SOURCES = [
   { key: 'kp', label: 'Planetary K-index', url: 'https://services.swpc.noaa.gov/json/planetary-k-index.json' },
@@ -68,7 +68,7 @@ export function SolarFlareResearch() {
   const [selectedTime, setSelectedTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [notice, setNotice] = useState('');\n  const [historyQuery, setHistoryQuery] = useState('');
+  const [notice, setNotice] = useState('');\n  const [historyQuery, setHistoryQuery] = useState('');\n  const [nasaEvents, setNasaEvents] = useState<NasaFlareEvent[]>([]);\n  const [nasaEventError, setNasaEventError] = useState('');
   const refresh = useCallback(async () => {
     setLoading(true);
     const results = await Promise.all(SOURCES.map(async (source): Promise<Series> => {
@@ -87,7 +87,27 @@ export function SolarFlareResearch() {
     setLoading(false);
     setNotice(results.some((item) => item.rows.length > 0) ? '' : 'NOAA data could not be loaded. Check your connection or browser network restrictions; no sample readings are substituted.');
   }, []);
-  useEffect(() => { void refresh(); const id = window.setInterval(() => void refresh(), 5 * 60 * 1000); return () => window.clearInterval(id); }, [refresh]);
+  useEffect(() => { void refresh(); const id = window.setInterval(() => void refresh(), 5 * 60 * 1000); return () => window.clearInterval(id); }, [refresh]);\n  useEffect(() => {
+    let cancelled = false;
+    const loadNasaEvents = async () => {
+      const end = new Date();
+      const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const dateOnly = (value: Date) => value.toISOString().slice(0, 10);
+      try {
+        const url = 'https://api.nasa.gov/DONKI/FLR?startDate=' + dateOnly(start) + '&endDate=' + dateOnly(end) + '&api_key=DEMO_KEY';
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error('NASA DONKI HTTP ' + response.status);
+        const json: unknown = await response.json();
+        if (!Array.isArray(json)) throw new Error('Unexpected NASA DONKI response');
+        if (!cancelled) { setNasaEvents((json as NasaFlareEvent[]).sort((a, b) => Date.parse(b.beginTime ?? '') - Date.parse(a.beginTime ?? ''))); setNasaEventError(''); }
+      } catch (error) {
+        if (!cancelled) setNasaEventError(error instanceof Error ? error.message : 'NASA DONKI unavailable');
+      }
+    };
+    void loadNasaEvents();
+    const id = window.setInterval(() => void loadNasaEvents(), 30 * 60 * 1000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, []);
   const xray = series.find((item) => item.key === 'xray');
   const proton = series.find((item) => item.key === 'proton');
   const electron = series.find((item) => item.key === 'electron');
@@ -167,6 +187,13 @@ export function SolarFlareResearch() {
           <div className="solar-source-links"><strong>OFFICIAL NOAA SOURCES</strong>{SOURCE_LINKS.map((source) => <a key={source.href} href={source.href} target="_blank" rel="noreferrer">{source.label}<ExternalLink size={11} /></a>)}</div>
         </article>
       </div>
+      <article className="solar-panel solar-nasa-events">
+        <div className="solar-panel-heading"><Sun size={14} /> NASA DONKI / RECENT FLARE EVENTS <span>LAST 7 DAYS · EVENT CATALOGUE</span></div>
+        <div className="solar-nasa-intro">NASA DONKI event reports are listed separately from GOES flux measurements. A catalogue entry is an event report, not proof of a CME or Earth impact.</div>
+        {nasaEventError && <div className="solar-nasa-error"><AlertTriangle size={13} /> NASA DONKI event feed unavailable: {nasaEventError}</div>}
+        <div className="solar-nasa-list">{nasaEvents.map((event, index) => <article className="solar-nasa-row" key={event.flrID ?? event.beginTime ?? String(index)}><div className="solar-nasa-class">{event.classType ?? 'Flare'}<small>{event.flrID ?? 'NASA event'}</small></div><div className="solar-nasa-info"><strong>{event.beginTime ? fmtTime(Date.parse(event.beginTime)) : 'Start time unavailable'}</strong><span>Peak: {event.peakTime ? fmtTime(Date.parse(event.peakTime)) : 'not reported'} · End: {event.endTime ? fmtTime(Date.parse(event.endTime)) : 'not reported'}</span><small>Solar location: {event.sourceLocation ?? 'not reported'} · Active region: {event.activeRegionNum ?? 'not reported'}</small>{event.link && <a href={event.link} target="_blank" rel="noreferrer">Open NASA event record <ExternalLink size={10} /></a>}</div></article>)}{nasaEvents.length === 0 && !nasaEventError && <div className="solar-chart-empty">Loading recent NASA DONKI flare reports…</div>}</div>
+        <div className="solar-nasa-footnote">Feed: NASA DONKI FLR API · last 7 days · refreshed every 30 minutes. NOAA time series below are measured flux; NASA records provide event metadata. DEMO_KEY rate limits may apply.</div>
+      </article>
       <article className="solar-panel solar-history-panel">
         <div className="solar-panel-heading"><Clock3 size={14} /> HISTORICAL SPACE-WEATHER INDEX <span>CURATED RESEARCH STARTING POINTS</span></div>
         <div className="solar-history-tools"><label htmlFor="solar-history-search">Search by year, date, event, or type</label><input id="solar-history-search" value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="e.g. 2003, proton, geomagnetic..." /><span>{filteredHistory.length} records</span></div>
