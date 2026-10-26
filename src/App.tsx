@@ -210,6 +210,7 @@ export default function App() {
         </section>
 
         <aside className="atlas-right">
+          <button type="button" className="atlas-solar-launch-button" onClick={() => setActiveNav('SOLAR FLARE RESEARCH')} aria-label="Open Solar Flare Research"><Sun size={16} /> SOLAR FLARES</button>
           {activeNav === 'SOLAR FLARE RESEARCH' ? <SolarFlareResearch onClose={() => setActiveNav('GLOBAL SEARCH')} /> : <>
           <section className="atlas-panel atlas-site-card">
             <div className="atlas-panel-heading"><MapPin size={13} /> SELECTED SITE <span className="atlas-panel-count">REFERENCE DATA</span></div>
