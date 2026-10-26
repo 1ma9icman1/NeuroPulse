@@ -168,8 +168,8 @@ export default function App() {
 
         <section className="atlas-center">
           <div className="atlas-center-heading">
-            <div><div className="atlas-eyebrow">ACTIVE WORKSPACE / EARTH</div><h1>{activeNav === 'GLOBAL SEARCH' ? 'Global Alignment Explorer' : activeNav}</h1><p>{navDescription[activeNav] ?? 'This view is represented in the navigation; its dedicated visualization is not yet connected.'}</p></div>
-            <div className="atlas-live-tag"><span className="status-dot" /> LIVE GLOBE</div>
+            <div><div className="atlas-eyebrow">{activeNav === 'SOLAR FLARE RESEARCH' ? 'ACTIVE WORKSPACE / SPACE WEATHER' : 'ACTIVE WORKSPACE / EARTH'}</div><h1>{activeNav === 'GLOBAL SEARCH' ? 'Global Alignment Explorer' : activeNav}</h1><p>{navDescription[activeNav] ?? 'This view is represented in the navigation; its dedicated visualization is not yet connected.'}</p></div>
+            <div className="atlas-live-tag"><span className="status-dot" /> {activeNav === 'SOLAR FLARE RESEARCH' ? 'LIVE SPACE WEATHER' : 'LIVE GLOBE'}</div>
           </div>
           {activeNav === 'SOLAR FLARE RESEARCH' ? <SolarFlareResearch /> : <>
             <div className="atlas-globe-stage">
