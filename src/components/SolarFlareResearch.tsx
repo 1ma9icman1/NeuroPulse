@@ -63,7 +63,7 @@ const latestFor = (series: Series | undefined, kind: 'xray' | 'proton' | 'electr
   return rows.filter((row) => rowFlux(row) !== null).sort((a, b) => timestampOf(b) - timestampOf(a))[0] ?? null;
 };
 
-export function SolarFlareResearch() {
+export function SolarFlareResearch({ onClose }: { onClose?: () => void }) {
   const [series, setSeries] = useState<Series[]>(SOURCES.map((s) => ({ ...s, rows: [] })));
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<number | null>(null);
@@ -158,6 +158,7 @@ export function SolarFlareResearch() {
       <div className="solar-research-toolbar">
         <div><div className="solar-eyebrow"><Sun size={13} /> SPACE WEATHER / LIVE OBSERVATIONS</div><h2>Solar Flare Research</h2><p>NOAA GOES measurements · Planetary geomagnetic activity · UTC timeline</p></div>
         <button className="solar-refresh" onClick={() => void refresh()} disabled={loading}><RefreshCw size={14} className={loading ? 'solar-spinning' : ''} /> {loading ? 'UPDATING' : 'REFRESH DATA'}</button>
+        {onClose && <button type="button" className="solar-close-module" onClick={onClose}>BACK TO NEUROPULSE</button>}
       </div>
       <div className="solar-statusline"><span className={series.some((item) => item.rows.length) ? 'solar-status-dot' : 'solar-status-dot offline'} />{series.some((item) => item.rows.length) ? 'NOAA DATA CONNECTED' : 'WAITING FOR NOAA DATA'}<span>·</span> Updated {lastRefresh ? fmtTime(lastRefresh) : 'not yet'}<span>·</span>{loading ? 'Refreshing sources…' : 'Auto-refresh every 5 minutes'}</div>
       {notice && <div className="solar-notice"><AlertTriangle size={15} />{notice}</div>}
