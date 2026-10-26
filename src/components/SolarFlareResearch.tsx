@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Clock3, ExternalLink, Pause, Play, RefreshCw, Satellite, ShieldAlert, Sun, Zap } from 'lucide-react';
 
-type DataRow = Record<string, unknown>;\ntype NasaFlareEvent = { flrID?: string; beginTime?: string; peakTime?: string; endTime?: string; classType?: string; sourceLocation?: string; activeRegionNum?: number; link?: string };
+type DataRow = Record<string, unknown>;
+type NasaFlareEvent = { flrID?: string; beginTime?: string; peakTime?: string; endTime?: string; classType?: string; sourceLocation?: string; activeRegionNum?: number; link?: string };
 type Series = { key: string; label: string; url: string; rows: DataRow[]; error?: string; updatedAt?: string };
 const SOURCES = [
   { key: 'kp', label: 'Planetary K-index', url: 'https://services.swpc.noaa.gov/json/planetary-k-index.json' },
@@ -26,7 +27,8 @@ const HISTORICAL_EVENTS = [
   { date: '2017-09-06', year: '2017', name: 'September 2017 X-class flare sequence', type: 'X-class flare + space weather', note: 'Major September 2017 solar activity including the X9.3 flare. Review measured GOES flux, associated events, and actual Earth observations separately.', source: 'NOAA GOES records and NASA event archives.' },
   { date: '2024-05-10', year: '2024', name: 'May 2024 G5 geomagnetic storm', type: 'Geomagnetic storm / CME sequence', note: 'The strongest geomagnetic storm category observed in May 2024; review the sequence of CMEs, measured geomagnetic indices, aurora reports, and regional observations.', source: 'NOAA SWPC and NASA heliophysics records.' },
 ];
-\nconst numberValue = (...values: unknown[]): number | null => {
+
+const numberValue = (...values: unknown[]): number | null => {
   for (const value of values) {
     const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
     if (Number.isFinite(n)) return n;
@@ -68,7 +70,10 @@ export function SolarFlareResearch() {
   const [selectedTime, setSelectedTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [notice, setNotice] = useState('');\n  const [historyQuery, setHistoryQuery] = useState('');\n  const [nasaEvents, setNasaEvents] = useState<NasaFlareEvent[]>([]);\n  const [nasaEventError, setNasaEventError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [nasaEvents, setNasaEvents] = useState<NasaFlareEvent[]>([]);
+  const [nasaEventError, setNasaEventError] = useState('');
   const refresh = useCallback(async () => {
     setLoading(true);
     const results = await Promise.all(SOURCES.map(async (source): Promise<Series> => {
@@ -87,7 +92,8 @@ export function SolarFlareResearch() {
     setLoading(false);
     setNotice(results.some((item) => item.rows.length > 0) ? '' : 'NOAA data could not be loaded. Check your connection or browser network restrictions; no sample readings are substituted.');
   }, []);
-  useEffect(() => { void refresh(); const id = window.setInterval(() => void refresh(), 5 * 60 * 1000); return () => window.clearInterval(id); }, [refresh]);\n  useEffect(() => {
+  useEffect(() => { void refresh(); const id = window.setInterval(() => void refresh(), 5 * 60 * 1000); return () => window.clearInterval(id); }, [refresh]);
+  useEffect(() => {
     let cancelled = false;
     const loadNasaEvents = async () => {
       const end = new Date();
@@ -145,7 +151,8 @@ export function SolarFlareResearch() {
   const kpLevel = kpValue === null ? 'No reading' : kpValue >= 5 ? 'Geomagnetic storm threshold reached' : kpValue >= 4 ? 'Elevated' : 'Quiet to unsettled';
   const timeFor = (row: DataRow | null) => row ? fmtTime(timestampOf(row)) : 'No timestamp';
   const selectedFlux = rowFlux(selectedXray ?? {});
-  const kIndexRow = liveKp ?? {};\n  const filteredHistory = HISTORICAL_EVENTS.filter((event) => !historyQuery.trim() || [event.year, event.date, event.name, event.type, event.note].some((value) => value.toLowerCase().includes(historyQuery.trim().toLowerCase())));
+  const kIndexRow = liveKp ?? {};
+  const filteredHistory = HISTORICAL_EVENTS.filter((event) => !historyQuery.trim() || [event.year, event.date, event.name, event.type, event.note].some((value) => value.toLowerCase().includes(historyQuery.trim().toLowerCase())));
   return (
     <section className="solar-research" aria-label="Solar flare and space weather research">
       <div className="solar-research-toolbar">
