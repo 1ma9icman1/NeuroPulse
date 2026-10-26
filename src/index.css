@@ -320,3 +320,19 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 .solar-data-footnote { display: flex; align-items: flex-start; gap: 6px; padding: 2px 3px 4px; color: #597b97; font-size: 8px; line-height: 1.4; }
 @media (max-width: 1000px) { .solar-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .solar-content-grid { grid-template-columns: 1fr; } .solar-details-panel { overflow: visible; } }
 @media (max-width: 560px) { .solar-research-toolbar { align-items: flex-start; flex-direction: column; } .solar-refresh { align-self: flex-start; } .solar-metrics { grid-template-columns: 1fr 1fr; } .solar-timeline-labels { grid-template-columns: 1fr; } .solar-timeline-labels strong, .solar-timeline-labels span:last-child { text-align: left; } }
+
+
+.solar-history-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 9px; border-bottom: 1px solid rgba(22, 111, 174, .2); }
+.solar-history-tools label { color: #799db9; font-size: 8px; }
+.solar-history-tools input { min-width: 150px; flex: 1; padding: 7px 8px; border: 1px solid #164f79; border-radius: 3px; outline: 0; color: #d9f3ff; background: #020b18; font-size: 9px; }
+.solar-history-tools > span { color: #62caff; font: 750 8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.solar-history-list { max-height: 260px; overflow: auto; }
+.solar-history-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; padding: 10px; border-bottom: 1px solid rgba(22, 111, 174, .16); }
+.solar-history-date { color: #ffc85b; font: 800 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.solar-history-date small { display: block; margin-top: 5px; color: #6e8da8; font-size: 7px; font-weight: 500; }
+.solar-history-info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.solar-history-info strong { color: #dff5ff; font-size: 10px; }
+.solar-history-info > span { color: #6fcfff; font: 750 8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.solar-history-info p { margin: 0; color: #8da9c0; font-size: 9px; line-height: 1.45; }
+.solar-history-info small { color: #597b97; font-size: 8px; line-height: 1.35; }
+.solar-history-disclaimer { padding: 8px 10px; color: #6f8ca4; background: rgba(6, 25, 43, .6); font-size: 8px; line-height: 1.45; }
