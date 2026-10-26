@@ -545,6 +545,7 @@ export default function App() {
 
         <aside className="atlas-right">
           {activeNav === 'SOLAR FLARE RESEARCH' && <SolarFlareResearch onClose={() => setActiveNav('GLOBAL SEARCH')} />}
+          <button type="button" className="atlas-solar-launch-button" onClick={() => { setActiveNav('SOLAR FLARE RESEARCH'); setShowSearchPanel(false); }} aria-label="Open Solar Flare Research"><Sun size={16} /> SOLAR FLARES</button>
           <button type="button" className="atlas-search-right-button" onClick={() => setShowSearchPanel(value => !value)} aria-expanded={showSearchPanel}><Search size={15} /> {showSearchPanel ? "CLOSE SEARCH" : "SEARCH"}</button>
           {showSearchPanel && <div className="atlas-search-drawer">
             <div className="atlas-search-drawer-title"><strong><Search size={14} /> GLOBAL SEARCH</strong><button className="atlas-search-close" onClick={() => setShowSearchPanel(false)} aria-label="Close search"><X size={14} /></button></div>
