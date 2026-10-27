@@ -1295,3 +1295,14 @@ button:hover, button:focus-visible {
 .atlas-left-bottom-controls { display:flex; flex-direction:column; gap:6px; margin-top:auto; padding:7px; flex:0 0 auto; border:1px solid rgba(255,181,66,.22); border-radius:5px; background:rgba(5,12,24,.78); }
 .atlas-left-bottom-controls .atlas-solar-launch-button { min-height:34px; margin:0; }
 .atlas-left-bottom-controls .atlas-solar-research-button { border-color:rgba(255,181,66,.42); background:linear-gradient(180deg,rgba(55,42,18,.82),rgba(19,20,18,.96)); }
+
+
+/* Solar system map navigation: wheel zoom and drag rotation controls. */
+.solar-earth-mapframe { position:relative; overflow:hidden; touch-action:none; }
+.solar-earth-svg { transform-origin:50% 50%; transition:transform .08s linear; }
+.solar-earth-mapframe:has(.solar-earth-svg:active) { cursor:grabbing; }
+.solar-earth-view-controls { position:absolute; z-index:5; top:10px; right:10px; display:flex; align-items:center; gap:5px; padding:5px; border:1px solid rgba(65,166,226,.5); border-radius:6px; background:rgba(2,9,21,.9); box-shadow:0 4px 18px rgba(0,0,0,.35); }
+.solar-earth-view-controls button { min-width:32px; min-height:30px; padding:4px 8px; border:1px solid rgba(70,169,223,.45); border-radius:4px; background:#071a2d; color:#e8f8ff; font-size:15px; font-weight:800; cursor:pointer; }
+.solar-earth-view-controls button:hover { border-color:#ffbd55; color:#ffda8c; }
+.solar-earth-view-controls button:nth-of-type(3) { font-size:10px; letter-spacing:.06em; }
+.solar-earth-view-controls span { padding:0 5px; color:#8dcff1; font:700 10px ui-monospace,monospace; white-space:nowrap; }
