@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
 import { SolarFlareResearch } from './components/SolarFlareResearch';
+import { SolarFlareEarth } from './components/SolarFlareEarth';
 import type { CameraView, SpatialPosition, SpatialRoutingMode } from './types';
 import { DEFAULT_EARTH_POINTS } from './data/earthData';
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { label: 'TRIGONOMETRY', icon: Atom },
   { label: 'MAP OVERLAYS', icon: Layers3 },
   { label: 'DATABASE', icon: Database },
+  { label: 'SOLAR FLARE EARTH', icon: Sun },
   { label: 'SOLAR FLARE RESEARCH', icon: Sun },
   { label: 'SETTINGS', icon: Settings2 },
 ];
@@ -98,6 +100,7 @@ export default function App() {
     'TRIGONOMETRY': 'Inspect distances and geometric relationships calculated from site coordinates.',
     'MAP OVERLAYS': 'Use the globe controls to switch map overlays and visualization layers.',
     'DATABASE': 'Browse the site, star, and acoustic reference data already included in this build.',
+    'SOLAR FLARE EARTH': 'Dedicated rotating 2D heliocentric map with NOAA live measurements and date-selectable solar flare event playback.',
     'SOLAR FLARE RESEARCH': 'Live NOAA solar X-ray, proton, electron, and planetary geomagnetic observations with NASA flare reports and a historical index.',
     'SETTINGS': 'Interface and visualization preferences.',
   };
@@ -168,11 +171,12 @@ export default function App() {
 
         <section className="atlas-center">
           <div className="atlas-center-heading">
-            <div><div className="atlas-eyebrow">{activeNav === 'SOLAR FLARE RESEARCH' ? 'ACTIVE WORKSPACE / SPACE WEATHER' : 'ACTIVE WORKSPACE / EARTH'}</div><h1>{activeNav === 'GLOBAL SEARCH' ? 'Global Alignment Explorer' : activeNav}</h1><p>{navDescription[activeNav] ?? 'This view is represented in the navigation; its dedicated visualization is not yet connected.'}</p></div>
-            <div className="atlas-live-tag"><span className="status-dot" /> {activeNav === 'SOLAR FLARE RESEARCH' ? 'LIVE SPACE WEATHER' : 'LIVE GLOBE'}</div>
+            <div><div className="atlas-eyebrow">{activeNav === 'SOLAR FLARE EARTH' ? 'ACTIVE WORKSPACE / SOLAR EVENT MAP' : activeNav === 'SOLAR FLARE RESEARCH' ? 'ACTIVE WORKSPACE / SPACE WEATHER' : 'ACTIVE WORKSPACE / EARTH'}</div><h1>{activeNav === 'GLOBAL SEARCH' ? 'Global Alignment Explorer' : activeNav}</h1><p>{navDescription[activeNav] ?? 'This view is represented in the navigation; its dedicated visualization is not yet connected.'}</p></div>
+            <div className="atlas-live-tag"><span className="status-dot" /> {activeNav === 'SOLAR FLARE EARTH' ? 'LIVE SOLAR SYSTEM' : activeNav === 'SOLAR FLARE RESEARCH' ? 'LIVE SPACE WEATHER' : 'LIVE GLOBE'}</div>
           </div>
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
+            {activeNav === 'SOLAR FLARE EARTH' ? <SolarFlareEarth /> : <>
             <AudioCubeSpace
               aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
               spatialMode={config.spatialMode} cameraView={config.cameraView}
@@ -192,8 +196,9 @@ export default function App() {
               <span><i className="legend-dot green" /> ACOUSTIC RECORDS {includeAcoustics ? 'ON' : 'OFF'}</span>
               <span><i className="legend-line" /> GEOMETRY {includeGeometry ? 'ON' : 'OFF'}</span>
             </div>
+            </>}
           </div>
-          {showSiteList && (
+          {showSiteList && activeNav !== 'SOLAR FLARE EARTH' && (
             <div className="atlas-results-strip">
               <div className="atlas-results-title"><Search size={14} /> SEARCH RESULTS <strong>{filteredSites.length}</strong></div>
               <div className="atlas-results-list">
@@ -210,6 +215,17 @@ export default function App() {
         </section>
 
         <aside className="atlas-right">
+          {activeNav === 'SOLAR FLARE EARTH' ? <section className="atlas-panel atlas-site-card solar-earth-side-info">
+            <div className="atlas-panel-heading"><Sun size={13} /> SOLAR FLARE EARTH <span className="atlas-panel-count">DATA CONTEXT</span></div>
+            <div className="atlas-site-hero"><div className="atlas-site-glyph"><Sun size={26} /></div><div><h2>Solar Event Observatory</h2><div className="atlas-muted">Dedicated solar-system map</div></div></div>
+            <p className="atlas-site-description">Live X-ray, proton-flux, and planetary K-index feeds are read directly from NOAA SWPC. Select a measured flare below the map to replay its light-front through the orbital diagram.</p>
+            <div className="atlas-subheading">HOW TO USE</div>
+            <div className="atlas-data-table"><div><span>Live mode</span><strong>NOAA observations</strong></div><div><span>History</span><strong>Choose a start date</strong></div><div><span>Replay</span><strong>Play / scrub / speed</strong></div><div><span>Light travel to Earth</span><strong>~8m 19s per AU</strong></div></div>
+            <div className="atlas-subheading">DATA SOURCES</div>
+            <div className="atlas-evidence-row"><div><strong>NOAA SWPC</strong><span>GOES X-rays, proton flux, planetary K-index, recent flare list</span></div></div>
+            <div className="atlas-evidence-row"><div><strong>NASA DONKI</strong><span>Solar flare event metadata for selected 30-day date windows</span></div></div>
+            <div className="atlas-footnote">Orbital paths are schematic and accelerated for visibility. X-ray measurements alone do not provide CME speed or Earth-impact probability.</div>
+          </section> : <>
           <button type="button" className="atlas-solar-launch-button" onClick={() => setActiveNav('SOLAR FLARE RESEARCH')} aria-label="Open Solar Flare Research"><Sun size={16} /> SOLAR FLARES</button>
           {activeNav === 'SOLAR FLARE RESEARCH' ? <SolarFlareResearch onClose={() => setActiveNav('GLOBAL SEARCH')} /> : <>
           <section className="atlas-panel atlas-site-card">
@@ -258,6 +274,7 @@ export default function App() {
             )) : <div className="atlas-no-data">Star catalogue is excluded by the current search filters.</div>}
             <div className="atlas-footnote">Star catalogue coordinates and distances are reference data; a site alignment requires a dated sky calculation and verified architectural axis.</div>
           </section>
+          </>}
           </>}
         </aside>
       </div>
