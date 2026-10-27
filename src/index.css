@@ -1311,3 +1311,22 @@ button:hover, button:focus-visible {
 .atlas-solar-details-left { min-height:0; max-height:48%; overflow:auto; flex:0 1 auto; border:1px solid rgba(255,167,65,.42); border-radius:6px; background:rgba(3,10,21,.96); }
 .atlas-solar-details-left > * { max-width:100%; }
 .atlas-solar-details-left .atlas-panel-heading { color:#ffca82; }
+
+/* Dock the complete Solar Flare timeline, event history and source notes in the left column. */
+.solar-earth-left-dock { display:flex; flex-direction:column; gap:8px; min-height:0; max-height:calc(100vh - 210px); overflow:auto; padding:9px; border:1px solid rgba(255,153,62,.48); border-radius:6px; background:linear-gradient(180deg,rgba(22,17,17,.98),rgba(3,10,21,.98)); color:#dbeafe; }
+.solar-earth-left-dock-title { display:flex; align-items:center; gap:7px; color:#ffbd72; font:800 11px ui-monospace,monospace; letter-spacing:.08em; }
+.solar-earth-left-dock .solar-earth-map-key { display:flex; flex-direction:column; gap:5px; padding:7px; }
+.solar-earth-left-dock .solar-earth-playback { display:flex; flex-direction:column; gap:7px; padding:8px; }
+.solar-earth-left-dock .solar-earth-playback-top { display:flex; flex-direction:column; align-items:stretch; gap:7px; }
+.solar-earth-left-dock .solar-earth-current-event small { white-space:normal; }
+.solar-earth-left-dock .solar-earth-playback-actions { display:flex; flex-wrap:wrap; }
+.solar-earth-left-dock .solar-earth-timeline-row { display:flex; flex-direction:column; align-items:stretch; gap:6px; }
+.solar-earth-left-dock .solar-earth-timeline-row input[type=range] { width:100%; min-width:0; }
+.solar-earth-left-dock .solar-earth-timeline-row select { width:100%; min-width:0; }
+.solar-earth-left-dock .solar-earth-history { display:flex; flex-direction:column; gap:7px; }
+.solar-earth-left-dock .solar-earth-history-toolbar { display:flex; flex-direction:column; align-items:stretch; gap:7px; }
+.solar-earth-left-dock .solar-earth-history-toolbar small { display:block; }
+.solar-earth-left-dock .solar-earth-event-list { display:flex; flex-direction:column; max-height:290px; overflow:auto; }
+.solar-earth-left-dock .solar-earth-event-chip { width:100%; text-align:left; }
+.solar-earth-left-dock .solar-earth-footnote { display:flex; flex-direction:column; gap:5px; overflow-wrap:anywhere; }
+.atlas-left:has(.solar-earth-left-dock) { overflow-y:auto; }
