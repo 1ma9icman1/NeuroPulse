@@ -146,6 +146,9 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const [replayProgress, setReplayProgress] = useState(0);
   const [replaying, setReplaying] = useState(true);
   const [orbitDays, setOrbitDays] = useState(Date.now() / 86400000);
+  const [mapZoom, setMapZoom] = useState(1);
+  const [mapRotation, setMapRotation] = useState(0);
+  const mapDragRef = useRef<{ x: number; rotation: number } | null>(null);
   const lastTick = useRef(Date.now());
 
   const refresh = useCallback(async () => {
@@ -314,8 +317,20 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
         <div className="solar-earth-metric"><span><CircleDot size={12} /> FLARE EVENTS</span><strong>{events.length}</strong><small>{noaaEvents.length} NOAA · {nasaEvents.length} NASA records</small></div>
       </div>
 
-      <div className="solar-earth-mapframe">
-        <svg className="solar-earth-svg" viewBox="0 0 1000 600" role="img" aria-label="Animated two-dimensional solar system with data-driven flare light-front">
+      <div className="solar-earth-mapframe"
+        onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setMapZoom(value => Math.max(0.55, Math.min(3.2, Number((value + (event.deltaY < 0 ? 0.12 : -0.12)).toFixed(2))))); }}
+        onPointerDown={(event) => { if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return; mapDragRef.current = { x: event.clientX, rotation: mapRotation }; event.currentTarget.setPointerCapture(event.pointerId); }}
+        onPointerMove={(event) => { if (mapDragRef.current) setMapRotation(mapDragRef.current.rotation + (event.clientX - mapDragRef.current.x) * 0.35); }}
+        onPointerUp={() => { mapDragRef.current = null; }}
+        onPointerCancel={() => { mapDragRef.current = null; }}
+      >
+        <div className="solar-earth-view-controls" aria-label="Solar system view controls">
+          <button type="button" title="Zoom in" aria-label="Zoom in" onPointerDown={event => event.stopPropagation()} onClick={() => setMapZoom(value => Math.min(3.2, Number((value + 0.2).toFixed(2))))}>＋</button>
+          <button type="button" title="Zoom out" aria-label="Zoom out" onPointerDown={event => event.stopPropagation()} onClick={() => setMapZoom(value => Math.max(0.55, Number((value - 0.2).toFixed(2))))}>−</button>
+          <button type="button" title="Reset zoom and rotation" aria-label="Reset zoom and rotation" onPointerDown={event => event.stopPropagation()} onClick={() => { setMapZoom(1); setMapRotation(0); }}>RESET VIEW</button>
+          <span>{Math.round(mapZoom * 100)}% · DRAG TO ROTATE</span>
+        </div>
+        <svg className="solar-earth-svg" style={{ transform: 'scale(' + mapZoom + ') rotate(' + mapRotation + 'deg)', cursor: mapDragRef.current ? 'grabbing' : 'grab' }} viewBox="0 0 1000 600" role="img" aria-label="Interactive solar system. Scroll to zoom, drag to rotate.">
           <defs>
             <radialGradient id="se-sun-fill"><stop offset="0" stopColor="#fff8c4" /><stop offset=".28" stopColor="#ffd66c" /><stop offset=".63" stopColor="#ff8c32" /><stop offset="1" stopColor="#df3e12" /></radialGradient>
             <radialGradient id="se-space-fill"><stop offset="0" stopColor="#081d34" /><stop offset="1" stopColor="#020713" /></radialGradient>
