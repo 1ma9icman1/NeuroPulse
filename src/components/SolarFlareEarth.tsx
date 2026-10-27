@@ -319,7 +319,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const planetIsInImpact = (planet: Planet) => {
     if (replaying && replayProgress >= 1000) return false;
     if (!replaying && !liveFront) return false;
-    const impactBand = planet.au >= 5 ? 6 : 5;
+    const impactBand = planet.au >= 5 ? 10 : 8;
     return Math.abs(frontRadius - planet.radius) <= impactBand;
   };
   const stateClass = feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
