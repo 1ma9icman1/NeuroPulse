@@ -10,6 +10,7 @@ import { AudioCubeSpace } from './components/AudioCubeSpace';
 import { EarthElevation } from './components/EarthElevation';
 import { SiteResearchNotes } from './components/SiteResearchNotes';
 import { SolarFlareResearch } from './components/SolarFlareResearch';
+import { SolarFlareEarth } from './components/SolarFlareEarth';
 import { OscillatorDeck } from './components/OscillatorDeck';
 import { DeltaHUD } from './components/DeltaHUD';
 import { FrequencyMatrix } from './components/FrequencyMatrix';
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
   { label: 'TRIGONOMETRY', icon: Atom },
   { label: 'MAP OVERLAYS', icon: Layers3 },
   { label: 'DATABASE', icon: Database },
+  { label: 'SOLAR FLARE EARTH', icon: Sun },
   { label: 'SOLAR FLARE RESEARCH', icon: Sun },
   { label: 'A/B/C AUDIO CONTROLS', icon: AudioLines },
   { label: 'TRINAURAL / SOLFEGGIO', icon: AudioWaveform },
@@ -99,6 +101,16 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem('neuropulse-favorite-sites') || '[]'); } catch { return []; }
   });
   const [showFavorites, setShowFavorites] = useState(false);
+  const [customEarthSites, setCustomEarthSites] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('neuropulse-custom-earth-sites') || '[]'); } catch { return []; }
+  });
+  const [showAddEarthSite, setShowAddEarthSite] = useState(false);
+  const [newEarthSiteName, setNewEarthSiteName] = useState('');
+  const [newEarthSiteLat, setNewEarthSiteLat] = useState('');
+  const [newEarthSiteLon, setNewEarthSiteLon] = useState('');
+  const [newEarthSiteCategory, setNewEarthSiteCategory] = useState('ancient');
+  const [newEarthSiteNotes, setNewEarthSiteNotes] = useState('');
+  useEffect(() => { try { localStorage.setItem('neuropulse-custom-earth-sites', JSON.stringify(customEarthSites)); } catch { /* browser storage may be unavailable */ } }, [customEarthSites]);
   useEffect(() => { try { localStorage.setItem('neuropulse-favorite-sites', JSON.stringify(favoriteSites)); } catch { /* storage can be disabled */ } }, [favoriteSites]);
   const toggleFavorite = useCallback((site: any) => {
     if (!site) return;
@@ -228,8 +240,8 @@ export default function App() {
       seen.add(key);
       return true;
     });
-    return [...core, ...legacy, ...uniqueAdditions];
-  }, []);
+    return [...core, ...legacy, ...uniqueAdditions, ...customEarthSites];
+  }, [customEarthSites]);
   const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? null;
 
   // Marker selections open Street View first. Google serves the embedded panorama when
@@ -268,6 +280,7 @@ export default function App() {
 
   const navDescription: Record<string, string> = {
     'GLOBAL SEARCH': 'Search and compare documented places, measured evidence, and calculated geometry.',
+    'SOLAR FLARE EARTH': 'Dedicated animated solar-system map with NOAA live observations and replayable recorded flare events.',
     'ANCIENT SITES': 'Browse archaeological sites, monuments, and ancient structures.',
     'HISTORICAL SITES': 'Browse historic settlements, temples, tombs, and cultural landmarks.',
     'CITIES': 'Browse modern cities and urban reference locations.',
@@ -387,6 +400,29 @@ export default function App() {
     }
   };
 
+  const handleAddEarthSite = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = newEarthSiteName.trim();
+    const lat = Number(newEarthSiteLat);
+    const lon = Number(newEarthSiteLon);
+    if (!name || !Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lon) || lon < -180 || lon > 180) return;
+    const site = {
+      id: 'custom-' + Date.now(), name, lat, lon, category: newEarthSiteCategory,
+      desc: newEarthSiteNotes.trim() || 'User-added Earth reference site. Notes are user supplied; verify coordinates and any historical claims independently.',
+      color: '#38bdf8', modules: ['DATABASE', 'GLOBAL SEARCH', 'MAP OVERLAYS', 'ANCIENT SITES', 'HISTORICAL SITES', 'TRIGONOMETRY'],
+      isCustom: true,
+    };
+    setCustomEarthSites(previous => [...previous, site]);
+    setSelectedGlobeSite(null);
+    setSelectedSiteId(site.id);
+    setEarthAreaView('street');
+    setActiveNav('GLOBAL SEARCH');
+    setSearchText('');
+    setShowSiteList(false);
+    setShowAddEarthSite(false);
+    setNewEarthSiteName(''); setNewEarthSiteLat(''); setNewEarthSiteLon(''); setNewEarthSiteNotes('');
+  };
+
   const handleRunSearch = () => {
     setScanRequested(true);
     setShowSiteList(true);
@@ -411,10 +447,40 @@ export default function App() {
         {favoriteSites.length ? favoriteSites.map((site: any) => <div key={site.id} className="atlas-favorite-row" style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',padding:'6px 0'}}><button className="atlas-result-chip" onClick={() => { setSelectedGlobeSite(site); setSelectedSiteId(site.id); setEarthAreaView('street'); setShowFavorites(false); }}><MapPin size={12}/><span>{site.name}</span></button><button aria-label={'Remove '+site.name+' from favorites'} onClick={() => toggleFavorite(site)}><Star size={14} fill="currentColor"/></button></div>) : <p className="atlas-no-data">No favorites saved yet. Select a site and use Save to Favorites.</p>}
       </section>}
       <div className="atlas-workspace">
+        <aside className="atlas-left" aria-label="Earth navigation and site tools">
+          <section className="atlas-panel atlas-navigation">
+            <div className="atlas-panel-heading">RESEARCH MODULES</div>
+            {NAV_ITEMS.map(({ label, icon: Icon }) => (
+              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => {
+                setActiveNav(label);
+                if (label === 'SOLAR FLARE EARTH' || label === 'GLOBAL SEARCH') setEarthAreaView('globe');
+                if (label === 'STELLAR ALIGNMENTS') setIncludeStars(true);
+                if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true);
+              }}>
+                <Icon size={15} strokeWidth={1.8} /><span>{label}</span><span className="nav-chevron">›</span>
+              </button>
+            ))}
+          </section>
+          <section className="atlas-panel atlas-add-site-panel">
+            <button type="button" className="atlas-add-site-launch" onClick={() => setShowAddEarthSite(value => !value)}><MapPin size={15} /> {showAddEarthSite ? 'CLOSE ADD EARTH SITE' : 'ADD EARTH SITE'}</button>
+            {showAddEarthSite && <form className="atlas-add-site-form" onSubmit={handleAddEarthSite}>
+              <label>SITE NAME<input required value={newEarthSiteName} onChange={event => setNewEarthSiteName(event.target.value)} placeholder="e.g. Research location" /></label>
+              <div className="atlas-add-site-coordinates">
+                <label>LATITUDE<input required type="number" min="-90" max="90" step="any" value={newEarthSiteLat} onChange={event => setNewEarthSiteLat(event.target.value)} placeholder="-90 to 90" /></label>
+                <label>LONGITUDE<input required type="number" min="-180" max="180" step="any" value={newEarthSiteLon} onChange={event => setNewEarthSiteLon(event.target.value)} placeholder="-180 to 180" /></label>
+              </div>
+              <label>CATEGORY<select value={newEarthSiteCategory} onChange={event => setNewEarthSiteCategory(event.target.value)}><option value="ancient">Ancient site</option><option value="historical">Historical site</option><option value="astronomy">Astronomy</option><option value="acoustic">Acoustic research</option><option value="reference">Reference location</option><option value="custom">Other / custom</option></select></label>
+              <label>NOTES<textarea rows={3} value={newEarthSiteNotes} onChange={event => setNewEarthSiteNotes(event.target.value)} placeholder="Your observations, sources, or research notes" /></label>
+              <button type="submit" className="atlas-add-site-save">SAVE SITE TO NEUROPULSE</button>
+              <p>Saved in this browser and added to the site catalogue. Coordinates are user entered.</p>
+            </form>}
+            {customEarthSites.length > 0 && <div className="atlas-custom-site-count">{customEarthSites.length} USER-ADDED SITE{customEarthSites.length === 1 ? '' : 'S'} SAVED</div>}
+          </section>
+        </aside>
         <section className="atlas-center">
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
-            {earthAreaView === 'elevation' ? <EarthElevation
+            {activeNav === 'SOLAR FLARE EARTH' ? <SolarFlareEarth /> : earthAreaView === 'elevation' ? <EarthElevation
               key="water-elevation-earth"
               selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
               siteCatalogue={researchSites}
@@ -449,7 +515,7 @@ export default function App() {
               onOpenWaterElevation={() => setEarthAreaView('elevation')}
               showChannelElevationControls={audioMenuOpen && ['A/B/C AUDIO CONTROLS', 'TRINAURAL / SOLFEGGIO'].includes(activeNav)}
             /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {siteGlyphFor(selectedSite.category || selectedSite.layerCategory || '', selectedSite.name, !!selectedSite.isCity)} {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => { setStreetFallbackNotice(false); setStreetFrameLoaded(false); setEarthAreaView('street'); }}>TRY STREET VIEW IN APP</button>{earthAreaView === 'street' && <button onClick={() => { setStreetFallbackNotice(true); setEarthAreaView('satellite'); }}>AERIAL FALLBACK IN APP</button>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street') setStreetFrameLoaded(true); }} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} loading="eager" src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
-            {earthAreaView !== 'elevation' && <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>}
+            {earthAreaView !== 'elevation' && activeNav !== 'SOLAR FLARE EARTH' && <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>}
 
           </div>
           {['ANCIENT SITES', 'HISTORICAL SITES', 'CITIES', 'FREQUENCY / HZ', 'SOUND PATTERNS', 'MAP OVERLAYS', 'SETTINGS'].includes(activeNav) && (
@@ -552,7 +618,7 @@ export default function App() {
           <section className="atlas-panel atlas-navigation">
             <div className="atlas-panel-heading">RESEARCH MODULES</div>
             {NAV_ITEMS.map(({ label, icon: Icon }) => (
-              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'GLOBAL SEARCH') { setEarthAreaView('globe'); handleUpdateConfig({ cameraView: 'top' }); setEarthSearchRequest(value => value + 1); setShowSearchPanel(false); } if (label === 'STELLAR ALIGNMENTS') setIncludeStars(true); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
+              <button key={label} className={activeNav === label ? 'atlas-nav-item selected' : 'atlas-nav-item'} onClick={() => { setActiveNav(label); if (label === 'SOLAR FLARE EARTH') { setEarthAreaView('globe'); setShowSearchPanel(false); } if (label === 'GLOBAL SEARCH') { setEarthAreaView('globe'); handleUpdateConfig({ cameraView: 'top' }); setEarthSearchRequest(value => value + 1); setShowSearchPanel(false); } if (label === 'STELLAR ALIGNMENTS') setIncludeStars(true); if (label === 'A/B/C AUDIO CONTROLS' || label === 'TRINAURAL / SOLFEGGIO') setAudioMenuOpen(true); }}>
                 <Icon size={15} strokeWidth={1.8} /><span>{label}</span><span className="nav-chevron">›</span>
               </button>
             ))}
