@@ -172,12 +172,13 @@ function heliocentricPoint(planet: Planet, unixDays: number, meanAnomalyDegrees?
   const yPlane = xOrbit * sinW + yOrbit * cosW;
   const x = xPlane * cosNode - yPlane * cosI * sinNode;
   const y = xPlane * sinNode + yPlane * cosI * cosNode;
-  return { x, y, a: elements.a };
+  const z = yPlane * Math.sin(elements.i);
+  return { x, y, z, a: elements.a, distanceAu: Math.sqrt(x * x + y * y + z * z) };
 }
 function position(planet: Planet, unixDays: number) {
   const point = heliocentricPoint(planet, unixDays);
   const scale = planet.radius / point.a;
-  return { x: CX + point.x * scale, y: CY - point.y * scale * YSCALE };
+  return { x: CX + point.x * scale, y: CY - point.y * scale * YSCALE, distanceAu: point.distanceAu };
 }
 function orbitalPath(planet: Planet, unixDays: number): string {
   const steps = 144;
@@ -428,11 +429,13 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const viewY = focused ? focused.y - viewHeight / 2 : (600 - viewHeight) / 2;
   // A red impact is a moving pulse, not a permanent "has been hit" state.
   // During replay each planet glows only while the wavefront is passing it.
-  const planetIsInImpact = (planet: Planet) => {
+  const planetIsInImpact = (planet: Planet & { distanceAu: number }) => {
     if (replaying && replayProgress >= 1000) return false;
     if (!replaying && !liveFront) return false;
-    const impactBand = planet.au >= 5 ? 10 : 8;
-    return Math.abs(frontRadius - planet.radius) <= impactBand;
+    const wavefrontAu = replaying ? replayAu : liveFrontAu;
+    // Widen the pulse slightly during accelerated replay so it remains visible at higher playback speeds.
+    const impactBandAu = replaying ? Math.max(0.06, planet.au * 0.015) : 0.005;
+    return Math.abs(wavefrontAu - planet.distanceAu) <= impactBandAu;
   };
   const stateClass = feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
 
@@ -546,7 +549,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <text x={moon.x} y={moon.y - 3.2} textAnchor="middle" className="solar-earth-planet-label">MOON</text>
           </g>
 
-          <text x={CX + PLANETS[2].radius + 10} y={CY - 17} className="solar-earth-distance-note">EARTH = 1 AU (schematic spacing)</text>
+          <text x={CX + PLANETS[2].radius + 10} y={CY - 17} className="solar-earth-distance-note">EARTH ORBIT · 1 AU (DISPLAY NOT TO SCALE)</text>
           <text x={CX + 8} y="27" className="solar-earth-map-caption">{closeView ? focusedPlanet + ' CLOSE VIEW' : 'HELIOCENTRIC VIEW / DATE-BASED ORBITS'}</text>
           <text x="18" y="579" className="solar-earth-map-small">{realTimeOrbit ? 'REAL TIME · UTC ORBIT + AXIAL ROTATION' : 'ORBIT SPEED: ' + orbitSpeed + ' SIMULATED DAYS / SECOND'}</text>
           <text x="982" y="579" textAnchor="end" className="solar-earth-map-small">{replaying ? 'REPLAY FRONT: ' + replayAu.toFixed(2) + ' AU' : liveFront ? 'LIVE OBSERVED X-RAY FRONT: ' + liveFrontAu.toFixed(2) + ' AU' : 'LIVE MODE · WAITING FOR B-CLASS OR STRONGER X-RAYS'}</text>
