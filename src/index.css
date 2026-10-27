@@ -1367,3 +1367,62 @@ button:hover, button:focus-visible {
   overflow-x: hidden;
   overflow-y: auto;
 }
+
+/* Solar Flare event history lives in the existing right sidebar; the globe workspace stays unchanged. */
+.atlas-right > #solar-flare-history-host {
+  order: -100;
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 100%;
+}
+.solar-earth-history-right {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  width: 100%;
+  height: auto;
+  max-height: 42vh;
+  min-height: 190px;
+  box-sizing: border-box;
+}
+.solar-earth-history-right .solar-earth-history-toolbar {
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 0;
+}
+.solar-earth-history-right .solar-earth-history-toolbar > div {
+  flex: 1 1 100%;
+}
+.solar-earth-history-right .solar-earth-history-toolbar > div > small {
+  white-space: normal;
+}
+.solar-earth-history-right .solar-earth-history-toolbar label {
+  flex: 1 1 auto;
+}
+.solar-earth-history-right .solar-earth-history-toolbar input[type="date"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+.solar-earth-history-right .solar-earth-event-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  height: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.solar-earth-history-right .solar-earth-event-chip {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 43px;
+  box-sizing: border-box;
+}
+@media (max-width: 700px) {
+  .solar-earth-history-right { max-height: 36vh; min-height: 160px; }
+}
+
