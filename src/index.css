@@ -1025,7 +1025,8 @@ button:hover, button:focus-visible {
 @media (max-width: 1180px) { .atlas-left .atlas-nav-item { min-height:25px; font-size:8px; } }
 
 /* Solar Flare Earth: isolated styles. Existing Earth/map styles above are unchanged. */
-.solar-earth {
+.solar-flare-earth-view {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1033,7 +1034,7 @@ button:hover, button:focus-visible {
   height: 100%;
   min-height: 0;
   padding: 7px;
-  overflow: hidden;
+  overflow: auto;
   color: #e6f5ff;
   background:
     radial-gradient(ellipse at 48% 40%, rgba(14, 48, 75, .18), transparent 58%),
@@ -1282,7 +1283,7 @@ button:hover, button:focus-visible {
   .solar-earth-history-toolbar > div > small { max-width: 230px; }
 }
 @media (max-height: 760px) {
-  .solar-earth { gap: 4px; padding: 5px; }
+  .solar-flare-earth-view { gap: 4px; padding: 5px; }
   .solar-earth-icon { width: 27px; height: 27px; flex-basis: 27px; }
   .solar-earth-metrics { flex-basis: 43px; }
   .solar-earth-history { flex-basis: 91px; }
