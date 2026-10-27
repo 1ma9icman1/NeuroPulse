@@ -1756,3 +1756,39 @@ button:hover, button:focus-visible {
     max-height: 34vh;
   }
 }
+
+
+/* NOAA SWPC imagery and three live-index cards at the TOP of the RIGHT Solar Flare sidebar. */
+.atlas-workspace.solar-flare-active .swpc-live-panel { display:flex; flex-direction:column; gap:10px; padding:10px; border:1px solid rgba(63,177,231,.42); border-radius:7px; background:linear-gradient(180deg,rgba(5,20,36,.98),rgba(2,9,20,.98)); color:#d9efff; }
+.swpc-live-heading,.swpc-imagery-title { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.swpc-live-heading { font:800 11px ui-monospace,monospace; letter-spacing:.04em; color:#9bdcff; }
+.swpc-live-heading > span { display:flex; align-items:center; gap:6px; }
+.swpc-live-heading a { color:#ffc16c; text-decoration:none; font-size:9px; white-space:nowrap; }
+.swpc-imagery-block { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.swpc-imagery-title strong { color:#e7f6ff; font:800 10px ui-monospace,monospace; letter-spacing:.08em; }
+.swpc-imagery-title span { color:#83abc4; font-size:9px; }
+.swpc-euv-tabs { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:3px; }
+.swpc-euv-tabs button { min-width:0; padding:5px 1px; border:1px solid #24506b; border-radius:3px; background:#081b2b; color:#9ac5df; font:700 9px ui-monospace,monospace; cursor:pointer; }
+.swpc-euv-tabs button.active { border-color:#ffb75f; background:#412a17; color:#ffe0a8; }
+.swpc-imagery-frame { position:relative; display:flex; align-items:center; justify-content:center; min-height:90px; height:116px; overflow:hidden; border:1px solid rgba(77,159,204,.28); border-radius:4px; background:#020712; }
+.swpc-imagery-frame img { display:block; width:100%; height:100%; object-fit:contain; }
+.swpc-corona-frame { height:105px; flex-direction:column; gap:4px; }
+.swpc-corona-frame span { color:#9bbbd0; font-size:8px; }
+.swpc-index-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+.swpc-index-card { position:relative; display:flex; flex-direction:column; gap:5px; min-width:0; min-height:83px; padding:7px 6px 10px; overflow:hidden; text-decoration:none; border:1px solid rgba(87,146,179,.38); border-radius:4px; background:rgba(9,27,43,.9); }
+.swpc-index-card > span { color:#a3c2d4; font:800 8px ui-monospace,monospace; line-height:1.35; }
+.swpc-index-card > strong { color:#f2f9ff; font:800 11px ui-monospace,monospace; overflow-wrap:anywhere; }
+.swpc-index-card > small { color:#8cb2ca; font-size:8px; overflow-wrap:anywhere; }
+.swpc-index-card > i { position:absolute; bottom:0; left:0; width:100%; height:3px; }
+.swpc-index-xray { background:#ff8b54; }.swpc-index-proton { background:#f5c45f; }.swpc-index-kp { background:#5cda9a; }
+.swpc-aurora-note { display:flex; align-items:center; gap:8px; padding:7px; border:1px solid rgba(62,203,184,.25); border-radius:4px; background:rgba(2,25,31,.7); }
+.swpc-aurora-note img { width:58px; height:48px; object-fit:cover; border-radius:3px; background:#020712; }
+.swpc-aurora-note span { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.swpc-aurora-note strong { color:#93f0df; font:800 9px ui-monospace,monospace; }
+.swpc-aurora-note small { color:#92b8c7; font-size:8px; line-height:1.4; }
+.swpc-live-foot { color:#6f98b2; font-size:8px; line-height:1.4; }
+@media (max-width: 900px) {
+  .atlas-workspace.solar-flare-active .swpc-index-card { padding:6px 4px 9px; }
+  .atlas-workspace.solar-flare-active .swpc-index-card > span { font-size:7px; }
+  .atlas-workspace.solar-flare-active .swpc-index-card > strong { font-size:10px; }
+}
