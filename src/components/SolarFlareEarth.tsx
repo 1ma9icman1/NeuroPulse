@@ -547,6 +547,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
                   <path d="M -4.1 -5.7 Q 0 -1.4 -4.1 5.7" fill="none" stroke="#b9f2ff" strokeWidth=".24" strokeOpacity=".3" />
                 </g>
                 <path d={'M ' + (planet.x - 5.6) + ' ' + (planet.y - 2.1) + ' Q ' + (planet.x - 7.6) + ' ' + planet.y + ' ' + (planet.x - 5.5) + ' ' + (planet.y + 2.4)} fill="none" stroke="#b7e9ff" strokeWidth=".38" opacity=".38" />
+                <image href={PLANET_TEXTURE_URLS.EARTH} x={planet.x - planet.size} y={planet.y - planet.size} width={planet.size * 2} height={planet.size * 2} preserveAspectRatio="none" clipPath="url(#se-texture-clip-earth)" opacity=".98" />
                 <circle cx={planet.x} cy={planet.y} r="11" fill="none" stroke={impact ? '#ff342f' : '#73dfff'} strokeWidth={impact ? '1.8' : '.8'} className={impact ? 'solar-earth-hit-pulse' : 'solar-earth-earth-pulse'} />
                 <path d={'M ' + (planet.x - 2.3) + ' ' + (planet.y - 5.7) + ' L ' + (planet.x + .1) + ' ' + (planet.y + 5.7)} stroke="#b5edff" strokeWidth=".42" strokeDasharray="1 1.6" opacity=".5" />
               </>}
