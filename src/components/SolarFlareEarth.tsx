@@ -4,7 +4,7 @@ import { Activity, AlertTriangle, CalendarClock, CircleDot, ExternalLink, Play, 
 type Row = Record<string, unknown>;
 type SolarEvent = {
   id: string; beginMs: number; peakMs?: number; classType: string;
-  location?: string; source: 'NOAA GOES' | 'NASA DONKI'; link?: string;
+  location?: string; source: 'NOAA GOES' | 'NASA DONKI' | 'Historical reconstruction'; link?: string;
 };
 type Planet = { name: string; au: number; period: number; radius: number; size: number; color: string; phase: number; tilt: number };
 
@@ -16,6 +16,15 @@ const DONKI = 'https://api.nasa.gov/DONKI/FLR';
 const LIGHT_SECONDS_PER_AU = 499.0048;
 const MAX_AU = 30.1;
 const MAX_REPLAY_SECONDS = LIGHT_SECONDS_PER_AU * MAX_AU;
+// Historical anchor: Carrington observed the white-light flare on 1 September 1859.
+// The time is an approximate UTC mapping of the reported observation time, not instrument data.
+const CARRINGTON_EVENT: SolarEvent = {
+  id: 'historical-carrington-1859',
+  beginMs: Date.parse('1859-09-01T11:18:00Z'),
+  classType: 'CARRINGTON EVENT',
+  location: 'Sunspot group observed by Richard Carrington',
+  source: 'Historical reconstruction',
+};
 const CX = 485;
 const CY = 286;
 const YSCALE = 0.72;
@@ -130,12 +139,12 @@ export function SolarFlareEarth() {
   const [errors, setErrors] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
   const [historyStart, setHistoryStart] = useState(dayString(Date.now() - 29 * 86400000));
-  const [selectedId, setSelectedId] = useState('');
+  const [selectedId, setSelectedId] = useState(CARRINGTON_EVENT.id);
   const [orbitSpeed, setOrbitSpeed] = useState(6);
   const [playbackSpeed, setPlaybackSpeed] = useState(60);
   const [playing, setPlaying] = useState(false);
   const [replayProgress, setReplayProgress] = useState(0);
-  const [replaying, setReplaying] = useState(false);
+  const [replaying, setReplaying] = useState(true);
   const [orbitDays, setOrbitDays] = useState(Date.now() / 86400000);
   const lastTick = useRef(Date.now());
 
@@ -224,7 +233,7 @@ export function SolarFlareEarth() {
   const kp = n(liveKp?.kp_index, liveKp?.kp, liveKp?.estimated_kp, liveKp?.value);
   const xrayTime = rowTime(liveXray || {});
   const events = useMemo(() => {
-    const merged = [...noaaEvents, ...nasaEvents].sort((a, b) => b.beginMs - a.beginMs);
+    const merged = [CARRINGTON_EVENT, ...noaaEvents, ...nasaEvents].sort((a, b) => b.beginMs - a.beginMs);
     const distinct: SolarEvent[] = [];
     merged.forEach((event) => {
       const duplicate = distinct.findIndex((other) => Math.abs(other.beginMs - event.beginMs) < 8 * 60000 &&
@@ -235,8 +244,7 @@ export function SolarFlareEarth() {
     return distinct.sort((a, b) => b.beginMs - a.beginMs);
   }, [noaaEvents, nasaEvents]);
   useEffect(() => {
-    if (!events.length) { setSelectedId(''); return; }
-    if (!events.some((event) => event.id === selectedId)) setSelectedId(events[0].id);
+    if (!events.some((event) => event.id === selectedId)) setSelectedId(CARRINGTON_EVENT.id);
   }, [events, selectedId]);
 
   const selected = events.find((event) => event.id === selectedId);
@@ -374,12 +382,12 @@ export function SolarFlareEarth() {
 
       <div className="solar-earth-history">
         <div className="solar-earth-history-toolbar">
-          <div><div className="solar-earth-kicker"><CalendarClock size={12} /> EVENT HISTORY / MEASURED RECORDS</div><strong>{events.length} events loaded</strong><small>NOAA GOES recent flare list + NASA DONKI 30-day query</small></div>
+          <div><div className="solar-earth-kicker"><CalendarClock size={12} /> EVENT HISTORY / MEASURED + HISTORICAL</div><strong>{events.length} events loaded</strong><small>Carrington Event (1859) reconstruction + NOAA GOES / NASA DONKI records</small></div>
           <label>Start date <input type="date" value={historyStart} onChange={(event) => setHistoryStart(event.target.value)} /></label>
           <button type="button" className="solar-earth-history-load" onClick={() => void loadHistory(historyStart)} disabled={historyLoading}><RefreshCw size={12} className={historyLoading ? 'solar-earth-spin' : ''} />{historyLoading ? 'LOADING' : 'LOAD 30 DAYS'}</button>
         </div>
         <div className="solar-earth-event-list">
-          {events.slice(0, 24).map((event) => <button type="button" key={event.id} onClick={() => selectEvent(event)} className={selectedId === event.id ? 'solar-earth-event-chip solar-earth-event-chip-selected' : 'solar-earth-event-chip'} title={stamp(event.beginMs) + ' · ' + event.source}>
+          {[CARRINGTON_EVENT, ...events.filter((event) => event.id !== CARRINGTON_EVENT.id).slice(0, 23)].map((event) => <button type="button" key={event.id} onClick={() => selectEvent(event)} className={selectedId === event.id ? 'solar-earth-event-chip solar-earth-event-chip-selected' : 'solar-earth-event-chip'} title={stamp(event.beginMs) + ' · ' + event.source}>
             <span className="solar-earth-event-class">{event.classType}</span><strong>{stamp(event.beginMs)}</strong><small>{event.source}{event.location ? ' · ' + event.location : ''}</small>
           </button>)}
           {!events.length && <div className="solar-earth-empty">{historyLoading || loading ? 'Loading measured flare records…' : 'No flare events returned for this period. Try another date window.'}</div>}
@@ -389,7 +397,7 @@ export function SolarFlareEarth() {
       <div className="solar-earth-footnote">
         <span>DATA: <a href="https://services.swpc.noaa.gov/json/" target="_blank" rel="noreferrer">NOAA SWPC JSON</a> · <a href="https://api.nasa.gov/" target="_blank" rel="noreferrer">NASA DONKI</a></span>
         <span>{selected ? <><a href={selected.link || 'https://api.nasa.gov/DONKI/FLR'} target="_blank" rel="noreferrer">{selected.source} source <ExternalLink size={10} /></a> · {selected.location || 'source location not supplied'}</> : 'No event selected'}</span>
-        <span>Schematic orbits; light-front timing uses AU light travel. CME speed is not inferred from X-rays.</span>
+        <span>Carrington entry is a historical reconstruction, not measured GOES data. Schematic light-front uses AU light travel; CME speed is not inferred.</span>
       </div>
     </section>
   );
