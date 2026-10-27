@@ -152,7 +152,20 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const [focusedPlanet, setFocusedPlanet] = useState<string | null>(null);
   const lastTick = useRef(Date.now());
 
-  useEffect(() => { setDockTarget(document.querySelector('.atlas-left')); }, []);
+  useEffect(() => {
+    const findVisibleLeftPanel = () => {
+      const panels = Array.from(document.querySelectorAll<HTMLElement>('.atlas-left'));
+      return panels.find((panel) => panel.getClientRects().length > 0 && panel.offsetWidth > 0 && panel.offsetHeight > 0) ?? null;
+    };
+    const attachDock = () => setDockTarget(findVisibleLeftPanel());
+    attachDock();
+    const frame = window.requestAnimationFrame(attachDock);
+    window.addEventListener('resize', attachDock);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', attachDock);
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
