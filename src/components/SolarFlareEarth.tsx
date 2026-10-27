@@ -10,7 +10,7 @@ type Planet = { name: string; au: number; period: number; radius: number; size: 
 
 const NOAA_XRAY = 'https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json';
 const NOAA_FLARES = 'https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json';
-const NOAA_KP = 'https://services.swpc.noaa.gov/json/planetary-k-index.json';
+const NOAA_KP = 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json';
 const NOAA_PROTONS = 'https://services.swpc.noaa.gov/json/goes/primary/integral-protons-plot-6-hour.json';
 const DONKI = 'https://api.nasa.gov/DONKI/FLR';
 const LIGHT_SECONDS_PER_AU = 499.0048;
