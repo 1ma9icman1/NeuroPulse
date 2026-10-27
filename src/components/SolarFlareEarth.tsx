@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Activity, AlertTriangle, ArrowLeft, CalendarClock, CircleDot, ExternalLink, Play, RefreshCw, Satellite, Sun, TimerReset, Zap } from 'lucide-react';
 
 type Row = Record<string, unknown>;
@@ -137,7 +138,12 @@ export function SolarFlareEarth({ onBack }: { onBack?: () => void }) {
   const [replayProgress, setReplayProgress] = useState(0);
   const [replaying, setReplaying] = useState(false);
   const [orbitDays, setOrbitDays] = useState(Date.now() / 86400000);
+  const [historyHost, setHistoryHost] = useState<HTMLElement | null>(null);
   const lastTick = useRef(Date.now());
+
+  useEffect(() => {
+    setHistoryHost(document.getElementById('solar-flare-history-host'));
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -287,7 +293,24 @@ export function SolarFlareEarth({ onBack }: { onBack?: () => void }) {
   const planets = PLANETS.map((planet) => ({ ...planet, ...position(planet, orbitDays) }));
   const stateClass = feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
 
+  const historyPanel = (
+      <div className="solar-earth-history solar-earth-history-right">
+        <div className="solar-earth-history-toolbar">
+          <div><div className="solar-earth-kicker"><CalendarClock size={12} /> EVENT HISTORY / MEASURED RECORDS</div><strong>{events.length} events loaded</strong><small>NOAA GOES recent flare list + NASA DONKI 30-day query</small></div>
+          <label>Start date <input type="date" value={historyStart} onChange={(event) => setHistoryStart(event.target.value)} /></label>
+          <button type="button" className="solar-earth-history-load" onClick={() => void loadHistory(historyStart)} disabled={historyLoading}><RefreshCw size={12} className={historyLoading ? 'solar-earth-spin' : ''} />{historyLoading ? 'LOADING' : 'LOAD 30 DAYS'}</button>
+        </div>
+        <div className="solar-earth-event-list">
+          {events.slice(0, 24).map((event) => <button type="button" key={event.id} onClick={() => selectEvent(event)} className={selectedId === event.id ? 'solar-earth-event-chip solar-earth-event-chip-selected' : 'solar-earth-event-chip'} title={stamp(event.beginMs) + ' · ' + event.source}>
+            <span className="solar-earth-event-class">{event.classType}</span><strong>{stamp(event.beginMs)}</strong><small>{event.source}{event.location ? ' · ' + event.location : ''}</small>
+          </button>)}
+          {!events.length && <div className="solar-earth-empty">{historyLoading || loading ? 'Loading measured flare records…' : 'No flare events returned for this period. Try another date window.'}</div>}
+        </div>
+      </div>
+  );
+
   return (
+    <>
     <section className="solar-flare-earth-view" aria-label="Solar Flare Earth solar system map">
       <div className="solar-earth-toolbar">
         {onBack && <button type="button" className="solar-earth-refresh" onClick={onBack}><ArrowLeft size={13} /> BACK TO EARTH</button>}
@@ -373,19 +396,6 @@ export function SolarFlareEarth({ onBack }: { onBack?: () => void }) {
         </div>
       </div>
 
-      <div className="solar-earth-history">
-        <div className="solar-earth-history-toolbar">
-          <div><div className="solar-earth-kicker"><CalendarClock size={12} /> EVENT HISTORY / MEASURED RECORDS</div><strong>{events.length} events loaded</strong><small>NOAA GOES recent flare list + NASA DONKI 30-day query</small></div>
-          <label>Start date <input type="date" value={historyStart} onChange={(event) => setHistoryStart(event.target.value)} /></label>
-          <button type="button" className="solar-earth-history-load" onClick={() => void loadHistory(historyStart)} disabled={historyLoading}><RefreshCw size={12} className={historyLoading ? 'solar-earth-spin' : ''} />{historyLoading ? 'LOADING' : 'LOAD 30 DAYS'}</button>
-        </div>
-        <div className="solar-earth-event-list">
-          {events.slice(0, 24).map((event) => <button type="button" key={event.id} onClick={() => selectEvent(event)} className={selectedId === event.id ? 'solar-earth-event-chip solar-earth-event-chip-selected' : 'solar-earth-event-chip'} title={stamp(event.beginMs) + ' · ' + event.source}>
-            <span className="solar-earth-event-class">{event.classType}</span><strong>{stamp(event.beginMs)}</strong><small>{event.source}{event.location ? ' · ' + event.location : ''}</small>
-          </button>)}
-          {!events.length && <div className="solar-earth-empty">{historyLoading || loading ? 'Loading measured flare records…' : 'No flare events returned for this period. Try another date window.'}</div>}
-        </div>
-      </div>
       {(notice || errors.length > 0) && <div className="solar-earth-notice"><AlertTriangle size={12} /><span>{notice || errors.join(' · ')}</span></div>}
       <div className="solar-earth-footnote">
         <span>DATA: <a href="https://services.swpc.noaa.gov/json/" target="_blank" rel="noreferrer">NOAA SWPC JSON</a> · <a href="https://api.nasa.gov/" target="_blank" rel="noreferrer">NASA DONKI</a></span>
@@ -393,5 +403,7 @@ export function SolarFlareEarth({ onBack }: { onBack?: () => void }) {
         <span>Schematic orbits; light-front timing uses AU light travel. CME speed is not inferred from X-rays.</span>
       </div>
     </section>
+    {historyHost && createPortal(historyPanel, historyHost)}
+    </>
   );
 }
