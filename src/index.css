@@ -1426,3 +1426,73 @@ button:hover, button:focus-visible {
   .solar-earth-history-right { max-height: 36vh; min-height: 160px; }
 }
 
+/* Solar Flare layout: live measured panels stack in the left research rail. */
+.solar-earth-left-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px;
+  margin: 0 0 8px;
+  border: 1px solid rgba(64, 113, 149, .36);
+  border-radius: 5px;
+  background: rgba(3, 12, 24, .78);
+}
+.solar-earth-metrics-left {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: 6px;
+  min-height: 0;
+}
+.solar-earth-metrics-left .solar-earth-metric {
+  min-height: 62px;
+  padding: 8px;
+}
+.solar-earth-metrics-left .solar-earth-metric strong { font-size: 14px; }
+.solar-earth-metrics-left .solar-earth-metric small {
+  white-space: normal;
+  line-height: 1.35;
+}
+.solar-earth-event-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid rgba(64, 113, 149, .36);
+  border-radius: 4px;
+  background: rgba(8, 29, 48, .75);
+  color: #90bcd7;
+  font: 800 8px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.solar-earth-event-summary strong { color: #f6fbff; font-size: 12px; }
+.solar-earth-event-summary small { margin-left: auto; color: #729bb5; font-size: 8px; }
+.solar-earth-planet-hit circle,
+.solar-earth-planet-hit ellipse { filter: drop-shadow(0 0 7px rgba(255, 25, 48, .98)); }
+.solar-earth-impact-ring { animation: solar-earth-impact-flash .24s steps(2, end) infinite; }
+@keyframes solar-earth-impact-flash {
+  from { opacity: .25; stroke-width: 1.5; }
+  to { opacity: 1; stroke-width: 4; }
+}
+.solar-earth-planet:focus-visible { outline: none; filter: drop-shadow(0 0 5px rgba(93, 218, 255, .95)); }
+.solar-earth-svg { cursor: crosshair; touch-action: pan-y; }
+.solar-earth-mapframe::after {
+  content: "SCROLL TO ZOOM  •  CLICK A PLANET TO SELECT";
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  padding: 4px 6px;
+  border: 1px solid rgba(83, 154, 194, .25);
+  border-radius: 3px;
+  background: rgba(2, 7, 19, .72);
+  color: #79b6d6;
+  font: 700 7px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .07em;
+  pointer-events: none;
+}
+@media (max-width: 700px) {
+  .solar-earth-metrics-left .solar-earth-metric { min-height: 54px; }
+  .solar-earth-event-summary { flex-wrap: wrap; }
+}
+
