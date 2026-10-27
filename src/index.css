@@ -1330,3 +1330,24 @@ button:hover, button:focus-visible {
 .solar-earth-left-dock .solar-earth-event-chip { width:100%; text-align:left; }
 .solar-earth-left-dock .solar-earth-footnote { display:flex; flex-direction:column; gap:5px; overflow-wrap:anywhere; }
 .atlas-left:has(.solar-earth-left-dock) { overflow-y:auto; }
+
+
+/* Solar Flare close-up inspection: zoom focuses the selected planet; no drag-to-tilt/rotate. */
+.solar-earth-planet { cursor: zoom-in; outline: none; }
+.solar-earth-planet:focus-visible circle { stroke: #fff !important; stroke-width: 1.8 !important; }
+.solar-earth-hit-by-flare {
+  animation: solar-earth-impact-red 1s ease-in-out infinite alternate;
+}
+.solar-earth-hit-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: solar-earth-impact-pulse .75s ease-out infinite;
+}
+@keyframes solar-earth-impact-red {
+  from { filter: drop-shadow(0 0 5px rgba(255, 20, 20, .75)); }
+  to { filter: drop-shadow(0 0 20px rgba(255, 0, 0, 1)); }
+}
+@keyframes solar-earth-impact-pulse {
+  0% { opacity: .95; transform: scale(.9); }
+  100% { opacity: .05; transform: scale(2.8); }
+}
