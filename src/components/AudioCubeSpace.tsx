@@ -107,6 +107,7 @@ interface AudioCubeSpaceProps {
   openWaterElevationRequest?: number;
   openEarthSearchRequest?: number;
   onOpenWaterElevation?: () => void;
+  onOpenSolarFlare?: () => void;
 }
 
 export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
@@ -138,6 +139,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   openWaterElevationRequest = 0,
   openEarthSearchRequest = 0,
   onOpenWaterElevation,
+  onOpenSolarFlare,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -2965,6 +2967,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             Water Elevation
           </button>
 
+          <button type="button" onClick={() => onOpenSolarFlare?.()} aria-label="Open Solar Flare universe" title="Open Solar Flare universe; details appear in the left panel" className="ml-1 rounded border px-2 py-1 text-[10px] font-mono font-bold border-orange-700/70 text-orange-300 hover:bg-orange-950/60 hover:text-orange-100 transition-colors">☀ SOLAR FLARE</button>
           <button
             type="button"
             onClick={toggle24HourRotation}
