@@ -288,7 +288,7 @@ export function SolarFlareEarth({ onBack }: { onBack?: () => void }) {
   const stateClass = feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
 
   return (
-    <section className="solar-earth" aria-label="Solar Flare Earth solar system map">
+    <section className="solar-flare-earth-view" aria-label="Solar Flare Earth solar system map">
       <div className="solar-earth-toolbar">
         {onBack && <button type="button" className="solar-earth-refresh" onClick={onBack}><ArrowLeft size={13} /> BACK TO EARTH</button>}
         <div className="solar-earth-title">
