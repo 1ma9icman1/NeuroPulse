@@ -602,6 +602,31 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
     {dockTarget && createPortal(
       <div className="solar-earth-left-dock" aria-label="Solar flare event controls and history">
         <div className="solar-earth-left-dock-title"><Sun size={14} /> SOLAR FLARE CONTROLS</div>
+        <section className="swpc-live-panel" aria-label="NOAA Space Weather live imagery and indices">
+          <div className="swpc-live-heading"><span><Activity size={14} /> NOAA SPACE WEATHER</span><a href={NOAA_SPACE_WEATHER} target="_blank" rel="noreferrer">SPACEWEATHER.GOV ↗</a></div>
+          <div className="swpc-imagery-block">
+            <div className="swpc-imagery-title"><strong>SUN · EUV</strong><span>GOES SUVI · {euvWavelength} Å</span></div>
+            <div className="swpc-euv-tabs">{['094','131','171','195','284','304'].map((wave) => <button type="button" key={wave} className={euvWavelength === wave ? 'active' : ''} onClick={() => setEuvWavelength(wave)}>{wave}</button>)}</div>
+            <a className="swpc-imagery-frame" href={NOAA_SPACE_WEATHER} target="_blank" rel="noreferrer" title="Open official NOAA solar imagery">
+              <img src={NOAA_EUV_IMAGE(euvWavelength) + '?t=' + spaceWeatherFrame} alt={'Latest NOAA GOES SUVI ' + euvWavelength + ' angstrom solar image'} />
+            </a>
+          </div>
+          <div className="swpc-imagery-block swpc-corona-block">
+            <div className="swpc-imagery-title"><strong>CORONA</strong><span>CCOR-1 coronagraph</span></div>
+            <a className="swpc-imagery-frame swpc-corona-frame" href="https://www.spaceweather.gov/products/coronagraph" target="_blank" rel="noreferrer" title="Open official NOAA coronagraph imagery">
+              <img src={NOAA_CORONA_IMAGE + '?t=' + spaceWeatherFrame} alt="Latest NOAA CCOR-1 coronagraph view of the solar corona" />
+              <span>Solar corona · NOAA SWPC</span>
+            </a>
+          </div>
+          <div className="swpc-index-grid">
+            <a className="swpc-index-card" href="https://www.spaceweather.gov/products/goes-x-ray-flux" target="_blank" rel="noreferrer"><span>X-RAY FLUX</span><strong>{fluxText(xrayFlux)}</strong><small>{classFromFlux(xrayFlux)}</small><i className="swpc-index-xray" /></a>
+            <a className="swpc-index-card" href="https://www.spaceweather.gov/products/goes-proton-flux" target="_blank" rel="noreferrer"><span>PROTON FLUX</span><strong>{fluxText(protonFlux)}</strong><small>{liveProton ? s(liveProton.energy, liveProton.energy_channel, liveProton.channel) || 'GOES ≥10 MeV' : 'Awaiting feed'}</small><i className="swpc-index-proton" /></a>
+            <a className="swpc-index-card" href="https://www.spaceweather.gov/products/planetary-k-index" target="_blank" rel="noreferrer"><span>K INDEX</span><strong>{kp === null ? '—' : kp.toFixed(1)}</strong><small>{kp === null ? 'Awaiting feed' : kp >= 5 ? 'Geomagnetic storm' : 'Quiet / unsettled'}</small><i className="swpc-index-kp" /></a>
+          </div>
+          <div className="swpc-aurora-note"><img src={NOAA_AURORA_IMAGE + '?t=' + spaceWeatherFrame} alt="Latest NOAA northern aurora forecast" /><span><strong>EARTH · AURORA OVERLAY</strong><small>NOAA OVATION forecast over the Earth sphere; refreshed as new frames arrive.</small></span></div>
+          <div className="swpc-live-foot">Official NOAA SWPC imagery · readings are from measured feeds</div>
+        </section>
+
         <div className="solar-earth-map-key"><span><i className="se-key-sun" /> NOAA X-ray flux drives solar glow</span></div>
         <div className="solar-earth-playback">
           <div className="solar-earth-playback-top">
