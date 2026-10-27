@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Activity, AlertTriangle, CalendarClock, CircleDot, ExternalLink, Play, RefreshCw, Satellite, Sun, TimerReset, Zap } from 'lucide-react';
 
 type Row = Record<string, unknown>;
@@ -146,10 +147,13 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const [replayProgress, setReplayProgress] = useState(0);
   const [replaying, setReplaying] = useState(true);
   const [orbitDays, setOrbitDays] = useState(Date.now() / 86400000);
+  const [dockTarget, setDockTarget] = useState<HTMLElement | null>(null);
   const [mapZoom, setMapZoom] = useState(1);
   const [mapRotation, setMapRotation] = useState(0);
   const mapDragRef = useRef<{ x: number; rotation: number } | null>(null);
   const lastTick = useRef(Date.now());
+
+  useEffect(() => { setDockTarget(document.querySelector('.atlas-left')); }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -378,6 +382,11 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
           {replaying && selected && <text x={CX + 28} y={CY + 26} className="solar-earth-selected-event-label">{selected.classType.toUpperCase()} · {replayAu.toFixed(2)} AU</text>}
         </svg>
 
+      </div>
+    </section>
+    {dockTarget && createPortal(
+      <div className="solar-earth-left-dock" aria-label="Solar flare event controls and history">
+        <div className="solar-earth-left-dock-title"><Sun size={14} /> SOLAR FLARE CONTROLS</div>
         <div className="solar-earth-map-key"><span><i className="se-key-sun" /> NOAA X-ray flux drives solar glow</span><span><i className="se-key-wave" /> X-ray light-front at c</span><span><i className="se-key-orbit" /> Schematic tracks / accelerated periods</span></div>
         <div className="solar-earth-playback">
           <div className="solar-earth-playback-top">
@@ -394,27 +403,27 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <span className="solar-earth-timeline-time">{replaying ? (elapsed / 60).toFixed(1) + ' min / 4.2 hr' : orbitSpeed + ' days / sec'}</span>
           </div>
         </div>
-      </div>
-
-      <div className="solar-earth-history">
-        <div className="solar-earth-history-toolbar">
-          <div><div className="solar-earth-kicker"><CalendarClock size={12} /> EVENT HISTORY / MEASURED + HISTORICAL</div><strong>{events.length} events loaded</strong><small>Carrington Event (1859) reconstruction + NOAA GOES / NASA DONKI records</small></div>
-          <label>Start date <input type="date" value={historyStart} onChange={(event) => setHistoryStart(event.target.value)} /></label>
-          <button type="button" className="solar-earth-history-load" onClick={() => void loadHistory(historyStart)} disabled={historyLoading}><RefreshCw size={12} className={historyLoading ? 'solar-earth-spin' : ''} />{historyLoading ? 'LOADING' : 'LOAD 30 DAYS'}</button>
+        <div className="solar-earth-history">
+          <div className="solar-earth-history-toolbar">
+            <div><div className="solar-earth-kicker"><CalendarClock size={12} /> EVENT HISTORY / MEASURED + HISTORICAL</div><strong>{events.length} events loaded</strong><small>Carrington Event (1859) reconstruction + NOAA GOES / NASA DONKI records</small></div>
+            <label>Start date <input type="date" value={historyStart} onChange={(event) => setHistoryStart(event.target.value)} /></label>
+            <button type="button" className="solar-earth-history-load" onClick={() => void loadHistory(historyStart)} disabled={historyLoading}><RefreshCw size={12} className={historyLoading ? 'solar-earth-spin' : ''} />{historyLoading ? 'LOADING' : 'LOAD 30 DAYS'}</button>
+          </div>
+          <div className="solar-earth-event-list">
+            {[CARRINGTON_EVENT, ...events.filter((event) => event.id !== CARRINGTON_EVENT.id).slice(0, 23)].map((event) => <button type="button" key={event.id} onClick={() => selectEvent(event)} className={selectedId === event.id ? 'solar-earth-event-chip solar-earth-event-chip-selected' : 'solar-earth-event-chip'} title={stamp(event.beginMs) + ' · ' + event.source}>
+              <span className="solar-earth-event-class">{event.classType}</span><strong>{stamp(event.beginMs)}</strong><small>{event.source}{event.location ? ' · ' + event.location : ''}</small>
+            </button>)}
+            {!events.length && <div className="solar-earth-empty">{historyLoading || loading ? 'Loading measured flare records…' : 'No flare events returned for this period. Try another date window.'}</div>}
+          </div>
         </div>
-        <div className="solar-earth-event-list">
-          {[CARRINGTON_EVENT, ...events.filter((event) => event.id !== CARRINGTON_EVENT.id).slice(0, 23)].map((event) => <button type="button" key={event.id} onClick={() => selectEvent(event)} className={selectedId === event.id ? 'solar-earth-event-chip solar-earth-event-chip-selected' : 'solar-earth-event-chip'} title={stamp(event.beginMs) + ' · ' + event.source}>
-            <span className="solar-earth-event-class">{event.classType}</span><strong>{stamp(event.beginMs)}</strong><small>{event.source}{event.location ? ' · ' + event.location : ''}</small>
-          </button>)}
-          {!events.length && <div className="solar-earth-empty">{historyLoading || loading ? 'Loading measured flare records…' : 'No flare events returned for this period. Try another date window.'}</div>}
+        {(notice || errors.length > 0) && <div className="solar-earth-notice"><AlertTriangle size={12} /><span>{notice || errors.join(' · ')}</span></div>}
+        <div className="solar-earth-footnote">
+          <span>DATA: <a href="https://services.swpc.noaa.gov/json/" target="_blank" rel="noreferrer">NOAA SWPC JSON</a> · <a href="https://api.nasa.gov/" target="_blank" rel="noreferrer">NASA DONKI</a></span>
+          <span>{selected ? <><a href={selected.link || 'https://api.nasa.gov/DONKI/FLR'} target="_blank" rel="noreferrer">{selected.source} source <ExternalLink size={10} /></a> · {selected.location || 'source location not supplied'}</> : 'No event selected'}</span>
+          <span>Carrington entry is a historical reconstruction, not measured GOES data. Schematic light-front uses AU light travel; CME speed is not inferred.</span>
         </div>
-      </div>
-      {(notice || errors.length > 0) && <div className="solar-earth-notice"><AlertTriangle size={12} /><span>{notice || errors.join(' · ')}</span></div>}
-      <div className="solar-earth-footnote">
-        <span>DATA: <a href="https://services.swpc.noaa.gov/json/" target="_blank" rel="noreferrer">NOAA SWPC JSON</a> · <a href="https://api.nasa.gov/" target="_blank" rel="noreferrer">NASA DONKI</a></span>
-        <span>{selected ? <><a href={selected.link || 'https://api.nasa.gov/DONKI/FLR'} target="_blank" rel="noreferrer">{selected.source} source <ExternalLink size={10} /></a> · {selected.location || 'source location not supplied'}</> : 'No event selected'}</span>
-        <span>Carrington entry is a historical reconstruction, not measured GOES data. Schematic light-front uses AU light travel; CME speed is not inferred.</span>
-      </div>
-    </section>
+      </div>,
+      dockTarget
+    )}
   );
 }
