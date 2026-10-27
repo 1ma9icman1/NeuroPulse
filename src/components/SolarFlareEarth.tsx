@@ -153,7 +153,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const lastTick = useRef(Date.now());
 
   useEffect(() => {
-    const attachDock = () => setDockTarget(document.getElementById('solar-flare-left-dock-target'));
+    const attachDock = () => setDockTarget(document.getElementById('solar-flare-right-dock-target'));
     attachDock();
     const frame = window.requestAnimationFrame(attachDock);
     window.addEventListener('resize', attachDock);
