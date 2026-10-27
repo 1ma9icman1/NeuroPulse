@@ -44,6 +44,18 @@ const PLANETS: Planet[] = [
   { name: 'NEPTUNE', au: 30.069923, period: 60182, radius: 400, size: 7, color: '#5d8bff' },
 ];
 
+const PLANET_TEXTURE_URLS: Record<string, string> = {
+  MERCURY: 'https://www.solarsystemscope.com/textures/download/2k_mercury.jpg',
+  VENUS: 'https://www.solarsystemscope.com/textures/download/2k_venus_surface.jpg',
+  EARTH: 'https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg',
+  MARS: 'https://www.solarsystemscope.com/textures/download/2k_mars.jpg',
+  JUPITER: 'https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg',
+  SATURN: 'https://www.solarsystemscope.com/textures/download/2k_saturn.jpg',
+  URANUS: 'https://www.solarsystemscope.com/textures/download/2k_uranus.jpg',
+  NEPTUNE: 'https://www.solarsystemscope.com/textures/download/2k_neptune.jpg',
+  MOON: 'https://www.solarsystemscope.com/textures/download/2k_moon.jpg',
+};
+
 // J2000 heliocentric orbital elements and secular rates (per Julian century).
 // Mean longitude and perihelion/node evolution keep phases tied to the UTC clock.
 // The display uses schematic planet spacing, but orbital timing and directions are date-based.
@@ -520,7 +532,9 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
               <circle cx={planet.x} cy={planet.y} r={planet.size + (planet.name === 'EARTH' ? 7 : 4)} fill={impact ? '#ff1717' : planet.color} opacity={impact ? '.42' : planet.name === 'EARTH' ? '.12' : '.07'} className={impact ? 'solar-earth-hit-pulse' : undefined} />
               {impact && <circle cx={planet.x} cy={planet.y} r={planet.size + 5} fill="none" stroke="#ff2929" strokeWidth="2" filter="url(#se-earth-impact-glow)" className="solar-earth-hit-pulse" />}
               {planet.name === 'SATURN' && <ellipse cx={planet.x} cy={planet.y} rx={planet.size * 1.9} ry={planet.size * .62} transform={'rotate(-18 ' + planet.x + ' ' + planet.y + ')'} fill="none" stroke="#d9c38d" strokeWidth="2" opacity=".9" />}
-              <circle cx={planet.x} cy={planet.y} r={planet.size} fill={'url(#se-planet-' + planet.name.toLowerCase() + ')'} stroke={impact ? '#ff342f' : planet.name === 'EARTH' ? '#c3f2ff' : '#d5e6f3'} strokeWidth={impact ? '2.5' : planet.name === 'EARTH' ? '1.2' : '.45'} className={impact ? 'solar-earth-hit-by-flare' : ''} filter={impact ? 'url(#se-earth-impact-glow)' : undefined} />
+              <defs><clipPath id={'se-texture-clip-' + planet.name.toLowerCase()}><circle cx={planet.x} cy={planet.y} r={planet.size * .97} /></clipPath></defs>
+              <image href={PLANET_TEXTURE_URLS[planet.name]} x={planet.x - planet.size} y={planet.y - planet.size} width={planet.size * 2} height={planet.size * 2} preserveAspectRatio="none" clipPath={'url(#se-texture-clip-' + planet.name.toLowerCase() + ')'} opacity=".98" />
+              <circle cx={planet.x} cy={planet.y} r={planet.size} fill="none" stroke={impact ? '#ff342f' : planet.name === 'EARTH' ? '#c3f2ff' : '#d5e6f3'} strokeWidth={impact ? '2.5' : planet.name === 'EARTH' ? '1.2' : '.45'} className={impact ? 'solar-earth-hit-by-flare' : ''} filter={impact ? 'url(#se-earth-impact-glow)' : undefined} />
               {planet.name === 'EARTH' && <>
                 <defs><clipPath id="se-earth-disc-clip" clipPathUnits="userSpaceOnUse"><circle cx={planet.x} cy={planet.y} r={planet.size * .96} /></clipPath></defs>
                 <g clipPath="url(#se-earth-disc-clip)" transform={'translate(' + planet.x + ' ' + planet.y + ') rotate(' + earthSpinDegrees + ')'}>
