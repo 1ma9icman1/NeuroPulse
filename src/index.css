@@ -1352,6 +1352,7 @@ button:hover, button:focus-visible {
   100% { opacity: .05; transform: scale(2.8); }
 }
 
-/* Dedicated portal mount for Solar Flare controls; keeps them in the actual left sidebar. */
-.solar-flare-left-dock-target { display: contents; }
+/* Dedicated portal mount for Solar Flare controls; keep a real layout box in the sidebar. */
+.solar-flare-left-dock-target { display: block; flex: 0 0 auto; width: 100%; min-width: 0; min-height: 0; }
 .solar-flare-left-dock-target:empty { display: none; }
+.solar-flare-left-dock-target > .solar-earth-left-dock { width: 100%; box-sizing: border-box; }
