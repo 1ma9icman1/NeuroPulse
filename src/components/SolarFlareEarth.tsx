@@ -149,8 +149,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const [orbitDays, setOrbitDays] = useState(Date.now() / 86400000);
   const [dockTarget, setDockTarget] = useState<HTMLElement | null>(null);
   const [mapZoom, setMapZoom] = useState(1);
-  const [mapRotation, setMapRotation] = useState(0);
-  const mapDragRef = useRef<{ x: number; rotation: number } | null>(null);
+  const [focusedPlanet, setFocusedPlanet] = useState<string | null>(null);
   const lastTick = useRef(Date.now());
 
   useEffect(() => { setDockTarget(document.querySelector('.atlas-left')); }, []);
@@ -300,6 +299,13 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
     setReplayProgress(0);
   };
   const planets = PLANETS.map((planet) => ({ ...planet, ...position(planet, orbitDays) }));
+  const focused = planets.find((planet) => planet.name === focusedPlanet);
+  const closeView = !!focusedPlanet && mapZoom > 1;
+  const viewWidth = 1000 / mapZoom;
+  const viewHeight = 600 / mapZoom;
+  const viewX = focused ? focused.x - viewWidth / 2 : (1000 - viewWidth) / 2;
+  const viewY = focused ? focused.y - viewHeight / 2 : (600 - viewHeight) / 2;
+  const flareHasReachedEarth = frontRadius >= PLANETS.find((planet) => planet.name === 'EARTH')!.radius;
   const stateClass = feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
 
   return (
@@ -323,28 +329,34 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="solar-earth-mapframe"
-        onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setMapZoom(value => Math.max(0.55, Math.min(3.2, Number((value + (event.deltaY < 0 ? 0.12 : -0.12)).toFixed(2))))); }}
-        onPointerDown={(event) => { if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return; mapDragRef.current = { x: event.clientX, rotation: mapRotation }; event.currentTarget.setPointerCapture(event.pointerId); }}
-        onPointerMove={(event) => { if (mapDragRef.current) setMapRotation(mapDragRef.current.rotation + (event.clientX - mapDragRef.current.x) * 0.35); }}
-        onPointerUp={() => { mapDragRef.current = null; }}
-        onPointerCancel={() => { mapDragRef.current = null; }}
+        onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setMapZoom(value => Math.max(1, Math.min(18, Number((value + (event.deltaY < 0 ? (value < 3 ? 0.25 : value < 8 ? 0.75 : 1.5) : -(value < 3 ? 0.25 : value < 8 ? 0.75 : 1.5))).toFixed(2)))); }}
       >
         <div className="solar-earth-view-controls" aria-label="Solar system view controls">
-          <button type="button" title="Zoom in" aria-label="Zoom in" onPointerDown={event => event.stopPropagation()} onClick={() => setMapZoom(value => Math.min(3.2, Number((value + 0.2).toFixed(2))))}>＋</button>
-          <button type="button" title="Zoom out" aria-label="Zoom out" onPointerDown={event => event.stopPropagation()} onClick={() => setMapZoom(value => Math.max(0.55, Number((value - 0.2).toFixed(2))))}>−</button>
-          <button type="button" title="Reset zoom and rotation" aria-label="Reset zoom and rotation" onPointerDown={event => event.stopPropagation()} onClick={() => { setMapZoom(1); setMapRotation(0); }}>RESET VIEW</button>
-          <span>{Math.round(mapZoom * 100)}% · DRAG TO ROTATE</span>
+          <button type="button" title="Zoom in" aria-label="Zoom in" onClick={() => setMapZoom(value => Math.min(18, Number((value + (value < 3 ? 0.25 : value < 8 ? 0.75 : 1.5)).toFixed(2))))}>＋</button>
+          <button type="button" title="Zoom out" aria-label="Zoom out" onClick={() => setMapZoom(value => { const next = Math.max(1, Number((value - (value < 3 ? 0.25 : value < 8 ? 0.75 : 1.5)).toFixed(2))); if (next === 1) setFocusedPlanet(null); return next; })}>−</button>
+          <button type="button" title="Reset zoom" aria-label="Reset zoom" onClick={() => { setMapZoom(1); setFocusedPlanet(null); }}>RESET ZOOM</button>
+          <span>{Math.round(mapZoom * 100)}%{focusedPlanet ? ' · ' + focusedPlanet : ' · SELECT A PLANET'}</span>
         </div>
-        <svg className="solar-earth-svg" style={{ transform: 'scale(' + mapZoom + ') rotate(' + mapRotation + 'deg)', cursor: mapDragRef.current ? 'grabbing' : 'grab' }} viewBox="0 0 1000 600" role="img" aria-label="Interactive solar system. Scroll to zoom, drag to rotate.">
+        <svg className="solar-earth-svg" viewBox={viewX + ' ' + viewY + ' ' + viewWidth + ' ' + viewHeight} role="img" aria-label="Interactive solar system. Scroll to zoom. Select any planet to inspect it close-up.">
           <defs>
             <radialGradient id="se-sun-fill"><stop offset="0" stopColor="#fff8c4" /><stop offset=".28" stopColor="#ffd66c" /><stop offset=".63" stopColor="#ff8c32" /><stop offset="1" stopColor="#df3e12" /></radialGradient>
             <radialGradient id="se-space-fill"><stop offset="0" stopColor="#081d34" /><stop offset="1" stopColor="#020713" /></radialGradient>
+            <radialGradient id="se-planet-mercury"><stop offset="0" stopColor="#c5c1b8"/><stop offset=".65" stopColor="#77756f"/><stop offset="1" stopColor="#272b31"/></radialGradient>
+            <radialGradient id="se-planet-venus"><stop offset="0" stopColor="#fff0bc"/><stop offset=".42" stopColor="#d6a76c"/><stop offset=".76" stopColor="#a96c3d"/><stop offset="1" stopColor="#39251f"/></radialGradient>
+            <radialGradient id="se-planet-earth"><stop offset="0" stopColor="#61d7ff"/><stop offset=".34" stopColor="#1d8bd0"/><stop offset=".58" stopColor="#21835e"/><stop offset=".8" stopColor="#0b416f"/><stop offset="1" stopColor="#06152e"/></radialGradient>
+            <radialGradient id="se-planet-mars"><stop offset="0" stopColor="#ffbd82"/><stop offset=".48" stopColor="#c65332"/><stop offset=".8" stopColor="#7b3027"/><stop offset="1" stopColor="#28171d"/></radialGradient>
+            <radialGradient id="se-planet-jupiter"><stop offset="0" stopColor="#f3d9b2"/><stop offset=".3" stopColor="#c79c77"/><stop offset=".52" stopColor="#ead3ae"/><stop offset=".7" stopColor="#9b6b4e"/><stop offset=".86" stopColor="#d7b28d"/><stop offset="1" stopColor="#49332b"/></radialGradient>
+            <radialGradient id="se-planet-saturn"><stop offset="0" stopColor="#f4e4b8"/><stop offset=".5" stopColor="#d4ba81"/><stop offset=".82" stopColor="#a08a61"/><stop offset="1" stopColor="#453a2b"/></radialGradient>
+            <radialGradient id="se-planet-uranus"><stop offset="0" stopColor="#b4fbff"/><stop offset=".6" stopColor="#69c8d0"/><stop offset="1" stopColor="#183b54"/></radialGradient>
+            <radialGradient id="se-planet-neptune"><stop offset="0" stopColor="#77baff"/><stop offset=".55" stopColor="#2862c7"/><stop offset="1" stopColor="#101b4a"/></radialGradient>
+            <radialGradient id="se-planet-moon"><stop offset="0" stopColor="#d9d9d4"/><stop offset=".6" stopColor="#8b8d91"/><stop offset="1" stopColor="#282c34"/></radialGradient>
+            <filter id="se-earth-impact-glow" x="-500%" y="-500%" width="1000%" height="1000%"><feGaussianBlur stdDeviation="5" result="blur"/><feFlood floodColor="#ff1717" floodOpacity=".95"/><feComposite in2="blur" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
             <filter id="se-sun-glow" x="-300%" y="-300%" width="600%" height="600%"><feGaussianBlur stdDeviation="12" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
             <pattern id="se-starfield" width="155" height="119" patternUnits="userSpaceOnUse"><circle cx="12" cy="16" r=".8" fill="#78b9e9" opacity=".6" /><circle cx="85" cy="39" r=".65" fill="#fff" opacity=".52" /><circle cx="132" cy="94" r=".7" fill="#7dcaff" opacity=".48" /><circle cx="41" cy="101" r=".45" fill="#fff" opacity=".45" /></pattern>
           </defs>
           <rect width="1000" height="600" fill="url(#se-space-fill)" /><rect width="1000" height="600" fill="url(#se-starfield)" opacity=".85" />
           <path d={'M ' + CX + ' 0 V 600 M 0 ' + CY + ' H 1000'} stroke="#2b74a4" strokeWidth=".7" strokeDasharray="2 8" opacity=".14" />
-          <g className="solar-earth-orbits">{PLANETS.map((planet) => <g key={planet.name} transform={'rotate(' + planet.tilt + ' ' + CX + ' ' + CY + ')'}><ellipse cx={CX} cy={CY} rx={planet.radius} ry={planet.radius * YSCALE} fill="none" stroke={planet.name === 'EARTH' ? '#2a83be' : '#23506b'} strokeWidth={planet.name === 'EARTH' ? '1.15' : '.85'} strokeOpacity={planet.name === 'EARTH' ? '.8' : '.48'} /></g>)}</g>
+          <g className="solar-earth-orbits">{PLANETS.map((planet) => <ellipse key={planet.name} cx={CX} cy={CY} rx={planet.radius} ry={planet.radius * YSCALE} fill="none" stroke={planet.name === 'EARTH' ? '#2a83be' : '#23506b'} strokeWidth={planet.name === 'EARTH' ? '1.15' : '.85'} strokeOpacity={planet.name === 'EARTH' ? '.8' : '.48'} />)}</g>
 
           {frontRadius > 0 && <g className={replaying ? 'solar-earth-front solar-earth-front-replay' : 'solar-earth-front solar-earth-front-live'}>
             <ellipse cx={CX} cy={CY} rx={frontRadius} ry={frontRadius * YSCALE} fill="none" stroke={replaying ? '#ffcf69' : '#43d7ff'} strokeWidth={replaying ? '2.1' : '1.4'} strokeDasharray={replaying ? '4 6' : '2 7'} opacity=".95" />
@@ -368,16 +380,17 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <text x={CX} y={CY + 39} textAnchor="middle" className="solar-earth-sun-label">THE SUN</text>
           </g>
 
-          {planets.map((planet) => <g key={planet.name}>
+          {planets.map((planet) => <g key={planet.name} className={'solar-earth-planet solar-earth-planet-' + planet.name.toLowerCase()} role="button" tabIndex={0} aria-label={'Zoom to ' + planet.name} onClick={() => { setFocusedPlanet(planet.name); setMapZoom(planet.name === 'EARTH' || planet.name === 'MARS' || planet.name === 'VENUS' ? 12 : 8); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setFocusedPlanet(planet.name); setMapZoom(planet.name === 'EARTH' || planet.name === 'MARS' || planet.name === 'VENUS' ? 12 : 8); } }}>
             <circle cx={planet.x} cy={planet.y} r={planet.size + (planet.name === 'EARTH' ? 7 : 4)} fill={planet.color} opacity={planet.name === 'EARTH' ? '.12' : '.07'} />
-            {planet.name === 'SATURN' && <ellipse cx={planet.x} cy={planet.y} rx={planet.size * 1.75} ry={planet.size * .55} transform={'rotate(-18 ' + planet.x + ' ' + planet.y + ')'} fill="none" stroke="#d9c38d" strokeWidth="2" opacity=".8" />}
-            <circle cx={planet.x} cy={planet.y} r={planet.size} fill={planet.color} stroke={planet.name === 'EARTH' ? '#c3f2ff' : '#d5e6f3'} strokeWidth={planet.name === 'EARTH' ? '1.2' : '.45'} />
-            {planet.name === 'EARTH' && <><path d={'M ' + (planet.x - 3.2) + ' ' + (planet.y - 1.6) + ' l 2 -2.5 2.4 1 -1.4 2.4 2.5 2 -3.5 1.2 z'} fill="#45d5a2" /><circle cx={planet.x} cy={planet.y} r="11" fill="none" stroke="#73dfff" strokeWidth=".8" className="solar-earth-earth-pulse" /></>}
+            {planet.name === 'SATURN' && <ellipse cx={planet.x} cy={planet.y} rx={planet.size * 1.9} ry={planet.size * .62} transform={'rotate(-18 ' + planet.x + ' ' + planet.y + ')'} fill="none" stroke="#d9c38d" strokeWidth="2" opacity=".9" />}
+            <circle cx={planet.x} cy={planet.y} r={planet.size} fill={'url(#se-planet-' + planet.name.toLowerCase() + ')'} stroke={flareHasReachedEarth && planet.name === 'EARTH' ? '#ff342f' : planet.name === 'EARTH' ? '#c3f2ff' : '#d5e6f3'} strokeWidth={flareHasReachedEarth && planet.name === 'EARTH' ? '2.5' : planet.name === 'EARTH' ? '1.2' : '.45'} className={flareHasReachedEarth && planet.name === 'EARTH' ? 'solar-earth-hit-by-flare' : ''} filter={flareHasReachedEarth && planet.name === 'EARTH' ? 'url(#se-earth-impact-glow)' : undefined} />
+            {planet.name === 'EARTH' && <><path d={'M ' + (planet.x - 3.2) + ' ' + (planet.y - 1.6) + ' l 2 -2.5 2.4 1 -1.4 2.4 2.5 2 -3.5 1.2 z'} fill="#45d5a2" /><circle cx={planet.x} cy={planet.y} r="11" fill="none" stroke={flareHasReachedEarth ? '#ff342f' : '#73dfff'} strokeWidth={flareHasReachedEarth ? '1.8' : '.8'} className={flareHasReachedEarth ? 'solar-earth-hit-pulse' : 'solar-earth-earth-pulse'} />
+              <circle cx={planet.x + 10} cy={planet.y - 7} r="1.7" fill="#aeb6c2" stroke="#e3e7ee" strokeWidth=".35" /><ellipse cx={planet.x} cy={planet.y} rx="15" ry="15" fill="none" stroke="#a7c2d5" strokeWidth=".5" opacity=".25" /></>}
             <text x={planet.x} y={planet.y - planet.size - (planet.name === 'JUPITER' || planet.name === 'SATURN' ? 13 : 10)} className={planet.name === 'EARTH' ? 'solar-earth-planet-label solar-earth-label-earth' : 'solar-earth-planet-label'} textAnchor="middle">{planet.name}</text>
           </g>)}
 
           <text x={CX + PLANETS[2].radius + 10} y={CY - 17} className="solar-earth-distance-note">1 AU · 8m 19s light</text>
-          <text x={CX + 8} y="27" className="solar-earth-map-caption">HELIOCENTRIC VIEW / 2D ORBITAL PLANE</text>
+          <text x={CX + 8} y="27" className="solar-earth-map-caption">{closeView ? focusedPlanet + ' CLOSE VIEW' : 'HELIOCENTRIC VIEW / ORBITAL PLANE'}</text>
           <text x="18" y="579" className="solar-earth-map-small">ORBIT SPEED: {orbitSpeed} SIMULATED DAYS / SECOND</text>
           <text x="982" y="579" textAnchor="end" className="solar-earth-map-small">{replaying ? 'REPLAY FRONT: ' + replayAu.toFixed(2) + ' AU' : liveFront ? 'LIVE OBSERVED X-RAY FRONT: ' + liveFrontAu.toFixed(2) + ' AU' : 'LIVE MODE · WAITING FOR B-CLASS OR STRONGER X-RAYS'}</text>
           {replaying && selected && <text x={CX + 28} y={CY + 26} className="solar-earth-selected-event-label">{selected.classType.toUpperCase()} · {replayAu.toFixed(2)} AU</text>}
