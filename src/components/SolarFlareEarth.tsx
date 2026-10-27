@@ -556,6 +556,8 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <radialGradient id="se-planet-moon"><stop offset="0" stopColor="#d9d9d4"/><stop offset=".6" stopColor="#8b8d91"/><stop offset="1" stopColor="#282c34"/></radialGradient>
             <filter id="se-earth-impact-glow" x="-500%" y="-500%" width="1000%" height="1000%"><feGaussianBlur stdDeviation="5" result="blur"/><feFlood floodColor="#ff1717" floodOpacity=".95"/><feComposite in2="blur" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
             <filter id="se-sun-glow" x="-300%" y="-300%" width="600%" height="600%"><feGaussianBlur stdDeviation="12" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+            <filter id="se-flare-corona-glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="9" /></filter>
+            <filter id="se-flare-edge-glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.8" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
             <pattern id="se-starfield" width="155" height="119" patternUnits="userSpaceOnUse"><circle cx="12" cy="16" r=".8" fill="#78b9e9" opacity=".6" /><circle cx="85" cy="39" r=".65" fill="#fff" opacity=".52" /><circle cx="132" cy="94" r=".7" fill="#7dcaff" opacity=".48" /><circle cx="41" cy="101" r=".45" fill="#fff" opacity=".45" /></pattern>
           </defs>
           <rect width="1000" height="600" fill="url(#se-space-fill)" /><rect width="1000" height="600" fill="url(#se-starfield)" opacity=".85" />
@@ -565,9 +567,20 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <ellipse cx={earthPlanet.x} cy={earthPlanet.y} rx={MOON_DISPLAY_DISTANCE} ry={MOON_DISPLAY_DISTANCE * YSCALE} transform={'rotate(-5.145 ' + earthPlanet.x + ' ' + earthPlanet.y + ')'} fill="none" stroke="#8c9baa" strokeWidth=".65" strokeDasharray="2 3" strokeOpacity=".72" />
           </g>
 
-          {frontRadius > 0 && <g className={replaying ? 'solar-earth-front solar-earth-front-replay' : 'solar-earth-front solar-earth-front-live'}>
-            <ellipse cx={CX} cy={CY} rx={frontRadius} ry={frontRadius * YSCALE} fill="none" stroke={replaying ? '#ffcf69' : '#43d7ff'} strokeWidth={replaying ? '2.1' : '1.4'} strokeDasharray={replaying ? '4 6' : '2 7'} opacity=".95" />
-            <ellipse cx={CX} cy={CY} rx={Math.max(3, frontRadius - 6)} ry={Math.max(3, frontRadius - 6) * YSCALE} fill="none" stroke={replaying ? '#ff8f45' : '#43d7ff'} strokeWidth=".65" opacity=".4" />
+          {frontRadius > 0 && <g className={replaying ? 'solar-earth-front solar-earth-front-replay' : 'solar-earth-front solar-earth-front-live'} style={{ pointerEvents: 'none' }}>
+            {/* Layered, warm-colour shock front: soft corona, incandescent edge, and hot inner rim. */}
+            <ellipse cx={CX} cy={CY} rx={frontRadius + 3} ry={(frontRadius + 3) * YSCALE} fill="none" stroke="#ff3b16" strokeWidth={Math.max(5, 12 * flareStrength)} opacity=".16" filter="url(#se-flare-corona-glow)" />
+            <ellipse cx={CX} cy={CY} rx={frontRadius} ry={frontRadius * YSCALE} fill="none" stroke="#ff5722" strokeWidth={Math.max(2.5, 4.5 * flareStrength)} opacity=".96" filter="url(#se-flare-edge-glow)" />
+            <ellipse cx={CX} cy={CY} rx={Math.max(2, frontRadius - 3)} ry={Math.max(2, frontRadius - 3) * YSCALE} fill="none" stroke="#ffbd55" strokeWidth="1.35" opacity=".98" />
+            <ellipse cx={CX} cy={CY} rx={Math.max(1, frontRadius - 5)} ry={Math.max(1, frontRadius - 5) * YSCALE} fill="none" stroke="#fff0b0" strokeWidth=".55" opacity=".88" />
+            {Array.from({ length: 36 }, (_, index) => {
+              const angle = index * Math.PI * 2 / 36 + orbitDays * .018;
+              const irregular = 1 + .035 * Math.sin(index * 2.17 + orbitDays * .35) + .018 * Math.sin(index * 4.7 - orbitDays * .21);
+              const r = frontRadius * irregular;
+              const x = CX + Math.cos(angle) * r;
+              const y = CY + Math.sin(angle) * r * YSCALE;
+              return <circle key={index} cx={x} cy={y} r={.7 + flareStrength * 1.15} fill={index % 4 === 0 ? '#fff2b0' : index % 2 === 0 ? '#ff8a32' : '#ff4b1f'} opacity={.55 + .35 * Math.abs(Math.sin(index * 1.8 + orbitDays))} />;
+            })}
           </g>}
 
           <g className="solar-earth-solar-activity">
@@ -580,7 +593,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
               const y2 = CY + Math.sin(angle + .11) * (length * .78 + 15);
               const mx = (x1 + x2) / 2 + Math.cos(angle + 1.2) * 18;
               const my = (y1 + y2) / 2 + Math.sin(angle + 1.2) * 18;
-              return <path key={index} d={'M ' + x1 + ' ' + y1 + ' Q ' + mx + ' ' + my + ' ' + x2 + ' ' + y2} className="solar-earth-flare-ribbon" style={{ opacity: flareStrength * .85, animationDelay: (-index * .21) + 's' }} />;
+              return <path key={index} d={'M ' + x1 + ' ' + y1 + ' Q ' + mx + ' ' + my + ' ' + x2 + ' ' + y2} className="solar-earth-flare-ribbon" fill="none" stroke={index % 3 === 0 ? '#fff0a1' : index % 3 === 1 ? '#ffb347' : '#ff4a1f'} strokeWidth={1.1 + flareStrength * 2.2} strokeLinecap="round" filter="url(#se-flare-edge-glow)" style={{ opacity: flareStrength * .9, animationDelay: (-index * .21) + 's' }} />;
             })}
             <circle cx={CX} cy={CY} r={18} fill="url(#se-sun-fill)" filter="url(#se-sun-glow)" />
             <defs><clipPath id="se-sun-euv-clip"><circle cx={CX} cy={CY} r="17" /></clipPath></defs>
