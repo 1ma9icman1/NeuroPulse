@@ -975,7 +975,6 @@ button:hover, button:focus-visible {
 
 /* Always-visible launcher for the solar research module in the search-first UI. */
 .atlas-solar-launch-button {
-  order: -101;
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -1291,3 +1290,8 @@ button:hover, button:focus-visible {
   .solar-earth-event-list { height: calc(100% - 35px); }
   .solar-earth-map-key { top: 4px; right: 4px; gap: 3px; }
 }
+
+/* Keep Solar Flare launch controls together at the bottom of the left navigation panel. */
+.atlas-left-bottom-controls { display:flex; flex-direction:column; gap:6px; margin-top:auto; padding:7px; flex:0 0 auto; border:1px solid rgba(255,181,66,.22); border-radius:5px; background:rgba(5,12,24,.78); }
+.atlas-left-bottom-controls .atlas-solar-launch-button { min-height:34px; margin:0; }
+.atlas-left-bottom-controls .atlas-solar-research-button { border-color:rgba(255,181,66,.42); background:linear-gradient(180deg,rgba(55,42,18,.82),rgba(19,20,18,.96)); }
