@@ -7,7 +7,11 @@ type SolarEvent = {
   id: string; beginMs: number; peakMs?: number; classType: string;
   location?: string; source: 'NOAA GOES' | 'NASA DONKI' | 'Historical reconstruction'; link?: string;
 };
-type Planet = { name: string; au: number; period: number; radius: number; size: number; color: string; phase: number; tilt: number };
+type Planet = { name: string; au: number; period: number; radius: number; size: number; color: string };
+type OrbitElements = {
+  a: number; e: number; i: number; L: number; peri: number; node: number;
+  aRate: number; eRate: number; iRate: number; LRate: number; periRate: number; nodeRate: number;
+};
 
 const NOAA_XRAY = 'https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json';
 const NOAA_FLARES = 'https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json';
@@ -30,15 +34,33 @@ const CX = 485;
 const CY = 286;
 const YSCALE = 0.72;
 const PLANETS: Planet[] = [
-  { name: 'MERCURY', au: .387, period: 87.969, radius: 54, size: 3.5, color: '#aaa9a7', phase: .3, tilt: -5 },
-  { name: 'VENUS', au: .723, period: 224.701, radius: 84, size: 5, color: '#e6c18a', phase: 2.1, tilt: 4 },
-  { name: 'EARTH', au: 1, period: 365.256, radius: 116, size: 6.4, color: '#47b9ff', phase: 4.2, tilt: -2 },
-  { name: 'MARS', au: 1.524, period: 686.98, radius: 153, size: 4.8, color: '#ff825b', phase: 1.3, tilt: 3 },
-  { name: 'JUPITER', au: 5.203, period: 4332.59, radius: 210, size: 10, color: '#d7b18b', phase: 5.2, tilt: -3 },
-  { name: 'SATURN', au: 9.537, period: 10759.2, radius: 273, size: 8.5, color: '#e5d19c', phase: 3.3, tilt: 2 },
-  { name: 'URANUS', au: 19.191, period: 30688.5, radius: 338, size: 7, color: '#93e6e8', phase: .9, tilt: -2 },
-  { name: 'NEPTUNE', au: 30.07, period: 60182, radius: 400, size: 7, color: '#5d8bff', phase: 2.7, tilt: 3 },
+  { name: 'MERCURY', au: .387099, period: 87.969, radius: 54, size: 3.5, color: '#aaa9a7' },
+  { name: 'VENUS', au: .723336, period: 224.701, radius: 84, size: 5, color: '#e6c18a' },
+  { name: 'EARTH', au: 1.000003, period: 365.256, radius: 116, size: 6.4, color: '#47b9ff' },
+  { name: 'MARS', au: 1.523710, period: 686.980, radius: 153, size: 4.8, color: '#ff825b' },
+  { name: 'JUPITER', au: 5.202887, period: 4332.59, radius: 210, size: 10, color: '#d7b18b' },
+  { name: 'SATURN', au: 9.536676, period: 10759.2, radius: 273, size: 8.5, color: '#e5d19c' },
+  { name: 'URANUS', au: 19.189165, period: 30688.5, radius: 338, size: 7, color: '#93e6e8' },
+  { name: 'NEPTUNE', au: 30.069923, period: 60182, radius: 400, size: 7, color: '#5d8bff' },
 ];
+
+// J2000 heliocentric orbital elements and secular rates (per Julian century).
+// Mean longitude and perihelion/node evolution keep phases tied to the UTC clock.
+// The display uses schematic planet spacing, but orbital timing and directions are date-based.
+const ORBIT_ELEMENTS: Record<string, OrbitElements> = {
+  MERCURY: { a:.38709927, e:.20563593, i:7.00497902, L:252.25032350, peri:77.45779628, node:48.33076593, aRate:.00000037, eRate:.00001906, iRate:-.00594749, LRate:149472.67411175, periRate:.16047689, nodeRate:-.12534081 },
+  VENUS:   { a:.72333566, e:.00677672, i:3.39467605, L:181.97909950, peri:131.60246718, node:76.67984255, aRate:.00000390, eRate:-.00004107, iRate:-.00078890, LRate:58517.81538729, periRate:.00268329, nodeRate:-.27769418 },
+  EARTH:   { a:1.00000261, e:.01671123, i:-.00001531, L:100.46457166, peri:102.93768193, node:0, aRate:.00000562, eRate:-.00004392, iRate:-.01294668, LRate:35999.37244981, periRate:.32327364, nodeRate:0 },
+  MARS:    { a:1.52371034, e:.09339410, i:1.84969142, L:-4.55343205, peri:-23.94362959, node:49.55953891, aRate:.00001847, eRate:.00007882, iRate:-.00813131, LRate:19140.30268499, periRate:.44441088, nodeRate:-.29257343 },
+  JUPITER: { a:5.20288700, e:.04838624, i:1.30439695, L:34.39644051, peri:14.72847983, node:100.47390909, aRate:-.00011607, eRate:-.00013253, iRate:-.00183714, LRate:3034.74612775, periRate:.21252668, nodeRate:.20469106 },
+  SATURN:  { a:9.53667594, e:.05386179, i:2.48599187, L:49.95424423, peri:92.59887831, node:113.66242448, aRate:-.00125060, eRate:-.00050991, iRate:.00193609, LRate:1222.49362201, periRate:-.41897216, nodeRate:-.28867794 },
+  URANUS:  { a:19.18916464, e:.04725744, i:.77263783, L:313.23810451, peri:170.95427630, node:74.01692503, aRate:-.00196176, eRate:-.00004397, iRate:-.00242939, LRate:428.48202785, periRate:.40805281, nodeRate:.04240589 },
+  NEPTUNE: { a:30.06992276, e:.00859048, i:1.77004347, L:-55.12002969, peri:44.96476227, node:131.78422574, aRate:.00026291, eRate:.00005105, iRate:.00035372, LRate:218.45945325, periRate:-.32241464, nodeRate:-.00508664 },
+};
+const JULIAN_DAY_UNIX_EPOCH = 2440587.5;
+const J2000_JULIAN_DAY = 2451545.0;
+const MS_PER_DAY = 86400000;
+const MOON_DISPLAY_DISTANCE = 15.5;
 
 function n(...values: unknown[]): number | null {
   for (const value of values) {
@@ -107,12 +129,96 @@ function nasaEvent(row: Row, i: number): SolarEvent | null {
     source: 'NASA DONKI', link: s(row.link) || 'https://api.nasa.gov/DONKI/FLR',
   };
 }
-function position(planet: Planet, days: number) {
-  const angle = planet.phase + 2 * Math.PI * days / planet.period;
-  const tilt = planet.tilt * Math.PI / 180;
-  const x = planet.radius * Math.cos(angle);
-  const y = planet.radius * YSCALE * Math.sin(angle);
-  return { x: CX + x * Math.cos(tilt) - y * Math.sin(tilt), y: CY + x * Math.sin(tilt) + y * Math.cos(tilt) };
+function radians(degrees: number): number { return degrees * Math.PI / 180; }
+function wrapDegrees(degrees: number): number { return ((degrees % 360) + 360) % 360; }
+function julianCenturies(unixDays: number): number {
+  return (JULIAN_DAY_UNIX_EPOCH + unixDays - J2000_JULIAN_DAY) / 36525;
+}
+function elementsAt(planet: Planet, unixDays: number) {
+  const base = ORBIT_ELEMENTS[planet.name];
+  const t = julianCenturies(unixDays);
+  return {
+    a: base.a + base.aRate * t,
+    e: base.e + base.eRate * t,
+    i: radians(base.i + base.iRate * t),
+    L: base.L + base.LRate * t,
+    peri: base.peri + base.periRate * t,
+    node: base.node + base.nodeRate * t,
+  };
+}
+function solveKepler(meanAnomaly: number, eccentricity: number): number {
+  let eccentricAnomaly = meanAnomaly;
+  for (let i = 0; i < 10; i++) {
+    const correction = (eccentricAnomaly - eccentricity * Math.sin(eccentricAnomaly) - meanAnomaly) /
+      (1 - eccentricity * Math.cos(eccentricAnomaly));
+    eccentricAnomaly -= correction;
+    if (Math.abs(correction) < 1e-12) break;
+  }
+  return eccentricAnomaly;
+}
+function heliocentricPoint(planet: Planet, unixDays: number, meanAnomalyDegrees?: number) {
+  const elements = elementsAt(planet, unixDays);
+  const meanAnomaly = radians(meanAnomalyDegrees === undefined ? elements.L - elements.peri : meanAnomalyDegrees);
+  const E = solveKepler(meanAnomaly, elements.e);
+  const xOrbit = elements.a * (Math.cos(E) - elements.e);
+  const yOrbit = elements.a * Math.sqrt(1 - elements.e * elements.e) * Math.sin(E);
+  const argumentOfPerihelion = radians(elements.peri - elements.node);
+  const cosW = Math.cos(argumentOfPerihelion);
+  const sinW = Math.sin(argumentOfPerihelion);
+  const cosNode = Math.cos(radians(elements.node));
+  const sinNode = Math.sin(radians(elements.node));
+  const cosI = Math.cos(elements.i);
+  const xPlane = xOrbit * cosW - yOrbit * sinW;
+  const yPlane = xOrbit * sinW + yOrbit * cosW;
+  const x = xPlane * cosNode - yPlane * cosI * sinNode;
+  const y = xPlane * sinNode + yPlane * cosI * cosNode;
+  return { x, y, a: elements.a };
+}
+function position(planet: Planet, unixDays: number) {
+  const point = heliocentricPoint(planet, unixDays);
+  const scale = planet.radius / point.a;
+  return { x: CX + point.x * scale, y: CY - point.y * scale * YSCALE };
+}
+function orbitalPath(planet: Planet, unixDays: number): string {
+  const steps = 144;
+  const points: string[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const point = heliocentricPoint(planet, unixDays, i / steps * 360);
+    const scale = planet.radius / point.a;
+    points.push((i === 0 ? 'M ' : 'L ') + (CX + point.x * scale).toFixed(2) + ' ' + (CY - point.y * scale * YSCALE).toFixed(2));
+  }
+  return points.join(' ') + ' Z';
+}
+function moonPosition(earth: { x: number; y: number }, unixDays: number) {
+  const T = julianCenturies(unixDays);
+  const L = wrapDegrees(218.3164477 + 481267.88123421 * T);
+  const D = radians(297.8501921 + 445267.1114034 * T);
+  const M = radians(134.9633964 + 477198.8675055 * T);
+  const sunM = radians(357.5291092 + 35999.0502909 * T);
+  const F = radians(93.2720950 + 483202.0175233 * T);
+  const lunarLongitude = L +
+    6.289 * Math.sin(M) +
+    1.274 * Math.sin(2 * D - M) +
+    .658 * Math.sin(2 * D) +
+    .214 * Math.sin(2 * M) -
+    .186 * Math.sin(sunM) -
+    .114 * Math.sin(2 * F);
+  const lunarLatitude = 5.128 * Math.sin(F) + .280 * Math.sin(M + F) + .277 * Math.sin(M - F) + .173 * Math.sin(2 * D - F);
+  const distanceKm = 385000.56 - 20905.4 * Math.cos(M) - 3699.1 * Math.cos(2 * D - M) - 2956.0 * Math.cos(2 * D) - 570.2 * Math.cos(2 * M);
+  const angle = radians(lunarLongitude);
+  const latitude = radians(lunarLatitude);
+  const displayRadius = MOON_DISPLAY_DISTANCE * distanceKm / 384400;
+  let dx = displayRadius * Math.cos(latitude) * Math.cos(angle);
+  let dy = -displayRadius * Math.cos(latitude) * Math.sin(angle) * YSCALE;
+  // The lunar orbit is inclined about 5.1° to Earth's orbital plane.
+  const planeTilt = radians(-5.145);
+  const x = earth.x + dx * Math.cos(planeTilt) - dy * Math.sin(planeTilt);
+  const y = earth.y + dx * Math.sin(planeTilt) + dy * Math.cos(planeTilt);
+  return { x, y, angle: wrapDegrees(lunarLongitude), distanceKm, latitude: lunarLatitude };
+}
+function earthSiderealRotation(unixDays: number): number {
+  const jd = JULIAN_DAY_UNIX_EPOCH + unixDays;
+  return wrapDegrees(280.46061837 + 360.98564736629 * (jd - J2000_JULIAN_DAY));
 }
 function radiusAtAu(au: number): number {
   const value = Math.max(0, Math.min(MAX_AU, au));
@@ -142,6 +248,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const [historyStart, setHistoryStart] = useState(dayString(Date.now() - 29 * 86400000));
   const [selectedId, setSelectedId] = useState(CARRINGTON_EVENT.id);
   const [orbitSpeed, setOrbitSpeed] = useState(6);
+  const [realTimeOrbit, setRealTimeOrbit] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(60);
   const [playing, setPlaying] = useState(false);
   const [replayProgress, setReplayProgress] = useState(0);
@@ -226,10 +333,11 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
       const now = Date.now();
       const delta = Math.max(0, now - lastTick.current) / 1000;
       lastTick.current = now;
-      setOrbitDays((days) => days + delta * orbitSpeed);
+      const daysPerSecond = realTimeOrbit ? 1 / 86400 : orbitSpeed;
+      setOrbitDays((days) => days + delta * daysPerSecond);
     }, 80);
     return () => window.clearInterval(id);
-  }, [orbitSpeed]);
+  }, [orbitSpeed, realTimeOrbit]);
 
   const liveXray = useMemo(() => {
     const filtered = xrayRows.filter((row) => {
@@ -308,6 +416,10 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
     setReplayProgress(0);
   };
   const planets = PLANETS.map((planet) => ({ ...planet, ...position(planet, orbitDays) }));
+  const earthPlanet = planets.find((planet) => planet.name === 'EARTH')!;
+  const moon = moonPosition(earthPlanet, orbitDays);
+  const earthSpinDegrees = earthSiderealRotation(orbitDays);
+  const moonFacingAngle = Math.atan2(earthPlanet.y - moon.y, earthPlanet.x - moon.x) * 180 / Math.PI;
   const focused = planets.find((planet) => planet.name === focusedPlanet);
   const closeView = !!focusedPlanet && mapZoom > 1;
   const viewWidth = 1000 / mapZoom;
@@ -372,7 +484,10 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
           </defs>
           <rect width="1000" height="600" fill="url(#se-space-fill)" /><rect width="1000" height="600" fill="url(#se-starfield)" opacity=".85" />
           <path d={'M ' + CX + ' 0 V 600 M 0 ' + CY + ' H 1000'} stroke="#2b74a4" strokeWidth=".7" strokeDasharray="2 8" opacity=".14" />
-          <g className="solar-earth-orbits">{PLANETS.map((planet) => <ellipse key={planet.name} cx={CX} cy={CY} rx={planet.radius} ry={planet.radius * YSCALE} fill="none" stroke={planet.name === 'EARTH' ? '#2a83be' : '#23506b'} strokeWidth={planet.name === 'EARTH' ? '1.15' : '.85'} strokeOpacity={planet.name === 'EARTH' ? '.8' : '.48'} />)}</g>
+          <g className="solar-earth-orbits">{PLANETS.map((planet) => <path key={planet.name} d={orbitalPath(planet, orbitDays)} fill="none" stroke={planet.name === 'EARTH' ? '#2a83be' : '#23506b'} strokeWidth={planet.name === 'EARTH' ? '1.15' : '.85'} strokeOpacity={planet.name === 'EARTH' ? '.8' : '.48'} />)}</g>
+          <g className="solar-earth-moon-orbit" aria-label="Moon orbit around Earth">
+            <ellipse cx={earthPlanet.x} cy={earthPlanet.y} rx={MOON_DISPLAY_DISTANCE} ry={MOON_DISPLAY_DISTANCE * YSCALE} transform={'rotate(-5.145 ' + earthPlanet.x + ' ' + earthPlanet.y + ')'} fill="none" stroke="#8c9baa" strokeWidth=".65" strokeDasharray="2 3" strokeOpacity=".72" />
+          </g>
 
           {frontRadius > 0 && <g className={replaying ? 'solar-earth-front solar-earth-front-replay' : 'solar-earth-front solar-earth-front-live'}>
             <ellipse cx={CX} cy={CY} rx={frontRadius} ry={frontRadius * YSCALE} fill="none" stroke={replaying ? '#ffcf69' : '#43d7ff'} strokeWidth={replaying ? '2.1' : '1.4'} strokeDasharray={replaying ? '4 6' : '2 7'} opacity=".95" />
@@ -403,15 +518,37 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
               {impact && <circle cx={planet.x} cy={planet.y} r={planet.size + 5} fill="none" stroke="#ff2929" strokeWidth="2" filter="url(#se-earth-impact-glow)" className="solar-earth-hit-pulse" />}
               {planet.name === 'SATURN' && <ellipse cx={planet.x} cy={planet.y} rx={planet.size * 1.9} ry={planet.size * .62} transform={'rotate(-18 ' + planet.x + ' ' + planet.y + ')'} fill="none" stroke="#d9c38d" strokeWidth="2" opacity=".9" />}
               <circle cx={planet.x} cy={planet.y} r={planet.size} fill={'url(#se-planet-' + planet.name.toLowerCase() + ')'} stroke={impact ? '#ff342f' : planet.name === 'EARTH' ? '#c3f2ff' : '#d5e6f3'} strokeWidth={impact ? '2.5' : planet.name === 'EARTH' ? '1.2' : '.45'} className={impact ? 'solar-earth-hit-by-flare' : ''} filter={impact ? 'url(#se-earth-impact-glow)' : undefined} />
-              {planet.name === 'EARTH' && <><path d={'M ' + (planet.x - 3.2) + ' ' + (planet.y - 1.6) + ' l 2 -2.5 2.4 1 -1.4 2.4 2.5 2 -3.5 1.2 z'} fill="#45d5a2" /><circle cx={planet.x} cy={planet.y} r="11" fill="none" stroke={impact ? '#ff342f' : '#73dfff'} strokeWidth={impact ? '1.8' : '.8'} className={impact ? 'solar-earth-hit-pulse' : 'solar-earth-earth-pulse'} />
-                <circle cx={planet.x + 10} cy={planet.y - 7} r="1.7" fill="#aeb6c2" stroke="#e3e7ee" strokeWidth=".35" /><ellipse cx={planet.x} cy={planet.y} rx="15" ry="15" fill="none" stroke="#a7c2d5" strokeWidth=".5" opacity=".25" /></>}
+              {planet.name === 'EARTH' && <>
+                <defs><clipPath id="se-earth-disc-clip" clipPathUnits="userSpaceOnUse"><circle cx={planet.x} cy={planet.y} r={planet.size * .96} /></clipPath></defs>
+                <g clipPath="url(#se-earth-disc-clip)" transform={'translate(' + planet.x + ' ' + planet.y + ') rotate(' + earthSpinDegrees + ')'}>
+                  <path d="M -5.7 -2.2 C -5.1 -3.8 -3.7 -4.8 -2.3 -3.8 L -1.2 -2.8 -1.7 -1.8 -2.8 -1.4 -2.2 -.3 -3.1 .7 -3.7 -.2 -4.8 -.7 Z" fill="#55e2a5" />
+                  <path d="M -2.4 1.0 L -1.1 .2 -.2 1.7 -.7 3.1 -1.4 4.0 -2.1 2.6 Z" fill="#42c98c" />
+                  <path d="M -.2 -3.9 L 1.1 -4.1 2.1 -3.3 3.4 -3.2 4.5 -2.1 3.7 -1.4 2.7 -1.5 2.2 -.5 1.3 -.7 .7 .2 -.1 -.5 -.5 -1.8 -1.4 -2.4 Z" fill="#49d49a" />
+                  <path d="M .5 .2 L 1.8 .2 2.6 1.1 2.0 2.4 .8 2.9 .1 1.8 Z" fill="#35bb81" />
+                  <path d="M 3.6 2.7 L 4.9 2.3 5.2 3.2 4.3 3.8 Z" fill="#56dfa4" />
+                  <ellipse cx="0" cy="0" rx="2.7" ry="6.1" fill="none" stroke="#92e8ff" strokeWidth=".32" strokeOpacity=".46" />
+                  <path d="M -4.1 -5.7 Q 0 -1.4 -4.1 5.7" fill="none" stroke="#b9f2ff" strokeWidth=".24" strokeOpacity=".3" />
+                </g>
+                <path d={'M ' + (planet.x - 5.6) + ' ' + (planet.y - 2.1) + ' Q ' + (planet.x - 7.6) + ' ' + planet.y + ' ' + (planet.x - 5.5) + ' ' + (planet.y + 2.4)} fill="none" stroke="#b7e9ff" strokeWidth=".38" opacity=".38" />
+                <circle cx={planet.x} cy={planet.y} r="11" fill="none" stroke={impact ? '#ff342f' : '#73dfff'} strokeWidth={impact ? '1.8' : '.8'} className={impact ? 'solar-earth-hit-pulse' : 'solar-earth-earth-pulse'} />
+                <path d={'M ' + (planet.x - 2.3) + ' ' + (planet.y - 5.7) + ' L ' + (planet.x + .1) + ' ' + (planet.y + 5.7)} stroke="#b5edff" strokeWidth=".42" strokeDasharray="1 1.6" opacity=".5" />
+              </>}
               <text x={planet.x} y={planet.y - planet.size - (planet.name === 'JUPITER' || planet.name === 'SATURN' ? 13 : 10)} className={planet.name === 'EARTH' ? 'solar-earth-planet-label solar-earth-label-earth' : 'solar-earth-planet-label'} textAnchor="middle">{planet.name}</text>
             </g>;
           })}
+          <g className="solar-earth-moon" role="button" tabIndex={0} aria-label="Moon, orbiting Earth every 27.32 days" onClick={() => { setFocusedPlanet('EARTH'); setMapZoom(12); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setFocusedPlanet('EARTH'); setMapZoom(12); } }}>
+            {planetIsInImpact(earthPlanet) && <circle cx={moon.x} cy={moon.y} r="5.5" fill="none" stroke="#ff2929" strokeWidth="1.4" filter="url(#se-earth-impact-glow)" className="solar-earth-hit-pulse" />}
+            <circle cx={moon.x} cy={moon.y} r="2.15" fill="url(#se-planet-moon)" stroke={planetIsInImpact(earthPlanet) ? '#ff342f' : '#d6dbe3'} strokeWidth={planetIsInImpact(earthPlanet) ? '.9' : '.45'} filter={planetIsInImpact(earthPlanet) ? 'url(#se-earth-impact-glow)' : undefined} />
+            <g transform={'rotate(' + moonFacingAngle + ' ' + moon.x + ' ' + moon.y + ')'}>
+              <circle cx={moon.x + .65} cy={moon.y - .42} r=".52" fill="#60656d" opacity=".72" />
+              <circle cx={moon.x + .95} cy={moon.y + .38} r=".25" fill="#6b7079" opacity=".8" />
+            </g>
+            <text x={moon.x} y={moon.y - 3.2} textAnchor="middle" className="solar-earth-planet-label">MOON</text>
+          </g>
 
-          <text x={CX + PLANETS[2].radius + 10} y={CY - 17} className="solar-earth-distance-note">1 AU · 8m 19s light</text>
-          <text x={CX + 8} y="27" className="solar-earth-map-caption">{closeView ? focusedPlanet + ' CLOSE VIEW' : 'HELIOCENTRIC VIEW / ORBITAL PLANE'}</text>
-          <text x="18" y="579" className="solar-earth-map-small">ORBIT SPEED: {orbitSpeed} SIMULATED DAYS / SECOND</text>
+          <text x={CX + PLANETS[2].radius + 10} y={CY - 17} className="solar-earth-distance-note">EARTH = 1 AU (schematic spacing)</text>
+          <text x={CX + 8} y="27" className="solar-earth-map-caption">{closeView ? focusedPlanet + ' CLOSE VIEW' : 'HELIOCENTRIC VIEW / DATE-BASED ORBITS'}</text>
+          <text x="18" y="579" className="solar-earth-map-small">{realTimeOrbit ? 'REAL TIME · UTC ORBIT + AXIAL ROTATION' : 'ORBIT SPEED: ' + orbitSpeed + ' SIMULATED DAYS / SECOND'}</text>
           <text x="982" y="579" textAnchor="end" className="solar-earth-map-small">{replaying ? 'REPLAY FRONT: ' + replayAu.toFixed(2) + ' AU' : liveFront ? 'LIVE OBSERVED X-RAY FRONT: ' + liveFrontAu.toFixed(2) + ' AU' : 'LIVE MODE · WAITING FOR B-CLASS OR STRONGER X-RAYS'}</text>
           {replaying && selected && <text x={CX + 28} y={CY + 26} className="solar-earth-selected-event-label">{selected.classType.toUpperCase()} · {replayAu.toFixed(2)} AU</text>}
         </svg>
@@ -427,14 +564,14 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <div className="solar-earth-current-event"><span className="solar-earth-live-lamp" /><div><strong>{replaying && selected ? 'REPLAY · ' + selected.classType + ' SOLAR FLARE' : 'LIVE SOLAR OBSERVATIONS'}</strong><small>{replaying && selected ? stamp(selected.beginMs) + ' · estimated solar emission 8m 19s earlier' : stamp(xrayTime) + ' · GOES measures X-rays near Earth'}</small></div></div>
             <div className="solar-earth-playback-actions">
               <button type="button" className={playing ? 'se-action se-action-hot' : 'se-action'} onClick={togglePlay} disabled={!selected}><Play size={12} />{playing ? 'PAUSE' : 'PLAY EVENT'}</button>
-              <button type="button" className="se-action" onClick={() => { setPlaying(false); setReplaying(false); setReplayProgress(0); }}><TimerReset size={12} />LIVE</button>
+              <button type="button" className={realTimeOrbit && !replaying ? 'se-action se-action-hot' : 'se-action'} title="Use current UTC time and real orbital rates" onClick={() => { setPlaying(false); setReplaying(false); setReplayProgress(0); setOrbitDays(Date.now() / MS_PER_DAY); setOrbitSpeed(1); setRealTimeOrbit(true); }}><TimerReset size={12} />REAL TIME</button>
             </div>
           </div>
           <div className="solar-earth-timeline-row">
             <span>{replaying ? 'LIGHT TRAVEL' : 'ORBIT SPEED'}</span>
-            {replaying ? <input aria-label="Solar flare propagation replay position" type="range" min="0" max="1000" value={replayProgress} onChange={(event) => { setReplayProgress(Number(event.target.value)); setPlaying(false); setReplaying(true); }} /> : <input aria-label="Solar system orbit speed" type="range" min="1" max="30" value={orbitSpeed} onChange={(event) => setOrbitSpeed(Number(event.target.value))} />}
+            {replaying ? <input aria-label="Solar flare propagation replay position" type="range" min="0" max="1000" value={replayProgress} onChange={(event) => { setReplayProgress(Number(event.target.value)); setPlaying(false); setReplaying(true); }} /> : <input aria-label="Solar system orbit speed" type="range" min="1" max="30" value={orbitSpeed} onChange={(event) => { setOrbitSpeed(Number(event.target.value)); setRealTimeOrbit(false); }} />}
             <select aria-label="Solar flare replay speed" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}><option value={1}>1× REAL TIME</option><option value={60}>60× PLAYBACK</option><option value={300}>300× PLAYBACK</option><option value={600}>600× PLAYBACK</option></select>
-            <span className="solar-earth-timeline-time">{replaying ? (elapsed / 60).toFixed(1) + ' min / 4.2 hr' : orbitSpeed + ' days / sec'}</span>
+            <span className="solar-earth-timeline-time">{replaying ? (elapsed / 60).toFixed(1) + ' min / 4.2 hr' : realTimeOrbit ? '1 day / 24 hours · UTC' : orbitSpeed + ' simulated days / sec'}</span>
           </div>
         </div>
         <div className="solar-earth-history">
