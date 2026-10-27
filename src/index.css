@@ -1633,3 +1633,84 @@ button:hover, button:focus-visible {
     max-height: 30vh;
   }
 }
+
+
+/* Accessibility pass: larger, easier-to-read Solar Flare controls and event history. */
+.atlas-workspace.solar-flare-active .solar-earth-left-dock-title {
+  font-size: 15px;
+  line-height: 1.55;
+}
+.atlas-workspace.solar-flare-active .solar-earth-map-key {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.atlas-workspace.solar-flare-active .solar-earth-playback,
+.atlas-workspace.solar-flare-active .solar-earth-history {
+  font-size: 13px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-current-event strong {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-current-event small {
+  font-size: 12px;
+  line-height: 1.55;
+}
+.atlas-workspace.solar-flare-active .solar-earth-playback-actions .se-action {
+  min-height: 40px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.atlas-workspace.solar-flare-active .solar-earth-timeline-row > span:first-child {
+  font-size: 11px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-timeline-row select,
+.atlas-workspace.solar-flare-active .solar-earth-timeline-time {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar > div > strong {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar > div > small {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar label {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar input[type="date"] {
+  min-height: 38px;
+  font-size: 13px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-load {
+  min-height: 40px;
+  font-size: 12px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-chip {
+  gap: 6px;
+  min-height: 76px;
+  padding: 12px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-class {
+  font-size: 12px;
+  font-weight: 700;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-chip > strong {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-chip > small {
+  font-size: 12px;
+  line-height: 1.55;
+}
+.atlas-workspace.solar-flare-active .solar-earth-notice,
+.atlas-workspace.solar-flare-active .solar-earth-footnote {
+  font-size: 12px;
+  line-height: 1.65;
+}
+.atlas-workspace.solar-flare-active .solar-earth-footnote a {
+  font-size: inherit;
+}
