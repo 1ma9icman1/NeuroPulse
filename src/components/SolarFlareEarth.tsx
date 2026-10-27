@@ -315,8 +315,8 @@ export function SolarFlareEarth() {
           <g className="solar-earth-orbits">{PLANETS.map((planet) => <g key={planet.name} transform={'rotate(' + planet.tilt + ' ' + CX + ' ' + CY + ')'}><ellipse cx={CX} cy={CY} rx={planet.radius} ry={planet.radius * YSCALE} fill="none" stroke={planet.name === 'EARTH' ? '#2a83be' : '#23506b'} strokeWidth={planet.name === 'EARTH' ? '1.15' : '.85'} strokeOpacity={planet.name === 'EARTH' ? '.8' : '.48'} /></g>)}</g>
 
           {frontRadius > 0 && <g className={replaying ? 'solar-earth-front solar-earth-front-replay' : 'solar-earth-front solar-earth-front-live'}>
-            <circle cx={CX} cy={CY} r={frontRadius} fill="none" stroke={replaying ? '#ffcf69' : '#43d7ff'} strokeWidth={replaying ? '2.1' : '1.4'} strokeDasharray={replaying ? '4 6' : '2 7'} opacity=".95" />
-            <circle cx={CX} cy={CY} r={Math.max(3, frontRadius - 6)} fill="none" stroke={replaying ? '#ff8f45' : '#43d7ff'} strokeWidth=".65" opacity=".4" />
+            <ellipse cx={CX} cy={CY} rx={frontRadius} ry={frontRadius * YSCALE} fill="none" stroke={replaying ? '#ffcf69' : '#43d7ff'} strokeWidth={replaying ? '2.1' : '1.4'} strokeDasharray={replaying ? '4 6' : '2 7'} opacity=".95" />
+            <ellipse cx={CX} cy={CY} rx={Math.max(3, frontRadius - 6)} ry={Math.max(3, frontRadius - 6) * YSCALE} fill="none" stroke={replaying ? '#ff8f45' : '#43d7ff'} strokeWidth=".65" opacity=".4" />
           </g>}
 
           <g className="solar-earth-solar-activity">
@@ -329,7 +329,7 @@ export function SolarFlareEarth() {
               const y2 = CY + Math.sin(angle + .11) * (length * .78 + 15);
               const mx = (x1 + x2) / 2 + Math.cos(angle + 1.2) * 18;
               const my = (y1 + y2) / 2 + Math.sin(angle + 1.2) * 18;
-              return <path key={index} d={'M ' + x1 + ' ' + y1 + ' Q ' + mx + ' ' + my + ' ' + x2 + ' ' + y2} className="solar-earth-flare-ribbon" style={{ opacity: .13 + flareStrength * .72, animationDelay: (-index * .21) + 's' }} />;
+              return <path key={index} d={'M ' + x1 + ' ' + y1 + ' Q ' + mx + ' ' + my + ' ' + x2 + ' ' + y2} className="solar-earth-flare-ribbon" style={{ opacity: flareStrength * .85, animationDelay: (-index * .21) + 's' }} />;
             })}
             <circle cx={CX} cy={CY} r={20 + flareStrength * 5} fill="url(#se-sun-fill)" filter="url(#se-sun-glow)" />
             <circle cx={CX} cy={CY} r="13" fill="url(#se-sun-fill)" />
