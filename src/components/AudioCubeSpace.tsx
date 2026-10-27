@@ -107,6 +107,7 @@ interface AudioCubeSpaceProps {
   openWaterElevationRequest?: number;
   openEarthSearchRequest?: number;
   onOpenWaterElevation?: () => void;
+  onOpenSolarFlare?: () => void;
 }
 
 export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
@@ -138,6 +139,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   openWaterElevationRequest = 0,
   openEarthSearchRequest = 0,
   onOpenWaterElevation,
+  onOpenSolarFlare,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -2963,6 +2965,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             title="Open the water-level and elevation model in this Earth window"
           >
             Water Elevation
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenSolarFlare?.()}
+            aria-label="Open Solar Flare universe"
+            title="Open the Solar Flare universe and Carrington Event replay"
+            className="px-2.5 py-1 text-xs font-mono font-bold rounded-md border border-orange-500/70 bg-orange-950/80 text-orange-200 hover:bg-orange-800 hover:text-white transition-colors"
+          >
+            Solar Flare
           </button>
 
           <button
