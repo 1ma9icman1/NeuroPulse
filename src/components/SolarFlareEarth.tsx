@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, AlertTriangle, CalendarClock, CircleDot, ExternalLink, Play, RefreshCw, Satellite, Sun, TimerReset, Zap } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarClock, Camera, CircleDot, ExternalLink, Play, RefreshCw, Satellite, Sun, TimerReset, Zap } from 'lucide-react';
 
 type Row = Record<string, unknown>;
 type SolarEvent = {
@@ -317,6 +317,39 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const flareHasReachedEarth = frontRadius >= PLANETS.find((planet) => planet.name === 'EARTH')!.radius;
   const stateClass = feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
 
+  const saveSolarScreenshot = async () => {
+    const svg = document.querySelector('.solar-earth-svg') as SVGSVGElement | null;
+    if (!svg) { setNotice('Solar-system view is not ready for a screenshot yet.'); return; }
+    try {
+      const clone = svg.cloneNode(true) as SVGSVGElement;
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      clone.setAttribute('width', '1600');
+      clone.setAttribute('height', '900');
+      const svgBlob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' });
+      const objectUrl = URL.createObjectURL(svgBlob);
+      try {
+        const image = new Image();
+        image.src = objectUrl;
+        await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('Could not render solar-system image.')); });
+        const canvas = document.createElement('canvas');
+        canvas.width = 1600; canvas.height = 900;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Could not create screenshot canvas.');
+        context.fillStyle = '#020713'; context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG encoding failed.')), 'image/png'));
+        const pngUrl = URL.createObjectURL(png);
+        const link = document.createElement('a');
+        link.href = pngUrl; link.download = 'neuropulse-solar-flare-earth.png'; link.click();
+        window.setTimeout(() => URL.revokeObjectURL(pngUrl), 1500);
+        setNotice('Solar-system screenshot saved as PNG.');
+      } finally { URL.revokeObjectURL(objectUrl); }
+    } catch (error) {
+      console.error('Solar-system screenshot failed:', error);
+      setNotice('Screenshot failed. Try again after the solar-system view finishes rendering.');
+    }
+  };
+
   return (
     <>
     <section className="solar-flare-earth-view" aria-label="Solar Flare Earth solar system map">
@@ -327,6 +360,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
         </div>
         <div className={'solar-earth-feed solar-earth-feed-' + stateClass}><i />{feedStatus}<span>·</span>{lastRefresh ? new Date(lastRefresh).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Awaiting first sample'}</div>
         <button type="button" className="solar-earth-refresh" onClick={onBack} title="Return to the Earth views">← EARTH VIEWS</button>
+        <button type="button" className="solar-earth-refresh" onClick={() => void saveSolarScreenshot()} title="Save the current solar-system view as a PNG"><Camera size={13} /> SCREENSHOT</button>
         <button type="button" className="solar-earth-refresh" onClick={() => void refresh()} disabled={loading}><RefreshCw size={13} className={loading ? 'solar-earth-spin' : ''} />{loading ? 'SYNCING' : 'SYNC NOAA'}</button>
       </div>
 
