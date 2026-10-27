@@ -445,7 +445,6 @@ export default function App() {
         {favoriteSites.length ? favoriteSites.map((site: any) => <div key={site.id} className="atlas-favorite-row" style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',padding:'6px 0'}}><button className="atlas-result-chip" onClick={() => { setSelectedGlobeSite(site); setSelectedSiteId(site.id); setEarthAreaView('street'); setShowFavorites(false); }}><MapPin size={12}/><span>{site.name}</span></button><button aria-label={'Remove '+site.name+' from favorites'} onClick={() => toggleFavorite(site)}><Star size={14} fill="currentColor"/></button></div>) : <p className="atlas-no-data">No favorites saved yet. Select a site and use Save to Favorites.</p>}
       </section>}
       <div className={activeNav === 'SOLAR FLARE' ? 'atlas-workspace solar-flare-active' : 'atlas-workspace'}>
-        <aside className="solar-flare-sidebar" aria-label="Solar Flare controls"><div id="solar-flare-left-dock-target" className="solar-flare-left-dock-target" aria-label="Solar flare controls panel" /></aside>
         <aside className="atlas-left" aria-label="Earth navigation and site tools">
           <section className="atlas-panel atlas-navigation">
             <div className="atlas-panel-heading">RESEARCH MODULES</div>
@@ -615,6 +614,7 @@ export default function App() {
         </section>
 
         <aside className="atlas-right">
+          <div id="solar-flare-right-dock-target" className="solar-flare-right-dock-target" aria-label="Solar Flare controls panel" />
           {activeNav === 'SOLAR FLARE RESEARCH' && <SolarFlareResearch onClose={() => setActiveNav('GLOBAL SEARCH')} />}
           <button type="button" className="atlas-search-right-button" onClick={() => setShowSearchPanel(value => !value)} aria-expanded={showSearchPanel}><Search size={15} /> {showSearchPanel ? "CLOSE SEARCH" : "SEARCH"}</button>
           {showSearchPanel && <div className="atlas-search-drawer">
