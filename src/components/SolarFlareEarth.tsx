@@ -546,12 +546,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
         <button type="button" className="solar-earth-refresh" onClick={() => void refresh()} disabled={loading}><RefreshCw size={13} className={loading ? 'solar-earth-spin' : ''} />{loading ? 'SYNCING' : 'SYNC NOAA'}</button>
       </div>
 
-      <div className="solar-earth-metrics">
-        <div className="solar-earth-metric"><span><Zap size={12} /> GOES X-RAY</span><strong>{fluxText(xrayFlux)}</strong><small>{classFromFlux(xrayFlux)} · W/m²</small></div>
-        <div className="solar-earth-metric"><span><Activity size={12} /> PLANETARY K</span><strong>{kp === null ? '—' : kp.toFixed(1) + ' / 9'}</strong><small>{kp === null ? 'No current sample' : kp >= 5 ? 'Storm threshold ≥ 5' : kp >= 4 ? 'Elevated activity' : 'Quiet to unsettled'}</small></div>
-        <div className="solar-earth-metric"><span><Satellite size={12} /> PROTON FLUX</span><strong>{fluxText(protonFlux)}</strong><small>{liveProton ? s(liveProton.energy, liveProton.energy_channel, liveProton.channel, 'Energy channel') : 'Energy channel unavailable'}</small></div>
-        <div className="solar-earth-metric"><span><CircleDot size={12} /> FLARE EVENTS</span><strong>{events.length}</strong><small>{noaaEvents.length} NOAA · {nasaEvents.length} NASA records</small></div>
-      </div>
+      <div className="solar-earth-event-summary"><span><CircleDot size={12} /> FLARE EVENTS</span><strong>{events.length}</strong><small>{noaaEvents.length} NOAA · {nasaEvents.length} NASA records</small></div>
 
       <div className="solar-earth-mapframe"
         onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setMapZoom(value => { const step = value < 3 ? 0.25 : value < 8 ? 0.75 : 1.5; const delta = event.deltaY < 0 ? step : -step; return Math.max(1, Math.min(18, Number((value + delta).toFixed(2)))); }); }}
