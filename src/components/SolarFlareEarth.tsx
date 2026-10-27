@@ -284,6 +284,8 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const [replayProgress, setReplayProgress] = useState(0);
   const [replaying, setReplaying] = useState(true);
   const [orbitDays, setOrbitDays] = useState(Date.now() / 86400000);
+  const [simulationPlaying, setSimulationPlaying] = useState(false);
+  const [simulationSpeed, setSimulationSpeed] = useState(6);
   const [dockTarget, setDockTarget] = useState<HTMLElement | null>(null);
   const [mapZoom, setMapZoom] = useState(1);
   const [focusedPlanet, setFocusedPlanet] = useState<string | null>(null);
@@ -367,16 +369,31 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     lastTick.current = Date.now();
+    if (!simulationPlaying) return;
     const id = window.setInterval(() => {
       const now = Date.now();
       const delta = Math.max(0, now - lastTick.current) / 1000;
       lastTick.current = now;
-      const daysPerSecond = realTimeOrbit ? 1 / 86400 : orbitSpeed;
+      const daysPerSecond = realTimeOrbit ? 1 / 86400 : simulationSpeed;
       setOrbitDays((days) => days + delta * daysPerSecond);
     }, 80);
     return () => window.clearInterval(id);
-  }, [orbitSpeed, realTimeOrbit]);
+  }, [simulationPlaying, simulationSpeed, realTimeOrbit]);
 
+  const simulationTimeMs = orbitDays * MS_PER_DAY;
+  const simulationDate = new Date(simulationTimeMs);
+  const simulationIsLive = Math.abs(simulationTimeMs - Date.now()) <= 5 * 60 * 1000;
+  const sliderMinMs = Date.parse('1859-09-01T00:00:00Z');
+  const sliderMaxMs = Date.parse('2100-12-31T23:59:59Z');
+  const sliderValue = Math.max(0, Math.min(1000, (simulationTimeMs - sliderMinMs) / (sliderMaxMs - sliderMinMs) * 1000));
+  const setSimulationTimestamp = (timestamp: number, resume = false) => {
+    if (!Number.isFinite(timestamp)) return;
+    setOrbitDays(timestamp / MS_PER_DAY);
+    setRealTimeOrbit(false);
+    setReplaying(false);
+    setPlaying(false);
+    setSimulationPlaying(resume);
+  };
   const liveXray = useMemo(() => {
     const filtered = xrayRows.filter((row) => {
       const energy = s(row.energy, row.energy_channel, row.channel).toLowerCase();
@@ -389,10 +406,21 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
     return !energy || energy.includes('>=10') || energy.includes('>10') || energy.includes('10 mev') || energy.includes('p10');
   }) || latest(protonRows), [protonRows]);
   const liveKp = useMemo(() => latest(kpRows), [kpRows]);
-  const xrayFlux = n(liveXray?.flux, liveXray?.value);
-  const protonFlux = n(liveProton?.flux, liveProton?.value);
-  const kp = n(liveKp?.kp_index, liveKp?.kp, liveKp?.estimated_kp, liveKp?.value);
-  const xrayTime = rowTime(liveXray || {});
+  const xrayRowsForSimulation = useMemo(() => xrayRows.filter((row) => {
+    const energy = s(row.energy, row.energy_channel, row.channel).toLowerCase();
+    return !energy || energy.includes('0.1-0.8') || energy.includes('0.1 – 0.8') || energy.includes('long') || energy.includes('xl');
+  }), [xrayRows]);
+  const protonRowsForSimulation = useMemo(() => protonRows.filter((row) => {
+    const energy = s(row.energy, row.energy_channel, row.channel).toLowerCase();
+    return !energy || energy.includes('>=10') || energy.includes('>10') || energy.includes('10 mev') || energy.includes('p10');
+  }), [protonRows]);
+  const xrayForSimulation = simulationIsLive ? liveXray : latest(xrayRowsForSimulation.filter((row) => rowTime(row) <= simulationTimeMs && simulationTimeMs - rowTime(row) <= 6 * 60 * 60 * 1000));
+  const protonForSimulation = simulationIsLive ? liveProton : latest(protonRowsForSimulation.filter((row) => rowTime(row) <= simulationTimeMs && simulationTimeMs - rowTime(row) <= 6 * 60 * 60 * 1000));
+  const kpForSimulation = simulationIsLive ? liveKp : latest(kpRows.filter((row) => rowTime(row) <= simulationTimeMs && simulationTimeMs - rowTime(row) <= 3 * 60 * 60 * 1000));
+  const xrayFlux = n(xrayForSimulation?.flux, xrayForSimulation?.value);
+  const protonFlux = n(protonForSimulation?.flux, protonForSimulation?.value);
+  const kp = n(kpForSimulation?.kp_index, kpForSimulation?.kp, kpForSimulation?.estimated_kp, kpForSimulation?.value);
+  const xrayTime = rowTime(xrayForSimulation || {});
   const events = useMemo(() => {
     const merged = [CARRINGTON_EVENT, ...noaaEvents, ...nasaEvents].sort((a, b) => b.beginMs - a.beginMs);
     const distinct: SolarEvent[] = [];
@@ -410,9 +438,9 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
 
   const selected = events.find((event) => event.id === selectedId);
   const flareStrength = xrayFlux === null ? 0 : Math.max(0, Math.min(1, (Math.log10(Math.max(xrayFlux, 1e-9)) + 9) / 5));
-  const liveFront = xrayFlux !== null && xrayFlux >= 1e-7;
-  // GOES records X-rays near Earth; use the observation timestamp as the 1-AU crossing time,
-  // then advance that observed photon front at c instead of inventing a CME speed.
+  const liveFront = simulationIsLive && xrayFlux !== null && xrayFlux >= 1e-7;
+  // A live propagation front is shown only while viewing current measured GOES data.
+  // Historical and future simulation dates never reuse today's live flare as if it happened then.
   const liveFrontAu = Math.min(MAX_AU, 1 + Math.max(0, Date.now() - xrayTime) / 1000 / LIGHT_SECONDS_PER_AU);
   const elapsed = replayProgress / 1000 * MAX_REPLAY_SECONDS;
   const replayAu = Math.min(MAX_AU, elapsed / LIGHT_SECONDS_PER_AU);
@@ -653,7 +681,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <div className="solar-earth-current-event"><span className="solar-earth-live-lamp" /><div><strong>{replaying && selected ? 'REPLAY · ' + selected.classType + ' SOLAR FLARE' : 'LIVE SOLAR OBSERVATIONS'}</strong><small>{replaying && selected ? stamp(selected.beginMs) + ' · estimated solar emission 8m 19s earlier' : stamp(xrayTime) + ' · GOES measures X-rays near Earth'}</small></div></div>
             <div className="solar-earth-playback-actions">
               <button type="button" className={playing ? 'se-action se-action-hot' : 'se-action'} onClick={togglePlay} disabled={!selected}><Play size={12} />{playing ? 'PAUSE' : 'PLAY EVENT'}</button>
-              <button type="button" className={realTimeOrbit && !replaying ? 'se-action se-action-hot' : 'se-action'} title="Use current UTC time and real orbital rates" onClick={() => { setPlaying(false); setReplaying(false); setReplayProgress(0); setOrbitDays(Date.now() / MS_PER_DAY); setOrbitSpeed(1); setRealTimeOrbit(true); }}><TimerReset size={12} />REAL TIME</button>
+              <button type="button" className={realTimeOrbit && !replaying ? 'se-action se-action-hot' : 'se-action'} title="Return to current UTC time and real orbital rates" onClick={() => { setPlaying(false); setReplaying(false); setReplayProgress(0); setOrbitDays(Date.now() / MS_PER_DAY); setOrbitSpeed(1); setRealTimeOrbit(true); setSimulationPlaying(true); }}><TimerReset size={12} />LIVE TIME</button>
             </div>
           </div>
           <div className="solar-earth-timeline-row">
@@ -662,6 +690,29 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <select aria-label="Solar flare replay speed" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}><option value={1}>1× REAL TIME</option><option value={60}>60× PLAYBACK</option><option value={300}>300× PLAYBACK</option><option value={600}>600× PLAYBACK</option></select>
             <span className="solar-earth-timeline-time">{replaying ? (elapsed / 60).toFixed(1) + ' min / 4.2 hr' : realTimeOrbit ? '1 day / 24 hours · UTC' : orbitSpeed + ' simulated days / sec'}</span>
           </div>
+          <section className="solar-earth-simulation-clock" aria-label="Connected simulation date and time controls" style={{ marginTop: 12, padding: 12, border: '1px solid rgba(105, 190, 255, .28)', borderRadius: 10, background: 'rgba(3, 15, 30, .94)', display: 'grid', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ color: '#7dd3fc', fontSize: 10, fontWeight: 700, letterSpacing: '.16em' }}>SIMULATION CLOCK · UTC</div>
+                <strong style={{ display: 'block', color: '#f0f8ff', fontSize: 18, fontVariantNumeric: 'tabular-nums' }}>{simulationDate.toISOString().replace('T', ' ').slice(0, 19)} UTC</strong>
+                <small style={{ color: simulationIsLive ? '#7ce7b0' : '#f6c879' }}>{simulationIsLive ? 'LIVE MEASUREMENTS · CURRENT TIME' : simulationTimeMs > Date.now() ? 'FUTURE SIMULATION · LIVE MEASUREMENTS HIDDEN' : 'HISTORICAL SIMULATION · MATCHING ARCHIVE SAMPLES ONLY'}</small>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <button type="button" className="se-action" onClick={() => setSimulationPlaying(value => !value)} title={simulationPlaying ? 'Pause simulation clock' : 'Play simulation clock'}>{simulationPlaying ? 'PAUSE TIME' : 'PLAY TIME'}</button>
+                <select aria-label="Simulation clock speed" value={simulationSpeed} onChange={(event) => setSimulationSpeed(Number(event.target.value))} style={{ maxWidth: 150 }}>
+                  <option value={1}>1 simulated day/sec</option><option value={6}>6 simulated days/sec</option><option value={30}>30 simulated days/sec</option><option value={365}>1 simulated year/sec</option>
+                </select>
+              </div>
+            </div>
+            <input aria-label="Simulation date timeline from 1859 through 2100" type="range" min="0" max="1000" step="1" value={sliderValue} onChange={(event) => setSimulationTimestamp(sliderMinMs + Number(event.target.value) / 1000 * (sliderMaxMs - sliderMinMs))} style={{ width: '100%', accentColor: '#48c7ff', cursor: 'ew-resize' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: '#9bb4cb', fontSize: 11 }}><span>1859 · Carrington event</span><span>Present</span><span>2100 · Future</span></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#b8cde0', fontSize: 12 }}>DATE <input aria-label="Simulation date" type="date" min="1859-09-01" max="2100-12-31" value={dayString(simulationTimeMs)} onChange={(event) => { if (event.target.value) { const next = Date.parse(event.target.value + 'T' + simulationDate.toISOString().slice(11, 19) + 'Z'); setSimulationTimestamp(next); } }} /></label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#b8cde0', fontSize: 12 }}>TIME UTC <input aria-label="Simulation time UTC" type="time" step="1" value={simulationDate.toISOString().slice(11, 19)} onChange={(event) => { if (event.target.value) { const next = Date.parse(dayString(simulationTimeMs) + 'T' + event.target.value + 'Z'); setSimulationTimestamp(next); } }} /></label>
+              <button type="button" className="se-action" onClick={() => { setSimulationTimestamp(Date.now()); setRealTimeOrbit(true); setSimulationPlaying(true); setOrbitSpeed(1); }}>NOW</button>
+            </div>
+            <small style={{ color: '#8ea9c2', lineHeight: 1.45 }}>Orbital positions, planetary rotation, and Moon position follow this clock. Instrument readings only appear when a timestamped measurement exists for the selected time; current NOAA imagery remains live imagery.</small>
+          </section>
         </div>
         <div className="solar-earth-history">
           <div className="solar-earth-history-toolbar">
