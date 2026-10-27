@@ -459,6 +459,7 @@ export default function App() {
               </button>
             ))}
           </section>
+          <div id="solar-flare-left-dock-target" className="solar-flare-left-dock-target" aria-label="Solar flare controls panel" />
           <section className="atlas-panel atlas-add-site-panel">
             <button type="button" className="atlas-add-site-launch" onClick={() => setShowAddEarthSite(value => !value)}><MapPin size={15} /> {showAddEarthSite ? 'CLOSE ADD EARTH SITE' : 'ADD EARTH SITE'}</button>
             {showAddEarthSite && <form className="atlas-add-site-form" onSubmit={handleAddEarthSite}>

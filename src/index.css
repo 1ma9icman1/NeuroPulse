@@ -1351,3 +1351,7 @@ button:hover, button:focus-visible {
   0% { opacity: .95; transform: scale(.9); }
   100% { opacity: .05; transform: scale(2.8); }
 }
+
+/* Dedicated portal mount for Solar Flare controls; keeps them in the actual left sidebar. */
+.solar-flare-left-dock-target { display: contents; }
+.solar-flare-left-dock-target:empty { display: none; }
