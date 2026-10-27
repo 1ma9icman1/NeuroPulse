@@ -64,7 +64,7 @@ const PLANET_ROTATION_HOURS: Record<string, number> = {
 const PLANET_TEXTURE_URLS: Record<string, string> = {
   MERCURY: 'https://www.solarsystemscope.com/textures/download/2k_mercury.jpg',
   VENUS: 'https://www.solarsystemscope.com/textures/download/2k_venus_surface.jpg',
-  EARTH: 'https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg',
+  EARTH: 'https://www.solarsystemscope.com/textures/download/8k_earth_daymap.jpg',
   MARS: 'https://www.solarsystemscope.com/textures/download/2k_mars.jpg',
   JUPITER: 'https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg',
   SATURN: 'https://www.solarsystemscope.com/textures/download/2k_saturn.jpg',
@@ -582,7 +582,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
               const my = (y1 + y2) / 2 + Math.sin(angle + 1.2) * 18;
               return <path key={index} d={'M ' + x1 + ' ' + y1 + ' Q ' + mx + ' ' + my + ' ' + x2 + ' ' + y2} className="solar-earth-flare-ribbon" style={{ opacity: flareStrength * .85, animationDelay: (-index * .21) + 's' }} />;
             })}
-            <circle cx={CX} cy={CY} r={22 + flareStrength * 5} fill="url(#se-sun-fill)" filter="url(#se-sun-glow)" />
+            <circle cx={CX} cy={CY} r={18} fill="url(#se-sun-fill)" filter="url(#se-sun-glow)" />
             <defs><clipPath id="se-sun-euv-clip"><circle cx={CX} cy={CY} r="17" /></clipPath></defs>
             <circle cx={CX} cy={CY} r="18" fill="url(#se-sun-fill)" />
             <g clipPath="url(#se-sun-euv-clip)">
