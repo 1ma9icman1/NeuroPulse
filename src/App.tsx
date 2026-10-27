@@ -36,7 +36,6 @@ const NAV_ITEMS = [
   { label: 'TRIGONOMETRY', icon: Atom },
   { label: 'MAP OVERLAYS', icon: Layers3 },
   { label: 'DATABASE', icon: Database },
-  { label: 'SOLAR FLARE RESEARCH', icon: Sun },
   { label: 'A/B/C AUDIO CONTROLS', icon: AudioLines },
   { label: 'TRINAURAL / SOLFEGGIO', icon: AudioWaveform },
   { label: 'SETTINGS', icon: Settings2 },
@@ -475,6 +474,10 @@ export default function App() {
             </form>}
             {customEarthSites.length > 0 && <div className="atlas-custom-site-count">{customEarthSites.length} USER-ADDED SITE{customEarthSites.length === 1 ? '' : 'S'} SAVED</div>}
           </section>
+          <div className="atlas-left-bottom-controls" aria-label="Solar research controls">
+            <button type="button" className="atlas-solar-launch-button" onClick={() => { setActiveNav('SOLAR FLARE'); setShowSearchPanel(false); setEarthAreaView('globe'); }} aria-label="Open Solar Flare universe"><Sun size={16} /> SOLAR FLARE UNIVERSE</button>
+            <button type="button" className="atlas-solar-launch-button atlas-solar-research-button" onClick={() => { setActiveNav('SOLAR FLARE RESEARCH'); setShowSearchPanel(false); }} aria-label="Open Solar Flare Research"><Sun size={16} /> SOLAR FLARE RESEARCH</button>
+          </div>
         </aside>
         <section className="atlas-center">
           <div className="atlas-globe-stage">
@@ -512,7 +515,7 @@ export default function App() {
               openWaterElevationRequest={waterElevationRequest}
               openEarthSearchRequest={earthSearchRequest}
               onOpenWaterElevation={() => setEarthAreaView('elevation')}
-              onOpenSolarFlare={() => { setActiveNav('SOLAR FLARE'); setShowSearchPanel(false); setEarthAreaView('globe'); }}
+
               showChannelElevationControls={audioMenuOpen && ['A/B/C AUDIO CONTROLS', 'TRINAURAL / SOLFEGGIO'].includes(activeNav)}
             /> : <div className="atlas-embedded-earth-map"><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {siteGlyphFor(selectedSite.category || selectedSite.layerCategory || '', selectedSite.name, !!selectedSite.isCity)} {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => { setStreetFallbackNotice(false); setStreetFrameLoaded(false); setEarthAreaView('street'); }}>TRY STREET VIEW IN APP</button>{earthAreaView === 'street' && <button onClick={() => { setStreetFallbackNotice(true); setEarthAreaView('satellite'); }}>AERIAL FALLBACK IN APP</button>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street') setStreetFrameLoaded(true); }} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} loading="eager" src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://maps.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&t=k&z=14&output=embed' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div>}
             {earthAreaView !== 'elevation' && activeNav !== 'SOLAR FLARE' && <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>}
@@ -611,7 +614,6 @@ export default function App() {
 
         <aside className="atlas-right">
           {activeNav === 'SOLAR FLARE RESEARCH' && <SolarFlareResearch onClose={() => setActiveNav('GLOBAL SEARCH')} />}
-          <button type="button" className="atlas-solar-launch-button" onClick={() => { setActiveNav('SOLAR FLARE RESEARCH'); setShowSearchPanel(false); }} aria-label="Open Solar Flare Research"><Sun size={16} /> SOLAR FLARES</button>
           <button type="button" className="atlas-search-right-button" onClick={() => setShowSearchPanel(value => !value)} aria-expanded={showSearchPanel}><Search size={15} /> {showSearchPanel ? "CLOSE SEARCH" : "SEARCH"}</button>
           {showSearchPanel && <div className="atlas-search-drawer">
             <div className="atlas-search-drawer-title"><strong><Search size={14} /> GLOBAL SEARCH</strong><button className="atlas-search-close" onClick={() => setShowSearchPanel(false)} aria-label="Close search"><X size={14} /></button></div>
