@@ -474,7 +474,6 @@ export default function App() {
             </form>}
             {customEarthSites.length > 0 && <div className="atlas-custom-site-count">{customEarthSites.length} USER-ADDED SITE{customEarthSites.length === 1 ? '' : 'S'} SAVED</div>}
           </section>
-          {activeNav === 'SOLAR FLARE' && <div className="atlas-solar-details-left"><SolarFlareResearch onClose={() => { setActiveNav('GLOBAL SEARCH'); setEarthAreaView('globe'); }} /></div>}
           <div className="atlas-left-bottom-controls" aria-label="Solar research controls">
             <button type="button" className="atlas-solar-launch-button atlas-solar-research-button" onClick={() => { setActiveNav('SOLAR FLARE RESEARCH'); setShowSearchPanel(false); }} aria-label="Open Solar Flare Research"><Sun size={16} /> SOLAR FLARE RESEARCH</button>
           </div>
