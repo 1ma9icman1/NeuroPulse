@@ -342,7 +342,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="solar-earth-mapframe"
-        onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setMapZoom(value => Math.max(1, Math.min(18, Number((value + (event.deltaY < 0 ? (value < 3 ? 0.25 : value < 8 ? 0.75 : 1.5) : -(value < 3 ? 0.25 : value < 8 ? 0.75 : 1.5))).toFixed(2)))); }}
+        onWheel={(event) => { event.preventDefault(); event.stopPropagation(); setMapZoom(value => { const step = value < 3 ? 0.25 : value < 8 ? 0.75 : 1.5; const delta = event.deltaY < 0 ? step : -step; return Math.max(1, Math.min(18, Number((value + delta).toFixed(2)))); }); }}
       >
         <div className="solar-earth-view-controls" aria-label="Solar system view controls">
           <button type="button" title="Zoom in" aria-label="Zoom in" onClick={() => setMapZoom(value => Math.min(18, Number((value + (value < 3 ? 0.25 : value < 8 ? 0.75 : 1.5)).toFixed(2))))}>＋</button>
