@@ -576,7 +576,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
     {dockTarget && createPortal(
       <div className="solar-earth-left-dock" aria-label="Solar flare event controls and history">
         <div className="solar-earth-left-dock-title"><Sun size={14} /> SOLAR FLARE CONTROLS</div>
-        <div className="solar-earth-map-key"><span><i className="se-key-sun" /> NOAA X-ray flux drives solar glow</span><span><i className="se-key-wave" /> X-ray light-front at c</span><span><i className="se-key-orbit" /> Schematic tracks / accelerated periods</span></div>
+        <div className="solar-earth-map-key"><span><i className="se-key-sun" /> NOAA X-ray flux drives solar glow</span></div>
         <div className="solar-earth-playback">
           <div className="solar-earth-playback-top">
             <div className="solar-earth-current-event"><span className="solar-earth-live-lamp" /><div><strong>{replaying && selected ? 'REPLAY · ' + selected.classType + ' SOLAR FLARE' : 'LIVE SOLAR OBSERVATIONS'}</strong><small>{replaying && selected ? stamp(selected.beginMs) + ' · estimated solar emission 8m 19s earlier' : stamp(xrayTime) + ' · GOES measures X-rays near Earth'}</small></div></div>
