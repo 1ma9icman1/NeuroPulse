@@ -757,7 +757,6 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
           </div>
 
         </div>
-        {historyHost && createPortal(historyPanel, historyHost)}
       </div>,
       dockTarget
     )}
