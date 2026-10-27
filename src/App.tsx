@@ -479,7 +479,7 @@ export default function App() {
         <section className="atlas-center">
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
-            {activeNav === 'SOLAR FLARE' ? <SolarFlareEarth /> : earthAreaView === 'elevation' ? <EarthElevation
+            {activeNav === 'SOLAR FLARE' ? <SolarFlareEarth onBack={() => { setActiveNav('GLOBAL SEARCH'); setEarthAreaView('globe'); }} /> : earthAreaView === 'elevation' ? <EarthElevation
               key="water-elevation-earth"
               selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
               siteCatalogue={researchSites}
