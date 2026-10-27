@@ -354,13 +354,12 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  useEffect(() => {
     const frameTimer = window.setInterval(() => setSpaceWeatherFrame(Date.now()), 5 * 60 * 1000);
     return () => window.clearInterval(frameTimer);
   }, []);
 
-
+  useEffect(() => {
+    void refresh();
     void loadHistory(dayString(Date.now() - 29 * 86400000));
     const id = window.setInterval(() => void refresh(), 60000);
     return () => window.clearInterval(id);
@@ -591,7 +590,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
                       <image href={PLANET_TEXTURE_URLS[planet.name]} x={planet.x - planet.size * 2} y={planet.y - planet.size} width={textureWidth} height={planet.size * 2} preserveAspectRatio="none" />
                       <image href={PLANET_TEXTURE_URLS[planet.name]} x={planet.x + planet.size * 2} y={planet.y - planet.size} width={textureWidth} height={planet.size * 2} preserveAspectRatio="none" />
                     </g>
-                    {planet.name === 'EARTH' && <image href={NOAA_AURORA_IMAGE + '?t=' + spaceWeatherFrame} x={planet.x - planet.size} y={planet.y - planet.size} width={planet.size * 2} height={planet.size * 2} preserveAspectRatio="xMidYMid slice" opacity=".7" style={{ mixBlendMode: 'screen' }} />}
+                    {planet.name === 'EARTH' && <image href={NOAA_AURORA_IMAGE + '?t=' + spaceWeatherFrame} x={planet.x - planet.size} y={planet.y - planet.size} width={planet.size * 2} height={planet.size * 2} preserveAspectRatio="xMidYMid slice" clipPath="url(#se-texture-clip-earth)" opacity=".7" style={{ mixBlendMode: 'screen' }} />}
                     <circle cx={planet.x} cy={planet.y} r={planet.size} fill="url(#se-sphere-shading)" pointerEvents="none" />
                     <ellipse cx={planet.x - planet.size * .24} cy={planet.y - planet.size * .36} rx={planet.size * .28} ry={planet.size * .12} transform={'rotate(-28 ' + (planet.x - planet.size * .24) + ' ' + (planet.y - planet.size * .36) + ')'} fill="#ffffff" opacity=".08" pointerEvents="none" />
                   </g>
