@@ -446,3 +446,271 @@ button:focus-visible, input:focus-visible { outline: 1px solid #70d8ff; outline-
 .atlas-right:has(> .solar-research) > .atlas-solar-launch-button {
   display: none !important;
 }
+
+
+/* Solar Flare Earth: isolated styles. Existing Earth/map styles above are unchanged. */
+.solar-earth {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 7px;
+  overflow: hidden;
+  color: #e6f5ff;
+  background:
+    radial-gradient(ellipse at 48% 40%, rgba(14, 48, 75, .18), transparent 58%),
+    #020713;
+  font-size: 10px;
+}
+.solar-earth-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.solar-earth-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.solar-earth-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 174, 62, .62);
+  border-radius: 50%;
+  color: #ffc56e;
+  background: radial-gradient(circle, rgba(255, 125, 37, .25), rgba(44, 18, 6, .8));
+  box-shadow: 0 0 16px rgba(255, 115, 27, .15);
+}
+.solar-earth-kicker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #e5ad5f;
+  font: 800 8px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .11em;
+}
+.solar-earth-title h2 { margin: 2px 0 0; color: #fff1d8; font-size: 13px; line-height: 1.15; font-weight: 850; letter-spacing: .09em; }
+.solar-earth-feed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  color: #85c8ea;
+  font: 750 8px ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+}
+.solar-earth-feed i { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #31e5a3; box-shadow: 0 0 8px rgba(49, 229, 163, .65); }
+.solar-earth-feed-partial i { background: #ffbd59; box-shadow: 0 0 8px rgba(255, 189, 89, .5); }
+.solar-earth-feed-offline i { background: #ff615b; box-shadow: 0 0 7px rgba(255, 97, 91, .5); }
+.solar-earth-refresh, .solar-earth-history-load {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 27px;
+  flex: 0 0 auto;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 179, 74, .46);
+  border-radius: 3px;
+  color: #ffd08b;
+  background: rgba(74, 41, 11, .36);
+  font: 800 8px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .05em;
+  cursor: pointer;
+}
+.solar-earth-refresh:hover, .solar-earth-history-load:hover { background: rgba(110, 57, 14, .5); color: #fff0d0; }
+.solar-earth-refresh:disabled, .solar-earth-history-load:disabled { opacity: .55; cursor: default; }
+.solar-earth-spin { animation: solar-earth-spin 1s linear infinite; }
+@keyframes solar-earth-spin { to { transform: rotate(360deg); } }
+
+.solar-earth-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  flex: 0 0 52px;
+  min-width: 0;
+}
+.solar-earth-metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid rgba(64, 113, 149, .36);
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(8, 29, 48, .9), rgba(3, 13, 25, .96));
+  overflow: hidden;
+}
+.solar-earth-metric > span { display: flex; align-items: center; gap: 5px; color: #90bcd7; font: 800 7px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; }
+.solar-earth-metric > span svg { color: #ffc16b; flex: 0 0 auto; }
+.solar-earth-metric strong { display: block; margin-top: 2px; color: #f6fbff; font: 800 12px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.solar-earth-metric small { display: block; margin-top: 1px; color: #678ba5; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.solar-earth-mapframe {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 160px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(63, 122, 159, .5);
+  border-radius: 5px;
+  background: #020713;
+  isolation: isolate;
+}
+.solar-earth-svg { display: block; width: 100%; height: 100%; min-height: 0; }
+.solar-earth-map-caption { fill: #6fa7c7; font: 800 9px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; }
+.solar-earth-map-small { fill: #5d839d; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; }
+.solar-earth-distance-note { fill: #6fdaff; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; paint-order: stroke; stroke: #020713; stroke-width: 3px; stroke-linejoin: round; }
+.solar-earth-planet-label { fill: #84a9c2; font: 700 8px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .07em; paint-order: stroke; stroke: #020713; stroke-width: 3px; stroke-linejoin: round; }
+.solar-earth-label-earth { fill: #b9edff; }
+.solar-earth-sun-label { fill: #ffc576; font: 900 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .13em; paint-order: stroke; stroke: #1b0d05; stroke-width: 3px; }
+.solar-earth-selected-event-label { fill: #ffdb91; font: 800 9px ui-monospace, SFMono-Regular, Menlo, monospace; paint-order: stroke; stroke: #08101b; stroke-width: 3px; }
+.solar-earth-flare-ribbon {
+  fill: none;
+  stroke: #ffbd50;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(255, 126, 30, .9));
+  animation: solar-earth-ribbon 1.35s ease-in-out infinite alternate;
+}
+@keyframes solar-earth-ribbon { from { stroke-opacity: .22; } to { stroke-opacity: 1; } }
+.solar-earth-earth-pulse { transform-box: fill-box; transform-origin: center; animation: solar-earth-earth-pulse 2.2s ease-out infinite; }
+@keyframes solar-earth-earth-pulse { 0% { opacity: .8; transform: scale(.8); } 100% { opacity: 0; transform: scale(1.65); } }
+.solar-earth-front-live circle { filter: drop-shadow(0 0 5px rgba(56, 205, 255, .7)); animation: solar-earth-front-live 2.8s ease-in-out infinite alternate; }
+.solar-earth-front-replay circle { filter: drop-shadow(0 0 5px rgba(255, 179, 70, .75)); }
+@keyframes solar-earth-front-live { from { opacity: .28; } to { opacity: .9; } }
+
+.solar-earth-map-key {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 218px;
+  padding: 7px 8px;
+  border: 1px solid rgba(72, 124, 153, .35);
+  border-radius: 3px;
+  color: #8fb0c8;
+  background: rgba(2, 10, 20, .74);
+  font: 7px ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: none;
+}
+.solar-earth-map-key span { display: flex; align-items: center; gap: 7px; }
+.solar-earth-map-key i { display: inline-block; width: 13px; height: 2px; flex: 0 0 13px; }
+.se-key-sun { background: #ffb84c; box-shadow: 0 0 5px #ff8c32; }
+.se-key-wave { border-top: 1px dashed #43d7ff; }
+.se-key-orbit { background: #32617b; }
+
+.solar-earth-playback {
+  position: absolute;
+  z-index: 3;
+  bottom: 7px;
+  left: 7px;
+  right: 7px;
+  padding: 7px 8px 6px;
+  border: 1px solid rgba(69, 124, 159, .48);
+  border-radius: 4px;
+  background: rgba(2, 10, 20, .91);
+  box-shadow: 0 3px 18px rgba(0, 0, 0, .25), inset 0 1px rgba(114, 177, 213, .04);
+  backdrop-filter: blur(8px);
+}
+.solar-earth-playback-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.solar-earth-current-event { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.solar-earth-live-lamp { display: block; width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #35e3ac; box-shadow: 0 0 8px rgba(53, 227, 172, .7); }
+.solar-earth-current-event strong { display: block; color: #dff5ff; font: 800 8px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .07em; }
+.solar-earth-current-event small { display: block; margin-top: 2px; color: #779bb5; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.solar-earth-playback-actions { display: flex; flex: 0 0 auto; gap: 5px; }
+.se-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(79, 134, 164, .48);
+  border-radius: 3px;
+  color: #abd6ef;
+  background: rgba(10, 30, 47, .82);
+  font: 800 8px ui-monospace, SFMono-Regular, Menlo, monospace;
+  cursor: pointer;
+}
+.se-action:hover { color: #fff; border-color: #6ea8c9; }
+.se-action-hot { border-color: rgba(255, 187, 83, .72); color: #ffe0a5; background: rgba(91, 52, 13, .5); }
+.se-action:disabled { opacity: .4; cursor: default; }
+.solar-earth-timeline-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; color: #6f9bb7; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.solar-earth-timeline-row > span:first-child { flex: 0 0 63px; letter-spacing: .04em; }
+.solar-earth-timeline-row input[type="range"] { flex: 1 1 auto; min-width: 35px; height: 10px; accent-color: #ffbd58; cursor: pointer; }
+.solar-earth-timeline-row select { max-width: 118px; min-height: 22px; padding: 2px 5px; border: 1px solid rgba(76, 119, 148, .55); border-radius: 3px; color: #b6d5e9; background: #071521; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.solar-earth-timeline-time { flex: 0 0 auto; min-width: 70px; text-align: right; color: #9dbdd2; }
+
+.solar-earth-history {
+  flex: 0 0 106px;
+  min-height: 76px;
+  overflow: hidden;
+  border: 1px solid rgba(62, 115, 146, .38);
+  border-radius: 4px;
+  background: rgba(3, 13, 24, .93);
+}
+.solar-earth-history-toolbar { display: flex; align-items: center; gap: 8px; min-height: 39px; padding: 5px 8px; border-bottom: 1px solid rgba(65, 111, 140, .27); }
+.solar-earth-history-toolbar > div { display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.solar-earth-history-toolbar > div > strong { color: #d9effc; font: 800 9px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.solar-earth-history-toolbar > div > small { color: #698aa2; font-size: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.solar-earth-history-toolbar label { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; color: #84a9c2; font-size: 8px; white-space: nowrap; }
+.solar-earth-history-toolbar input[type="date"] { min-width: 106px; width: 115px; height: 24px; padding: 2px 4px; border: 1px solid rgba(76, 119, 148, .48); border-radius: 3px; color: #c5e1f3; background: #061320; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.solar-earth-history-load { min-height: 24px; padding: 0 7px; }
+.solar-earth-event-list { display: flex; align-items: stretch; gap: 5px; height: calc(100% - 40px); padding: 5px; overflow-x: auto; overflow-y: hidden; }
+.solar-earth-event-chip {
+  display: flex;
+  flex: 0 0 154px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid rgba(61, 105, 131, .34);
+  border-radius: 3px;
+  text-align: left;
+  color: #9ebfd5;
+  background: rgba(6, 21, 34, .9);
+  cursor: pointer;
+  overflow: hidden;
+}
+.solar-earth-event-chip:hover { border-color: rgba(255, 185, 77, .48); background: rgba(64, 41, 14, .35); }
+.solar-earth-event-chip-selected { border-color: rgba(255, 190, 88, .82); background: linear-gradient(135deg, rgba(94, 54, 12, .5), rgba(22, 24, 30, .9)); box-shadow: inset 2px 0 #ffbf59; }
+.solar-earth-event-class { max-width: 100%; color: #ffca80; font: 800 8px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.solar-earth-event-chip > strong { max-width: 100%; color: #daeaf5; font: 700 7px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.solar-earth-event-chip > small { max-width: 100%; color: #6f91a8; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.solar-earth-empty { display: flex; align-items: center; padding: 8px; color: #7b9bb1; font-size: 8px; }
+.solar-earth-notice { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 5px 7px; border: 1px solid rgba(255, 179, 74, .32); border-radius: 3px; color: #e6bd7a; background: rgba(70, 42, 10, .26); font-size: 8px; }
+.solar-earth-notice svg { flex: 0 0 auto; }
+.solar-earth-notice span { overflow: hidden; text-overflow: ellipsis; }
+.solar-earth-footnote { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: 0 0 auto; min-height: 13px; color: #5f8097; font-size: 7px; white-space: nowrap; overflow: hidden; }
+.solar-earth-footnote > span { overflow: hidden; text-overflow: ellipsis; }
+.solar-earth-footnote a { display: inline-flex; align-items: center; gap: 3px; color: #77bddf; text-decoration: none; }
+.solar-earth-footnote a:hover { color: #d0f2ff; text-decoration: underline; }
+
+@media (max-width: 1120px) {
+  .solar-earth-metrics { flex-basis: 48px; gap: 3px; }
+  .solar-earth-metric { padding: 4px 5px; }
+  .solar-earth-metric > span { font-size: 6px; }
+  .solar-earth-metric strong { font-size: 10px; }
+  .solar-earth-metric small { font-size: 6px; }
+  .solar-earth-map-key { max-width: 170px; font-size: 6px; }
+  .solar-earth-footnote > span:last-child { display: none; }
+  .solar-earth-history-toolbar > div > small { max-width: 230px; }
+}
+@media (max-height: 760px) {
+  .solar-earth { gap: 4px; padding: 5px; }
+  .solar-earth-icon { width: 27px; height: 27px; flex-basis: 27px; }
+  .solar-earth-metrics { flex-basis: 43px; }
+  .solar-earth-history { flex-basis: 91px; }
+  .solar-earth-history-toolbar { min-height: 34px; padding: 3px 6px; }
+  .solar-earth-event-list { height: calc(100% - 35px); }
+  .solar-earth-map-key { top: 4px; right: 4px; gap: 3px; }
+}
