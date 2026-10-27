@@ -507,7 +507,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
 
   return (
     <>
-    <section className="solar-flare-earth-view" aria-label="Solar Flare Earth solar system map">
+    <section className="solar-flare-earth-view" aria-label="Solar Flare Earth solar system map" style={{ position: 'relative' }}>
       <div className="solar-earth-toolbar">
         <div className="solar-earth-title">
           <span className="solar-earth-icon"><Sun size={17} /></span>
@@ -647,6 +647,29 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
         </svg>
 
       </div>
+      <section className="solar-earth-simulation-clock" aria-label="Connected simulation date and time controls" style={{ position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)', width: 'min(760px, calc(100% - 24px))', zIndex: 20, marginTop: 12, padding: 12, border: '1px solid rgba(105, 190, 255, .28)', borderRadius: 10, background: 'rgba(3, 15, 30, .94)', display: 'grid', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ color: '#7dd3fc', fontSize: 10, fontWeight: 700, letterSpacing: '.16em' }}>SIMULATION CLOCK · UTC</div>
+                <strong style={{ display: 'block', color: '#f0f8ff', fontSize: 18, fontVariantNumeric: 'tabular-nums' }}>{simulationDate.toISOString().replace('T', ' ').slice(0, 19)} UTC</strong>
+                <small style={{ color: simulationIsLive ? '#7ce7b0' : '#f6c879' }}>{simulationIsLive ? 'LIVE MEASUREMENTS · CURRENT TIME' : simulationTimeMs > Date.now() ? 'FUTURE SIMULATION · NO MEASUREMENTS INVENTED' : 'HISTORICAL SIMULATION · MATCHING ARCHIVE SAMPLES ONLY'}</small>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <button type="button" className="se-action" onClick={() => setSimulationPlaying(value => !value)} title={simulationPlaying ? 'Pause simulation clock' : 'Play simulation clock'}>{simulationPlaying ? 'PAUSE TIME' : 'PLAY TIME'}</button>
+                <select aria-label="Simulation clock speed" value={simulationSpeed} onChange={(event) => { const speed = Number(event.target.value); setSimulationSpeed(speed); setOrbitSpeed(Math.min(30, speed)); setRealTimeOrbit(false); }} style={{ maxWidth: 150 }}>
+                  <option value={1}>1 simulated day/sec</option><option value={6}>6 simulated days/sec</option><option value={30}>30 simulated days/sec</option><option value={365}>1 simulated year/sec</option>
+                </select>
+              </div>
+            </div>
+            <input aria-label="Simulation date timeline from 1859 through 2100" type="range" min="0" max="1000" step="1" value={sliderValue} onChange={(event) => setSimulationTimestamp(sliderMinMs + Number(event.target.value) / 1000 * (sliderMaxMs - sliderMinMs))} onPointerUp={() => { const start = addDays(dayString(simulationTimeMs), -14); setHistoryStart(start); void loadHistory(start); }} style={{ width: '100%', accentColor: '#48c7ff', cursor: 'ew-resize' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: '#9bb4cb', fontSize: 11 }}><span>1859 · Carrington event</span><span>Present</span><span>2100 · Future</span></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#b8cde0', fontSize: 12 }}>DATE <input aria-label="Simulation date" type="date" min="1859-09-01" max="2100-12-31" value={dayString(simulationTimeMs)} onChange={(event) => { if (event.target.value) { const next = Date.parse(event.target.value + 'T' + simulationDate.toISOString().slice(11, 19) + 'Z'); setSimulationTimestamp(next); const start = addDays(event.target.value, -14); setHistoryStart(start); void loadHistory(start); } }} /></label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#b8cde0', fontSize: 12 }}>TIME UTC <input aria-label="Simulation time UTC" type="time" step="1" value={simulationDate.toISOString().slice(11, 19)} onChange={(event) => { if (event.target.value) { const next = Date.parse(dayString(simulationTimeMs) + 'T' + event.target.value + 'Z'); setSimulationTimestamp(next); } }} /></label>
+              <button type="button" className="se-action" onClick={() => { setSimulationTimestamp(Date.now()); setRealTimeOrbit(true); setSimulationPlaying(true); setOrbitSpeed(1); }}>NOW</button>
+            </div>
+            <small style={{ color: '#8ea9c2', lineHeight: 1.45 }}>Orbital positions, planetary rotation, and Moon position follow this clock. Instrument readings only appear when a timestamped measurement exists for the selected time; current NOAA imagery remains live imagery.</small>
+          </section>
     </section>
     {dockTarget && createPortal(
       <div className="solar-earth-left-dock" aria-label="Solar flare event controls and history">
@@ -691,29 +714,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <select aria-label="Solar flare replay speed" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}><option value={1}>1× REAL TIME</option><option value={60}>60× PLAYBACK</option><option value={300}>300× PLAYBACK</option><option value={600}>600× PLAYBACK</option></select>
             <span className="solar-earth-timeline-time">{replaying ? (elapsed / 60).toFixed(1) + ' min / 4.2 hr' : realTimeOrbit ? '1 day / 24 hours · UTC' : orbitSpeed + ' simulated days / sec'}</span>
           </div>
-          <section className="solar-earth-simulation-clock" aria-label="Connected simulation date and time controls" style={{ marginTop: 12, padding: 12, border: '1px solid rgba(105, 190, 255, .28)', borderRadius: 10, background: 'rgba(3, 15, 30, .94)', display: 'grid', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ color: '#7dd3fc', fontSize: 10, fontWeight: 700, letterSpacing: '.16em' }}>SIMULATION CLOCK · UTC</div>
-                <strong style={{ display: 'block', color: '#f0f8ff', fontSize: 18, fontVariantNumeric: 'tabular-nums' }}>{simulationDate.toISOString().replace('T', ' ').slice(0, 19)} UTC</strong>
-                <small style={{ color: simulationIsLive ? '#7ce7b0' : '#f6c879' }}>{simulationIsLive ? 'LIVE MEASUREMENTS · CURRENT TIME' : simulationTimeMs > Date.now() ? 'FUTURE SIMULATION · NO MEASUREMENTS INVENTED' : 'HISTORICAL SIMULATION · MATCHING ARCHIVE SAMPLES ONLY'}</small>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <button type="button" className="se-action" onClick={() => setSimulationPlaying(value => !value)} title={simulationPlaying ? 'Pause simulation clock' : 'Play simulation clock'}>{simulationPlaying ? 'PAUSE TIME' : 'PLAY TIME'}</button>
-                <select aria-label="Simulation clock speed" value={simulationSpeed} onChange={(event) => { const speed = Number(event.target.value); setSimulationSpeed(speed); setOrbitSpeed(Math.min(30, speed)); setRealTimeOrbit(false); }} style={{ maxWidth: 150 }}>
-                  <option value={1}>1 simulated day/sec</option><option value={6}>6 simulated days/sec</option><option value={30}>30 simulated days/sec</option><option value={365}>1 simulated year/sec</option>
-                </select>
-              </div>
-            </div>
-            <input aria-label="Simulation date timeline from 1859 through 2100" type="range" min="0" max="1000" step="1" value={sliderValue} onChange={(event) => setSimulationTimestamp(sliderMinMs + Number(event.target.value) / 1000 * (sliderMaxMs - sliderMinMs))} style={{ width: '100%', accentColor: '#48c7ff', cursor: 'ew-resize' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: '#9bb4cb', fontSize: 11 }}><span>1859 · Carrington event</span><span>Present</span><span>2100 · Future</span></div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#b8cde0', fontSize: 12 }}>DATE <input aria-label="Simulation date" type="date" min="1859-09-01" max="2100-12-31" value={dayString(simulationTimeMs)} onChange={(event) => { if (event.target.value) { const next = Date.parse(event.target.value + 'T' + simulationDate.toISOString().slice(11, 19) + 'Z'); setSimulationTimestamp(next); } }} /></label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#b8cde0', fontSize: 12 }}>TIME UTC <input aria-label="Simulation time UTC" type="time" step="1" value={simulationDate.toISOString().slice(11, 19)} onChange={(event) => { if (event.target.value) { const next = Date.parse(dayString(simulationTimeMs) + 'T' + event.target.value + 'Z'); setSimulationTimestamp(next); } }} /></label>
-              <button type="button" className="se-action" onClick={() => { setSimulationTimestamp(Date.now()); setRealTimeOrbit(true); setSimulationPlaying(true); setOrbitSpeed(1); }}>NOW</button>
-            </div>
-            <small style={{ color: '#8ea9c2', lineHeight: 1.45 }}>Orbital positions, planetary rotation, and Moon position follow this clock. Instrument readings only appear when a timestamped measurement exists for the selected time; current NOAA imagery remains live imagery.</small>
-          </section>
+
         </div>
         <div className="solar-earth-history">
           <div className="solar-earth-history-toolbar">
