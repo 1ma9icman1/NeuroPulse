@@ -314,7 +314,14 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const viewHeight = 600 / mapZoom;
   const viewX = focused ? focused.x - viewWidth / 2 : (1000 - viewWidth) / 2;
   const viewY = focused ? focused.y - viewHeight / 2 : (600 - viewHeight) / 2;
-  const flareHasReachedEarth = frontRadius >= PLANETS.find((planet) => planet.name === 'EARTH')!.radius;
+  // A red impact is a moving pulse, not a permanent "has been hit" state.
+  // During replay each planet glows only while the wavefront is passing it.
+  const planetIsInImpact = (planet: Planet) => {
+    if (replaying && replayProgress >= 1000) return false;
+    if (!replaying && !liveFront) return false;
+    const impactBand = planet.au >= 5 ? 6 : 5;
+    return Math.abs(frontRadius - planet.radius) <= impactBand;
+  };
   const stateClass = feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
 
   return (
@@ -389,14 +396,18 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <text x={CX} y={CY + 39} textAnchor="middle" className="solar-earth-sun-label">THE SUN</text>
           </g>
 
-          {planets.map((planet) => <g key={planet.name} className={'solar-earth-planet solar-earth-planet-' + planet.name.toLowerCase()} role="button" tabIndex={0} aria-label={'Zoom to ' + planet.name} onClick={() => { setFocusedPlanet(planet.name); setMapZoom(planet.name === 'EARTH' || planet.name === 'MARS' || planet.name === 'VENUS' ? 12 : 8); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setFocusedPlanet(planet.name); setMapZoom(planet.name === 'EARTH' || planet.name === 'MARS' || planet.name === 'VENUS' ? 12 : 8); } }}>
-            <circle cx={planet.x} cy={planet.y} r={planet.size + (planet.name === 'EARTH' ? 7 : 4)} fill={planet.color} opacity={planet.name === 'EARTH' ? '.12' : '.07'} />
-            {planet.name === 'SATURN' && <ellipse cx={planet.x} cy={planet.y} rx={planet.size * 1.9} ry={planet.size * .62} transform={'rotate(-18 ' + planet.x + ' ' + planet.y + ')'} fill="none" stroke="#d9c38d" strokeWidth="2" opacity=".9" />}
-            <circle cx={planet.x} cy={planet.y} r={planet.size} fill={'url(#se-planet-' + planet.name.toLowerCase() + ')'} stroke={flareHasReachedEarth && planet.name === 'EARTH' ? '#ff342f' : planet.name === 'EARTH' ? '#c3f2ff' : '#d5e6f3'} strokeWidth={flareHasReachedEarth && planet.name === 'EARTH' ? '2.5' : planet.name === 'EARTH' ? '1.2' : '.45'} className={flareHasReachedEarth && planet.name === 'EARTH' ? 'solar-earth-hit-by-flare' : ''} filter={flareHasReachedEarth && planet.name === 'EARTH' ? 'url(#se-earth-impact-glow)' : undefined} />
-            {planet.name === 'EARTH' && <><path d={'M ' + (planet.x - 3.2) + ' ' + (planet.y - 1.6) + ' l 2 -2.5 2.4 1 -1.4 2.4 2.5 2 -3.5 1.2 z'} fill="#45d5a2" /><circle cx={planet.x} cy={planet.y} r="11" fill="none" stroke={flareHasReachedEarth ? '#ff342f' : '#73dfff'} strokeWidth={flareHasReachedEarth ? '1.8' : '.8'} className={flareHasReachedEarth ? 'solar-earth-hit-pulse' : 'solar-earth-earth-pulse'} />
-              <circle cx={planet.x + 10} cy={planet.y - 7} r="1.7" fill="#aeb6c2" stroke="#e3e7ee" strokeWidth=".35" /><ellipse cx={planet.x} cy={planet.y} rx="15" ry="15" fill="none" stroke="#a7c2d5" strokeWidth=".5" opacity=".25" /></>}
-            <text x={planet.x} y={planet.y - planet.size - (planet.name === 'JUPITER' || planet.name === 'SATURN' ? 13 : 10)} className={planet.name === 'EARTH' ? 'solar-earth-planet-label solar-earth-label-earth' : 'solar-earth-planet-label'} textAnchor="middle">{planet.name}</text>
-          </g>)}
+          {planets.map((planet) => {
+            const impact = planetIsInImpact(planet);
+            return <g key={planet.name} className={'solar-earth-planet solar-earth-planet-' + planet.name.toLowerCase()} role="button" tabIndex={0} aria-label={'Zoom to ' + planet.name} onClick={() => { setFocusedPlanet(planet.name); setMapZoom(planet.name === 'EARTH' || planet.name === 'MARS' || planet.name === 'VENUS' ? 12 : 8); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setFocusedPlanet(planet.name); setMapZoom(planet.name === 'EARTH' || planet.name === 'MARS' || planet.name === 'VENUS' ? 12 : 8); } }}>
+              <circle cx={planet.x} cy={planet.y} r={planet.size + (planet.name === 'EARTH' ? 7 : 4)} fill={impact ? '#ff1717' : planet.color} opacity={impact ? '.42' : planet.name === 'EARTH' ? '.12' : '.07'} className={impact ? 'solar-earth-hit-pulse' : undefined} />
+              {impact && <circle cx={planet.x} cy={planet.y} r={planet.size + 5} fill="none" stroke="#ff2929" strokeWidth="2" filter="url(#se-earth-impact-glow)" className="solar-earth-hit-pulse" />}
+              {planet.name === 'SATURN' && <ellipse cx={planet.x} cy={planet.y} rx={planet.size * 1.9} ry={planet.size * .62} transform={'rotate(-18 ' + planet.x + ' ' + planet.y + ')'} fill="none" stroke="#d9c38d" strokeWidth="2" opacity=".9" />}
+              <circle cx={planet.x} cy={planet.y} r={planet.size} fill={'url(#se-planet-' + planet.name.toLowerCase() + ')'} stroke={impact ? '#ff342f' : planet.name === 'EARTH' ? '#c3f2ff' : '#d5e6f3'} strokeWidth={impact ? '2.5' : planet.name === 'EARTH' ? '1.2' : '.45'} className={impact ? 'solar-earth-hit-by-flare' : ''} filter={impact ? 'url(#se-earth-impact-glow)' : undefined} />
+              {planet.name === 'EARTH' && <><path d={'M ' + (planet.x - 3.2) + ' ' + (planet.y - 1.6) + ' l 2 -2.5 2.4 1 -1.4 2.4 2.5 2 -3.5 1.2 z'} fill="#45d5a2" /><circle cx={planet.x} cy={planet.y} r="11" fill="none" stroke={impact ? '#ff342f' : '#73dfff'} strokeWidth={impact ? '1.8' : '.8'} className={impact ? 'solar-earth-hit-pulse' : 'solar-earth-earth-pulse'} />
+                <circle cx={planet.x + 10} cy={planet.y - 7} r="1.7" fill="#aeb6c2" stroke="#e3e7ee" strokeWidth=".35" /><ellipse cx={planet.x} cy={planet.y} rx="15" ry="15" fill="none" stroke="#a7c2d5" strokeWidth=".5" opacity=".25" /></>}
+              <text x={planet.x} y={planet.y - planet.size - (planet.name === 'JUPITER' || planet.name === 'SATURN' ? 13 : 10)} className={planet.name === 'EARTH' ? 'solar-earth-planet-label solar-earth-label-earth' : 'solar-earth-planet-label'} textAnchor="middle">{planet.name}</text>
+            </g>;
+          })}
 
           <text x={CX + PLANETS[2].radius + 10} y={CY - 17} className="solar-earth-distance-note">1 AU · 8m 19s light</text>
           <text x={CX + 8} y="27" className="solar-earth-map-caption">{closeView ? focusedPlanet + ' CLOSE VIEW' : 'HELIOCENTRIC VIEW / ORBITAL PLANE'}</text>
