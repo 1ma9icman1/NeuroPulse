@@ -127,7 +127,7 @@ function radiusAtAu(au: number): number {
 }
 function fluxText(value: number | null): string { return value === null ? '—' : value.toExponential(2); }
 
-export function SolarFlareEarth() {
+export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const [xrayRows, setXrayRows] = useState<Row[]>([]);
   const [protonRows, setProtonRows] = useState<Row[]>([]);
   const [kpRows, setKpRows] = useState<Row[]>([]);
@@ -296,13 +296,14 @@ export function SolarFlareEarth() {
   const stateClass = feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
 
   return (
-    <section className="solar-earth" aria-label="Solar Flare Earth solar system map">
+    <section className="solar-flare-earth-view" aria-label="Solar Flare Earth solar system map">
       <div className="solar-earth-toolbar">
         <div className="solar-earth-title">
           <span className="solar-earth-icon"><Sun size={17} /></span>
           <div><div className="solar-earth-kicker">NEUROPULSE / LIVE HELIOPHYSICS</div><h2>SOLAR FLARE EARTH</h2></div>
         </div>
         <div className={'solar-earth-feed solar-earth-feed-' + stateClass}><i />{feedStatus}<span>·</span>{lastRefresh ? new Date(lastRefresh).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Awaiting first sample'}</div>
+        <button type="button" className="solar-earth-refresh" onClick={onBack} title="Return to the Earth views">← EARTH VIEWS</button>
         <button type="button" className="solar-earth-refresh" onClick={() => void refresh()} disabled={loading}><RefreshCw size={13} className={loading ? 'solar-earth-spin' : ''} />{loading ? 'SYNCING' : 'SYNC NOAA'}</button>
       </div>
 
