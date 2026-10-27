@@ -446,7 +446,6 @@ export default function App() {
       </section>}
       <div className={activeNav === 'SOLAR FLARE' ? 'atlas-workspace solar-flare-active' : 'atlas-workspace'}>
         <aside className="atlas-left" aria-label="Earth navigation and site tools">
-          <div id="solar-flare-left-dock-target" className="solar-flare-left-dock-target" aria-label="Solar Flare controls panel" />
           <section className="atlas-panel atlas-navigation">
             <div className="atlas-panel-heading">RESEARCH MODULES</div>
             {NAV_ITEMS.map(({ label, icon: Icon }) => (
@@ -615,6 +614,7 @@ export default function App() {
         </section>
 
         <aside className="atlas-right">
+          <div id="solar-flare-right-dock-target" className="solar-flare-right-dock-target" aria-label="Solar Flare controls panel" />
           {activeNav === 'SOLAR FLARE RESEARCH' && <SolarFlareResearch onClose={() => setActiveNav('GLOBAL SEARCH')} />}
           <button type="button" className="atlas-search-right-button" onClick={() => setShowSearchPanel(value => !value)} aria-expanded={showSearchPanel}><Search size={15} /> {showSearchPanel ? "CLOSE SEARCH" : "SEARCH"}</button>
           {showSearchPanel && <div className="atlas-search-drawer">
