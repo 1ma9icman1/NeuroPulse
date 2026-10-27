@@ -44,6 +44,18 @@ const PLANETS: Planet[] = [
   { name: 'NEPTUNE', au: 30.069923, period: 60182, radius: 400, size: 7, color: '#5d8bff' },
 ];
 
+// Sidereal axial rotation periods in hours; negative values indicate retrograde rotation.
+const PLANET_ROTATION_HOURS: Record<string, number> = {
+  MERCURY: 1407.6,
+  VENUS: -5832.5,
+  EARTH: 23.934,
+  MARS: 24.623,
+  JUPITER: 9.925,
+  SATURN: 10.656,
+  URANUS: -17.24,
+  NEPTUNE: 16.11,
+};
+
 const PLANET_TEXTURE_URLS: Record<string, string> = {
   MERCURY: 'https://www.solarsystemscope.com/textures/download/2k_mercury.jpg',
   VENUS: 'https://www.solarsystemscope.com/textures/download/2k_venus_surface.jpg',
@@ -484,6 +496,13 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
           <defs>
             <radialGradient id="se-sun-fill"><stop offset="0" stopColor="#fff8c4" /><stop offset=".28" stopColor="#ffd66c" /><stop offset=".63" stopColor="#ff8c32" /><stop offset="1" stopColor="#df3e12" /></radialGradient>
             <radialGradient id="se-space-fill"><stop offset="0" stopColor="#081d34" /><stop offset="1" stopColor="#020713" /></radialGradient>
+            <radialGradient id="se-sphere-shading" cx="30%" cy="25%" r="78%">
+              <stop offset="0" stopColor="#ffffff" stopOpacity=".22" />
+              <stop offset=".38" stopColor="#ffffff" stopOpacity=".04" />
+              <stop offset=".68" stopColor="#000000" stopOpacity=".16" />
+              <stop offset=".88" stopColor="#000000" stopOpacity=".48" />
+              <stop offset="1" stopColor="#000000" stopOpacity=".82" />
+            </radialGradient>
             <radialGradient id="se-planet-mercury"><stop offset="0" stopColor="#c5c1b8"/><stop offset=".65" stopColor="#77756f"/><stop offset="1" stopColor="#272b31"/></radialGradient>
             <radialGradient id="se-planet-venus"><stop offset="0" stopColor="#fff0bc"/><stop offset=".42" stopColor="#d6a76c"/><stop offset=".76" stopColor="#a96c3d"/><stop offset="1" stopColor="#39251f"/></radialGradient>
             <radialGradient id="se-planet-earth"><stop offset="0" stopColor="#61d7ff"/><stop offset=".34" stopColor="#1d8bd0"/><stop offset=".58" stopColor="#21835e"/><stop offset=".8" stopColor="#0b416f"/><stop offset="1" stopColor="#06152e"/></radialGradient>
@@ -532,25 +551,32 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
               <circle cx={planet.x} cy={planet.y} r={planet.size + (planet.name === 'EARTH' ? 7 : 4)} fill={impact ? '#ff1717' : planet.color} opacity={impact ? '.42' : planet.name === 'EARTH' ? '.12' : '.07'} className={impact ? 'solar-earth-hit-pulse' : undefined} />
               {impact && <circle cx={planet.x} cy={planet.y} r={planet.size + 5} fill="none" stroke="#ff2929" strokeWidth="2" filter="url(#se-earth-impact-glow)" className="solar-earth-hit-pulse" />}
               {planet.name === 'SATURN' && <ellipse cx={planet.x} cy={planet.y} rx={planet.size * 1.9} ry={planet.size * .62} transform={'rotate(-18 ' + planet.x + ' ' + planet.y + ')'} fill="none" stroke="#d9c38d" strokeWidth="2" opacity=".9" />}
-              <defs><clipPath id={'se-texture-clip-' + planet.name.toLowerCase()}><circle cx={planet.x} cy={planet.y} r={planet.size * .97} /></clipPath></defs>
-              <image href={PLANET_TEXTURE_URLS[planet.name]} x={planet.x - planet.size} y={planet.y - planet.size} width={planet.size * 2} height={planet.size * 2} preserveAspectRatio="none" clipPath={'url(#se-texture-clip-' + planet.name.toLowerCase() + ')'} opacity=".98" />
+              <defs>
+                <clipPath id={'se-texture-clip-' + planet.name.toLowerCase()}>
+                  <circle cx={planet.x} cy={planet.y} r={planet.size} />
+                </clipPath>
+              </defs>
+              {(() => {
+                // Equirectangular maps are twice as wide as tall. Two adjacent copies let
+                // the visible hemisphere scroll continuously without a texture seam.
+                const spinHours = PLANET_ROTATION_HOURS[planet.name] || 24;
+                const spinDegrees = planet.name === 'EARTH'
+                  ? earthSpinDegrees
+                  : ((orbitDays * 24 / spinHours * 360) % 360 + 360) % 360;
+                const textureWidth = planet.size * 4;
+                const textureOffset = spinDegrees / 360 * textureWidth;
+                return (
+                  <g clipPath={'url(#se-texture-clip-' + planet.name.toLowerCase() + ')'}>
+                    <g transform={'translate(' + (-textureOffset) + ' 0)'}>
+                      <image href={PLANET_TEXTURE_URLS[planet.name]} x={planet.x - planet.size * 2} y={planet.y - planet.size} width={textureWidth} height={planet.size * 2} preserveAspectRatio="none" />
+                      <image href={PLANET_TEXTURE_URLS[planet.name]} x={planet.x + planet.size * 2} y={planet.y - planet.size} width={textureWidth} height={planet.size * 2} preserveAspectRatio="none" />
+                    </g>
+                    <circle cx={planet.x} cy={planet.y} r={planet.size} fill="url(#se-sphere-shading)" pointerEvents="none" />
+                    <ellipse cx={planet.x - planet.size * .24} cy={planet.y - planet.size * .36} rx={planet.size * .28} ry={planet.size * .12} transform={'rotate(-28 ' + (planet.x - planet.size * .24) + ' ' + (planet.y - planet.size * .36) + ')'} fill="#ffffff" opacity=".08" pointerEvents="none" />
+                  </g>
+                );
+              })()}
               <circle cx={planet.x} cy={planet.y} r={planet.size} fill="none" stroke={impact ? '#ff342f' : planet.name === 'EARTH' ? '#c3f2ff' : '#d5e6f3'} strokeWidth={impact ? '2.5' : planet.name === 'EARTH' ? '1.2' : '.45'} className={impact ? 'solar-earth-hit-by-flare' : ''} filter={impact ? 'url(#se-earth-impact-glow)' : undefined} />
-              {planet.name === 'EARTH' && <>
-                <defs><clipPath id="se-earth-disc-clip" clipPathUnits="userSpaceOnUse"><circle cx={planet.x} cy={planet.y} r={planet.size * .96} /></clipPath></defs>
-                <g clipPath="url(#se-earth-disc-clip)" transform={'translate(' + planet.x + ' ' + planet.y + ') rotate(' + earthSpinDegrees + ')'}>
-                  <path d="M -5.7 -2.2 C -5.1 -3.8 -3.7 -4.8 -2.3 -3.8 L -1.2 -2.8 -1.7 -1.8 -2.8 -1.4 -2.2 -.3 -3.1 .7 -3.7 -.2 -4.8 -.7 Z" fill="#55e2a5" />
-                  <path d="M -2.4 1.0 L -1.1 .2 -.2 1.7 -.7 3.1 -1.4 4.0 -2.1 2.6 Z" fill="#42c98c" />
-                  <path d="M -.2 -3.9 L 1.1 -4.1 2.1 -3.3 3.4 -3.2 4.5 -2.1 3.7 -1.4 2.7 -1.5 2.2 -.5 1.3 -.7 .7 .2 -.1 -.5 -.5 -1.8 -1.4 -2.4 Z" fill="#49d49a" />
-                  <path d="M .5 .2 L 1.8 .2 2.6 1.1 2.0 2.4 .8 2.9 .1 1.8 Z" fill="#35bb81" />
-                  <path d="M 3.6 2.7 L 4.9 2.3 5.2 3.2 4.3 3.8 Z" fill="#56dfa4" />
-                  <ellipse cx="0" cy="0" rx="2.7" ry="6.1" fill="none" stroke="#92e8ff" strokeWidth=".32" strokeOpacity=".46" />
-                  <path d="M -4.1 -5.7 Q 0 -1.4 -4.1 5.7" fill="none" stroke="#b9f2ff" strokeWidth=".24" strokeOpacity=".3" />
-                </g>
-                <path d={'M ' + (planet.x - 5.6) + ' ' + (planet.y - 2.1) + ' Q ' + (planet.x - 7.6) + ' ' + planet.y + ' ' + (planet.x - 5.5) + ' ' + (planet.y + 2.4)} fill="none" stroke="#b7e9ff" strokeWidth=".38" opacity=".38" />
-                <image href={PLANET_TEXTURE_URLS.EARTH} x={planet.x - planet.size} y={planet.y - planet.size} width={planet.size * 2} height={planet.size * 2} preserveAspectRatio="none" clipPath="url(#se-texture-clip-earth)" opacity=".98" />
-                <circle cx={planet.x} cy={planet.y} r="11" fill="none" stroke={impact ? '#ff342f' : '#73dfff'} strokeWidth={impact ? '1.8' : '.8'} className={impact ? 'solar-earth-hit-pulse' : 'solar-earth-earth-pulse'} />
-                <path d={'M ' + (planet.x - 2.3) + ' ' + (planet.y - 5.7) + ' L ' + (planet.x + .1) + ' ' + (planet.y + 5.7)} stroke="#b5edff" strokeWidth=".42" strokeDasharray="1 1.6" opacity=".5" />
-              </>}
               <text x={planet.x} y={planet.y - planet.size - (planet.name === 'JUPITER' || planet.name === 'SATURN' ? 13 : 10)} className={planet.name === 'EARTH' ? 'solar-earth-planet-label solar-earth-label-earth' : 'solar-earth-planet-label'} textAnchor="middle">{planet.name}</text>
             </g>;
           })}
