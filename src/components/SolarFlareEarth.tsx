@@ -17,6 +17,11 @@ const NOAA_XRAY = 'https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour
 const NOAA_FLARES = 'https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json';
 const NOAA_KP = 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json';
 const NOAA_PROTONS = 'https://services.swpc.noaa.gov/json/goes/primary/integral-protons-plot-6-hour.json';
+const NOAA_EUV_IMAGE = (wavelength: string) => 'https://services.swpc.noaa.gov/images/animations/suvi/primary/' + wavelength + '/latest.png';
+const NOAA_CORONA_IMAGE = 'https://services.swpc.noaa.gov/images/animations/ccor1/latest.png';
+const NOAA_AURORA_IMAGE = 'https://services.swpc.noaa.gov/images/animations/ovation/north/latest.jpg';
+const NOAA_SPACE_WEATHER = 'https://www.spaceweather.gov/';
+
 const DONKI = 'https://api.nasa.gov/DONKI/FLR';
 const LIGHT_SECONDS_PER_AU = 499.0048;
 const MAX_AU = 30.1;
@@ -282,6 +287,9 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const [dockTarget, setDockTarget] = useState<HTMLElement | null>(null);
   const [mapZoom, setMapZoom] = useState(1);
   const [focusedPlanet, setFocusedPlanet] = useState<string | null>(null);
+  const [euvWavelength, setEuvWavelength] = useState('304');
+  const [spaceWeatherFrame, setSpaceWeatherFrame] = useState(Date.now());
+
   const lastTick = useRef(Date.now());
 
   useEffect(() => {
@@ -347,6 +355,12 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     void refresh();
+  useEffect(() => {
+    const frameTimer = window.setInterval(() => setSpaceWeatherFrame(Date.now()), 5 * 60 * 1000);
+    return () => window.clearInterval(frameTimer);
+  }, []);
+
+
     void loadHistory(dayString(Date.now() - 29 * 86400000));
     const id = window.setInterval(() => void refresh(), 60000);
     return () => window.clearInterval(id);
@@ -540,8 +554,14 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
               const my = (y1 + y2) / 2 + Math.sin(angle + 1.2) * 18;
               return <path key={index} d={'M ' + x1 + ' ' + y1 + ' Q ' + mx + ' ' + my + ' ' + x2 + ' ' + y2} className="solar-earth-flare-ribbon" style={{ opacity: flareStrength * .85, animationDelay: (-index * .21) + 's' }} />;
             })}
-            <circle cx={CX} cy={CY} r={20 + flareStrength * 5} fill="url(#se-sun-fill)" filter="url(#se-sun-glow)" />
-            <circle cx={CX} cy={CY} r="13" fill="url(#se-sun-fill)" />
+            <circle cx={CX} cy={CY} r={22 + flareStrength * 5} fill="url(#se-sun-fill)" filter="url(#se-sun-glow)" />
+            <defs><clipPath id="se-sun-euv-clip"><circle cx={CX} cy={CY} r="17" /></clipPath></defs>
+            <circle cx={CX} cy={CY} r="18" fill="url(#se-sun-fill)" />
+            <g clipPath="url(#se-sun-euv-clip)">
+              <image href={NOAA_EUV_IMAGE(euvWavelength) + '?t=' + spaceWeatherFrame} x={CX - 18} y={CY - 18} width="36" height="36" preserveAspectRatio="xMidYMid slice" />
+              <circle cx={CX} cy={CY} r="17" fill="#ff6a24" opacity=".10" />
+            </g>
+            <circle cx={CX} cy={CY} r="18" fill="none" stroke="#ffdca1" strokeWidth=".8" opacity=".85" />
             <text x={CX} y={CY + 39} textAnchor="middle" className="solar-earth-sun-label">THE SUN</text>
           </g>
 
@@ -571,6 +591,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
                       <image href={PLANET_TEXTURE_URLS[planet.name]} x={planet.x - planet.size * 2} y={planet.y - planet.size} width={textureWidth} height={planet.size * 2} preserveAspectRatio="none" />
                       <image href={PLANET_TEXTURE_URLS[planet.name]} x={planet.x + planet.size * 2} y={planet.y - planet.size} width={textureWidth} height={planet.size * 2} preserveAspectRatio="none" />
                     </g>
+                    {planet.name === 'EARTH' && <image href={NOAA_AURORA_IMAGE + '?t=' + spaceWeatherFrame} x={planet.x - planet.size} y={planet.y - planet.size} width={planet.size * 2} height={planet.size * 2} preserveAspectRatio="xMidYMid slice" opacity=".7" style={{ mixBlendMode: 'screen' }} />}
                     <circle cx={planet.x} cy={planet.y} r={planet.size} fill="url(#se-sphere-shading)" pointerEvents="none" />
                     <ellipse cx={planet.x - planet.size * .24} cy={planet.y - planet.size * .36} rx={planet.size * .28} ry={planet.size * .12} transform={'rotate(-28 ' + (planet.x - planet.size * .24) + ' ' + (planet.y - planet.size * .36) + ')'} fill="#ffffff" opacity=".08" pointerEvents="none" />
                   </g>
