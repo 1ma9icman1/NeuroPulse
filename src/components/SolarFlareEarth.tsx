@@ -242,9 +242,12 @@ export function SolarFlareEarth() {
   const selected = events.find((event) => event.id === selectedId);
   const flareStrength = xrayFlux === null ? 0 : Math.max(0, Math.min(1, (Math.log10(Math.max(xrayFlux, 1e-9)) + 9) / 5));
   const liveFront = xrayFlux !== null && xrayFlux >= 1e-7;
+  // GOES records X-rays near Earth; use the observation timestamp as the 1-AU crossing time,
+  // then advance that observed photon front at c instead of inventing a CME speed.
+  const liveFrontAu = Math.min(MAX_AU, 1 + Math.max(0, Date.now() - xrayTime) / 1000 / LIGHT_SECONDS_PER_AU);
   const elapsed = replayProgress / 1000 * MAX_REPLAY_SECONDS;
   const replayAu = Math.min(MAX_AU, elapsed / LIGHT_SECONDS_PER_AU);
-  const frontRadius = replaying ? radiusAtAu(replayAu) : liveFront ? radiusAtAu(1) : 0;
+  const frontRadius = replaying ? radiusAtAu(replayAu) : liveFront ? radiusAtAu(liveFrontAu) : 0;
   const feedCount = [xrayRows, protonRows, kpRows].filter((data) => data.length > 0).length;
   const feedStatus = loading && lastRefresh === null ? 'CONNECTING' : feedCount === 3 ? 'NOAA LIVE' : feedCount ? 'PARTIAL DATA' : 'FEED OFFLINE';
 
@@ -347,7 +350,7 @@ export function SolarFlareEarth() {
           <text x={CX + PLANETS[2].radius + 10} y={CY - 17} className="solar-earth-distance-note">1 AU · 8m 19s light</text>
           <text x={CX + 8} y="27" className="solar-earth-map-caption">HELIOCENTRIC VIEW / 2D ORBITAL PLANE</text>
           <text x="18" y="579" className="solar-earth-map-small">ORBIT SPEED: {orbitSpeed} SIMULATED DAYS / SECOND</text>
-          <text x="982" y="579" textAnchor="end" className="solar-earth-map-small">{replaying ? 'REPLAY FRONT: ' + replayAu.toFixed(2) + ' AU' : liveFront ? 'LIVE OBSERVED X-RAY FRONT: 1 AU' : 'LIVE MODE · WAITING FOR B-CLASS OR STRONGER X-RAYS'}</text>
+          <text x="982" y="579" textAnchor="end" className="solar-earth-map-small">{replaying ? 'REPLAY FRONT: ' + replayAu.toFixed(2) + ' AU' : liveFront ? 'LIVE OBSERVED X-RAY FRONT: ' + liveFrontAu.toFixed(2) + ' AU' : 'LIVE MODE · WAITING FOR B-CLASS OR STRONGER X-RAYS'}</text>
           {replaying && selected && <text x={CX + 28} y={CY + 26} className="solar-earth-selected-event-label">{selected.classType.toUpperCase()} · {replayAu.toFixed(2)} AU</text>}
         </svg>
 
