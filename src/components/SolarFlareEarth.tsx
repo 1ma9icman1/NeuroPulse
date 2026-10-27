@@ -153,11 +153,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const lastTick = useRef(Date.now());
 
   useEffect(() => {
-    const findVisibleLeftPanel = () => {
-      const panels = Array.from(document.querySelectorAll<HTMLElement>('.atlas-left'));
-      return panels.find((panel) => panel.getClientRects().length > 0 && panel.offsetWidth > 0 && panel.offsetHeight > 0) ?? null;
-    };
-    const attachDock = () => setDockTarget(findVisibleLeftPanel());
+    const attachDock = () => setDockTarget(document.getElementById('solar-flare-left-dock-target'));
     attachDock();
     const frame = window.requestAnimationFrame(attachDock);
     window.addEventListener('resize', attachDock);
