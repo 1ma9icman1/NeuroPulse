@@ -1352,18 +1352,443 @@ button:hover, button:focus-visible {
   100% { opacity: .05; transform: scale(2.8); }
 }
 
-/* Dedicated portal mount for Solar Flare controls; keep a real layout box in the sidebar. */
-.solar-flare-left-dock-target { display: block; flex: 0 0 auto; width: 100%; min-width: 0; min-height: 0; }
-.solar-flare-left-dock-target:empty { display: none; }
-.solar-flare-left-dock-target > .solar-earth-left-dock { width: 100%; box-sizing: border-box; }
+/* Solar Flare controls mount inside the RIGHT sidebar. */
+.solar-flare-right-dock-target { display: none; width: 100%; min-width: 0; min-height: 0; box-sizing: border-box; }
+.solar-flare-right-dock-target:empty { display: none; }
+.solar-flare-right-dock-target > .solar-earth-left-dock { width: 100%; box-sizing: border-box; }
 
-/* Solar Flare needs the left research rail visible even in the search-first layout. */
-.atlas-workspace:has(.solar-flare-left-dock-target > .solar-earth-left-dock) {
-  grid-template-columns: 236px minmax(0, 1fr) minmax(280px, 340px) !important;
+/* Solar Flare view uses the right menu for event controls and keeps the Earth canvas central. */
+.atlas-workspace.solar-flare-active {
+  grid-template-columns: minmax(0, 1fr) 318px !important;
 }
-.atlas-workspace:has(.solar-flare-left-dock-target > .solar-earth-left-dock) > .atlas-left {
+.atlas-workspace.solar-flare-active > .atlas-left {
+  display: none !important;
+}
+.atlas-workspace.solar-flare-active > .atlas-center {
+  display: flex;
+  grid-column: 1;
+  min-width: 0;
+}
+.atlas-workspace.solar-flare-active > .atlas-right {
   display: flex !important;
+  flex-direction: column;
+  grid-column: 2;
+  min-width: 0;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  gap: 7px;
+}
+.atlas-workspace.solar-flare-active .solar-flare-right-dock-target {
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+.atlas-workspace.solar-flare-active .solar-earth-left-dock {
+  width: 100%;
+  max-height: calc(100vh - 105px);
+  box-sizing: border-box;
+}
+@media (max-width: 900px) {
+  .atlas-workspace.solar-flare-active {
+    grid-template-columns: minmax(0, 1fr) minmax(235px, 34vw) !important;
+  }
+}
+@media (max-width: 560px) {
+  .atlas-workspace.solar-flare-active {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) auto !important;
+  }
+  .atlas-workspace.solar-flare-active > .atlas-center {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .atlas-workspace.solar-flare-active > .atlas-right {
+    grid-column: 1;
+    grid-row: 2;
+    max-height: 38vh;
+    overflow: auto;
+  }
+}
+
+
+/* Give the RIGHT-side Solar Flare controls room to breathe instead of compressing them. */
+.atlas-workspace.solar-flare-active > .atlas-right {
+  padding: 2px 2px 10px;
+  gap: 12px;
+}
+.atlas-workspace.solar-flare-active .solar-flare-right-dock-target {
+  flex: 0 0 auto;
+}
+.atlas-workspace.solar-flare-active .solar-earth-left-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 13px;
+  max-height: none;
+  overflow: visible;
+  border-radius: 8px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-left-dock-title {
+  gap: 9px;
+  padding: 2px 1px 11px;
+  border-bottom: 1px solid rgba(255, 181, 90, .28);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-map-key {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 11px;
+  line-height: 1.5;
+  border-radius: 5px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-map-key span {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-playback {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 11px;
+  border-radius: 5px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-playback-top {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-current-event {
+  gap: 10px;
+  align-items: flex-start;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-current-event strong {
+  font-size: 9px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-current-event small {
+  margin-top: 5px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-playback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-playback-actions .se-action {
+  flex: 1 1 110px;
+  min-height: 34px;
+  padding: 7px 9px;
+  font-size: 9px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-timeline-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 0;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-timeline-row > span:first-child {
+  font-size: 9px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-timeline-row input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+.atlas-workspace.solar-flare-active .solar-earth-timeline-row select {
+  width: 100%;
+  max-width: 150px;
+  min-height: 31px;
+  padding: 5px 7px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-timeline-time {
+  min-width: 0;
+  max-width: 150px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: right;
+  line-height: 1.4;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 11px;
+  overflow: visible;
+  border-radius: 5px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  min-height: 0;
+  padding: 0 0 11px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar > div {
+  gap: 5px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar > div > strong {
+  font-size: 10px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar > div > small {
+  max-width: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  white-space: normal;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar input[type="date"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  font-size: 10px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-load {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: auto;
+  max-height: 380px;
+  padding: 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-chip {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 65px;
+  padding: 10px;
+  white-space: normal;
+  line-height: 1.45;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-chip > strong,
+.atlas-workspace.solar-flare-active .solar-earth-event-chip > small {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-class {
+  font-size: 9px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-notice {
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-footnote {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 0;
+  padding: 5px 2px 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-footnote > span {
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+  .atlas-workspace.solar-flare-active .solar-earth-left-dock {
+    padding: 10px;
+    gap: 10px;
+  }
+  .atlas-workspace.solar-flare-active .solar-earth-event-list {
+    max-height: 30vh;
+  }
+}
+
+
+/* Accessibility pass: larger, easier-to-read Solar Flare controls and event history. */
+.atlas-workspace.solar-flare-active .solar-earth-left-dock-title {
+  font-size: 15px;
+  line-height: 1.55;
+}
+.atlas-workspace.solar-flare-active .solar-earth-map-key {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.atlas-workspace.solar-flare-active .solar-earth-playback,
+.atlas-workspace.solar-flare-active .solar-earth-history {
+  font-size: 13px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-current-event strong {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-current-event small {
+  font-size: 12px;
+  line-height: 1.55;
+}
+.atlas-workspace.solar-flare-active .solar-earth-playback-actions .se-action {
+  min-height: 40px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.atlas-workspace.solar-flare-active .solar-earth-timeline-row > span:first-child {
+  font-size: 11px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-timeline-row select,
+.atlas-workspace.solar-flare-active .solar-earth-timeline-time {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar > div > strong {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar > div > small {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar label {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-toolbar input[type="date"] {
+  min-height: 38px;
+  font-size: 13px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-history-load {
+  min-height: 40px;
+  font-size: 12px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-chip {
+  gap: 6px;
+  min-height: 76px;
+  padding: 12px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-class {
+  font-size: 12px;
+  font-weight: 700;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-chip > strong {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-chip > small {
+  font-size: 12px;
+  line-height: 1.55;
+}
+.atlas-workspace.solar-flare-active .solar-earth-notice,
+.atlas-workspace.solar-flare-active .solar-earth-footnote {
+  font-size: 12px;
+  line-height: 1.65;
+}
+.atlas-workspace.solar-flare-active .solar-earth-footnote a {
+  font-size: inherit;
+}
+
+
+/* Make the full Solar Flare sidebar scrollable so lower controls and source notes are reachable. */
+.atlas-workspace.solar-flare-active > .atlas-right {
+  min-height: 0;
+  max-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+.atlas-workspace.solar-flare-active .solar-flare-right-dock-target {
+  min-height: 0;
+  flex: 0 0 auto;
+}
+.atlas-workspace.solar-flare-active .solar-earth-left-dock {
+  max-height: calc(100vh - 88px);
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  padding-bottom: 18px;
+}
+.atlas-workspace.solar-flare-active .solar-earth-event-list {
+  max-height: 46vh;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+@media (max-width: 560px) {
+  .atlas-workspace.solar-flare-active > .atlas-right {
+    max-height: 48vh;
+    overflow-y: auto !important;
+  }
+  .atlas-workspace.solar-flare-active .solar-earth-left-dock {
+    max-height: none;
+    overflow: visible;
+  }
+  .atlas-workspace.solar-flare-active .solar-earth-event-list {
+    max-height: 34vh;
+  }
+}
+
+
+/* NOAA SWPC imagery and three live-index cards at the TOP of the RIGHT Solar Flare sidebar. */
+.atlas-workspace.solar-flare-active .swpc-live-panel { display:flex; flex-direction:column; gap:10px; padding:10px; border:1px solid rgba(63,177,231,.42); border-radius:7px; background:linear-gradient(180deg,rgba(5,20,36,.98),rgba(2,9,20,.98)); color:#d9efff; }
+.swpc-live-heading,.swpc-imagery-title { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.swpc-live-heading { font:800 11px ui-monospace,monospace; letter-spacing:.04em; color:#9bdcff; }
+.swpc-live-heading > span { display:flex; align-items:center; gap:6px; }
+.swpc-live-heading a { color:#ffc16c; text-decoration:none; font-size:9px; white-space:nowrap; }
+.swpc-imagery-block { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.swpc-imagery-title strong { color:#e7f6ff; font:800 10px ui-monospace,monospace; letter-spacing:.08em; }
+.swpc-imagery-title span { color:#83abc4; font-size:9px; }
+.swpc-euv-tabs { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:3px; }
+.swpc-euv-tabs button { min-width:0; padding:5px 1px; border:1px solid #24506b; border-radius:3px; background:#081b2b; color:#9ac5df; font:700 9px ui-monospace,monospace; cursor:pointer; }
+.swpc-euv-tabs button.active { border-color:#ffb75f; background:#412a17; color:#ffe0a8; }
+.swpc-imagery-frame { position:relative; display:flex; align-items:center; justify-content:center; min-height:90px; height:116px; overflow:hidden; border:1px solid rgba(77,159,204,.28); border-radius:4px; background:#020712; }
+.swpc-imagery-frame img { display:block; width:100%; height:100%; object-fit:contain; }
+.swpc-corona-frame { height:105px; flex-direction:column; gap:4px; }
+.swpc-corona-frame span { color:#9bbbd0; font-size:8px; }
+.swpc-index-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+.swpc-index-card { position:relative; display:flex; flex-direction:column; gap:5px; min-width:0; min-height:83px; padding:7px 6px 10px; overflow:hidden; text-decoration:none; border:1px solid rgba(87,146,179,.38); border-radius:4px; background:rgba(9,27,43,.9); }
+.swpc-index-card > span { color:#a3c2d4; font:800 8px ui-monospace,monospace; line-height:1.35; }
+.swpc-index-card > strong { color:#f2f9ff; font:800 11px ui-monospace,monospace; overflow-wrap:anywhere; }
+.swpc-index-card > small { color:#8cb2ca; font-size:8px; overflow-wrap:anywhere; }
+.swpc-index-card > i { position:absolute; bottom:0; left:0; width:100%; height:3px; }
+.swpc-index-xray { background:#ff8b54; }.swpc-index-proton { background:#f5c45f; }.swpc-index-kp { background:#5cda9a; }
+.swpc-aurora-note { display:flex; align-items:center; gap:8px; padding:7px; border:1px solid rgba(62,203,184,.25); border-radius:4px; background:rgba(2,25,31,.7); }
+.swpc-aurora-note img { width:58px; height:48px; object-fit:cover; border-radius:3px; background:#020712; }
+.swpc-aurora-note span { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.swpc-aurora-note strong { color:#93f0df; font:800 9px ui-monospace,monospace; }
+.swpc-aurora-note small { color:#92b8c7; font-size:8px; line-height:1.4; }
+.swpc-live-foot { color:#6f98b2; font-size:8px; line-height:1.4; }
+@media (max-width: 900px) {
+  .atlas-workspace.solar-flare-active .swpc-index-card { padding:6px 4px 9px; }
+  .atlas-workspace.solar-flare-active .swpc-index-card > span { font-size:7px; }
+  .atlas-workspace.solar-flare-active .swpc-index-card > strong { font-size:10px; }
 }
