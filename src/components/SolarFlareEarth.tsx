@@ -446,7 +446,8 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const replayAu = Math.min(MAX_AU, elapsed / LIGHT_SECONDS_PER_AU);
   const frontRadius = replaying ? radiusAtAu(replayAu) : liveFront ? radiusAtAu(liveFrontAu) : 0;
   const feedCount = [xrayRows, protonRows, kpRows].filter((data) => data.length > 0).length;
-  const feedStatus = loading && lastRefresh === null ? 'CONNECTING' : feedCount === 3 ? 'NOAA LIVE' : feedCount ? 'PARTIAL DATA' : 'FEED OFFLINE';
+  const simulationSampleCount = [xrayForSimulation, protonForSimulation, kpForSimulation].filter(Boolean).length;
+  const feedStatus = loading && lastRefresh === null ? 'CONNECTING' : !simulationIsLive ? simulationSampleCount ? 'ARCHIVE SAMPLE' : 'NO DATA FOR DATE' : feedCount === 3 ? 'NOAA LIVE' : feedCount ? 'PARTIAL DATA' : 'FEED OFFLINE';
 
   useEffect(() => {
     if (!playing || !selected) return;
@@ -502,7 +503,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
     const impactBandAu = replaying ? Math.max(0.06, planet.au * 0.015) : 0.005;
     return Math.abs(wavefrontAu - planet.distanceAu) <= impactBandAu;
   };
-  const stateClass = feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
+  const stateClass = !simulationIsLive ? simulationSampleCount ? 'partial' : 'offline' : feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
 
   return (
     <>
@@ -640,7 +641,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
 
           <text x={CX + PLANETS[2].radius + 10} y={CY - 17} className="solar-earth-distance-note">EARTH ORBIT · 1 AU (DISPLAY NOT TO SCALE)</text>
           <text x={CX + 8} y="27" className="solar-earth-map-caption">{closeView ? focusedPlanet + ' CLOSE VIEW' : 'HELIOCENTRIC VIEW / DATE-BASED ORBITS'}</text>
-          <text x="18" y="579" className="solar-earth-map-small">{realTimeOrbit ? 'REAL TIME · UTC ORBIT + AXIAL ROTATION' : 'ORBIT SPEED: ' + orbitSpeed + ' SIMULATED DAYS / SECOND'}</text>
+          <text x="18" y="579" className="solar-earth-map-small">{realTimeOrbit ? 'REAL TIME · UTC ORBIT + AXIAL ROTATION' : 'ORBIT SPEED: ' + simulationSpeed + ' SIMULATED DAYS / SECOND'}</text>
           <text x="982" y="579" textAnchor="end" className="solar-earth-map-small">{replaying ? 'REPLAY FRONT: ' + replayAu.toFixed(2) + ' AU' : liveFront ? 'LIVE OBSERVED X-RAY FRONT: ' + liveFrontAu.toFixed(2) + ' AU' : 'LIVE MODE · WAITING FOR B-CLASS OR STRONGER X-RAYS'}</text>
           {replaying && selected && <text x={CX + 28} y={CY + 26} className="solar-earth-selected-event-label">{selected.classType.toUpperCase()} · {replayAu.toFixed(2)} AU</text>}
         </svg>
@@ -686,7 +687,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
           </div>
           <div className="solar-earth-timeline-row">
             <span>{replaying ? 'LIGHT TRAVEL' : 'ORBIT SPEED'}</span>
-            {replaying ? <input aria-label="Solar flare propagation replay position" type="range" min="0" max="1000" value={replayProgress} onChange={(event) => { setReplayProgress(Number(event.target.value)); setPlaying(false); setReplaying(true); }} /> : <input aria-label="Solar system orbit speed" type="range" min="1" max="30" value={orbitSpeed} onChange={(event) => { setOrbitSpeed(Number(event.target.value)); setRealTimeOrbit(false); }} />}
+            {replaying ? <input aria-label="Solar flare propagation replay position" type="range" min="0" max="1000" value={replayProgress} onChange={(event) => { setReplayProgress(Number(event.target.value)); setPlaying(false); setReplaying(true); }} /> : <input aria-label="Solar system orbit speed" type="range" min="1" max="30" value={orbitSpeed} onChange={(event) => { const speed = Number(event.target.value); setOrbitSpeed(speed); setSimulationSpeed(speed); setRealTimeOrbit(false); setSimulationPlaying(true); }} />}
             <select aria-label="Solar flare replay speed" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}><option value={1}>1× REAL TIME</option><option value={60}>60× PLAYBACK</option><option value={300}>300× PLAYBACK</option><option value={600}>600× PLAYBACK</option></select>
             <span className="solar-earth-timeline-time">{replaying ? (elapsed / 60).toFixed(1) + ' min / 4.2 hr' : realTimeOrbit ? '1 day / 24 hours · UTC' : orbitSpeed + ' simulated days / sec'}</span>
           </div>
@@ -695,11 +696,11 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
               <div>
                 <div style={{ color: '#7dd3fc', fontSize: 10, fontWeight: 700, letterSpacing: '.16em' }}>SIMULATION CLOCK · UTC</div>
                 <strong style={{ display: 'block', color: '#f0f8ff', fontSize: 18, fontVariantNumeric: 'tabular-nums' }}>{simulationDate.toISOString().replace('T', ' ').slice(0, 19)} UTC</strong>
-                <small style={{ color: simulationIsLive ? '#7ce7b0' : '#f6c879' }}>{simulationIsLive ? 'LIVE MEASUREMENTS · CURRENT TIME' : simulationTimeMs > Date.now() ? 'FUTURE SIMULATION · LIVE MEASUREMENTS HIDDEN' : 'HISTORICAL SIMULATION · MATCHING ARCHIVE SAMPLES ONLY'}</small>
+                <small style={{ color: simulationIsLive ? '#7ce7b0' : '#f6c879' }}>{simulationIsLive ? 'LIVE MEASUREMENTS · CURRENT TIME' : simulationTimeMs > Date.now() ? 'FUTURE SIMULATION · NO MEASUREMENTS INVENTED' : 'HISTORICAL SIMULATION · MATCHING ARCHIVE SAMPLES ONLY'}</small>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <button type="button" className="se-action" onClick={() => setSimulationPlaying(value => !value)} title={simulationPlaying ? 'Pause simulation clock' : 'Play simulation clock'}>{simulationPlaying ? 'PAUSE TIME' : 'PLAY TIME'}</button>
-                <select aria-label="Simulation clock speed" value={simulationSpeed} onChange={(event) => setSimulationSpeed(Number(event.target.value))} style={{ maxWidth: 150 }}>
+                <select aria-label="Simulation clock speed" value={simulationSpeed} onChange={(event) => { const speed = Number(event.target.value); setSimulationSpeed(speed); setOrbitSpeed(Math.min(30, speed)); setRealTimeOrbit(false); }} style={{ maxWidth: 150 }}>
                   <option value={1}>1 simulated day/sec</option><option value={6}>6 simulated days/sec</option><option value={30}>30 simulated days/sec</option><option value={365}>1 simulated year/sec</option>
                 </select>
               </div>
