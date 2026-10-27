@@ -298,7 +298,7 @@ export function SolarFlareEarth({ onBack }: { onBack?: () => void }) {
   const stateClass = feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
 
   const leftMetricsPanel = (
-    <div className="solar-earth-metrics solar-earth-metrics-left" aria-label="Live solar flare measurements">
+    <div className="solar-earth-left-dock solar-earth-metrics solar-earth-metrics-left" aria-label="Live solar flare measurements">
       <div className="solar-earth-metric"><span><Zap size={12} /> GOES X-RAY</span><strong>{fluxText(xrayFlux)}</strong><small>{classFromFlux(xrayFlux)} · W/m²</small></div>
       <div className="solar-earth-metric"><span><Activity size={12} /> PLANETARY K</span><strong>{kp === null ? '—' : kp.toFixed(1) + ' / 9'}</strong><small>{kp === null ? 'No current sample' : kp >= 5 ? 'Storm threshold ≥ 5' : kp >= 4 ? 'Elevated activity' : 'Quiet to unsettled'}</small></div>
       <div className="solar-earth-metric"><span><Satellite size={12} /> PROTON FLUX</span><strong>{fluxText(protonFlux)}</strong><small>{liveProton ? s(liveProton.energy, liveProton.energy_channel, liveProton.channel, 'Energy channel') : 'Energy channel unavailable'}</small></div>
