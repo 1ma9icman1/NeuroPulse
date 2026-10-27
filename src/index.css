@@ -1357,18 +1357,6 @@ button:hover, button:focus-visible {
 .solar-flare-left-dock-target:empty { display: none; }
 .solar-flare-left-dock-target > .solar-earth-left-dock { width: 100%; box-sizing: border-box; }
 
-/* Solar Flare needs the left research rail visible even in the search-first layout. */
-.atlas-workspace:has(.solar-flare-left-dock-target > .solar-earth-left-dock) {
-  grid-template-columns: 236px minmax(0, 1fr) minmax(280px, 340px) !important;
-}
-.atlas-workspace:has(.solar-flare-left-dock-target > .solar-earth-left-dock) > .atlas-left {
-  display: flex !important;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-
 /* Solar Flare has its own LEFT controls rail; Earth Research Modules remain exclusive to Earth view. */
 .solar-flare-left-dock-target { display: none; }
 .atlas-workspace.solar-flare-active {
