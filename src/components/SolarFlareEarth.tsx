@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, AlertTriangle, CalendarClock, CircleDot, ExternalLink, Play, RefreshCw, Satellite, Sun, TimerReset, Zap } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, CalendarClock, CircleDot, ExternalLink, Play, RefreshCw, Satellite, Sun, TimerReset, Zap } from 'lucide-react';
 
 type Row = Record<string, unknown>;
 type SolarEvent = {
@@ -118,7 +118,7 @@ function radiusAtAu(au: number): number {
 }
 function fluxText(value: number | null): string { return value === null ? '—' : value.toExponential(2); }
 
-export function SolarFlareEarth() {
+export function SolarFlareEarth({ onBack }: { onBack?: () => void }) {
   const [xrayRows, setXrayRows] = useState<Row[]>([]);
   const [protonRows, setProtonRows] = useState<Row[]>([]);
   const [kpRows, setKpRows] = useState<Row[]>([]);
@@ -290,6 +290,7 @@ export function SolarFlareEarth() {
   return (
     <section className="solar-earth" aria-label="Solar Flare Earth solar system map">
       <div className="solar-earth-toolbar">
+        {onBack && <button type="button" className="solar-earth-refresh" onClick={onBack}><ArrowLeft size={13} /> BACK TO EARTH</button>}
         <div className="solar-earth-title">
           <span className="solar-earth-icon"><Sun size={17} /></span>
           <div><div className="solar-earth-kicker">NEUROPULSE / LIVE HELIOPHYSICS</div><h2>SOLAR FLARE EARTH</h2></div>
