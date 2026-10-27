@@ -1352,42 +1352,39 @@ button:hover, button:focus-visible {
   100% { opacity: .05; transform: scale(2.8); }
 }
 
-/* Dedicated portal mount for Solar Flare controls; keep a real layout box in the sidebar. */
-.solar-flare-left-dock-target { display: block; flex: 0 0 auto; width: 100%; min-width: 0; min-height: 0; }
-.solar-flare-left-dock-target:empty { display: none; }
-.solar-flare-left-dock-target > .solar-earth-left-dock { width: 100%; box-sizing: border-box; }
+/* Solar Flare controls mount inside the RIGHT sidebar. */
+.solar-flare-right-dock-target { display: none; width: 100%; min-width: 0; min-height: 0; box-sizing: border-box; }
+.solar-flare-right-dock-target:empty { display: none; }
+.solar-flare-right-dock-target > .solar-earth-left-dock { width: 100%; box-sizing: border-box; }
 
-/* Solar Flare has its own LEFT controls rail; Earth Research Modules remain exclusive to Earth view. */
-.solar-flare-left-dock-target { display: none; }
+/* Solar Flare view uses the right menu for event controls and keeps the Earth canvas central. */
 .atlas-workspace.solar-flare-active {
-  grid-template-columns: 318px minmax(0, 1fr) !important;
+  grid-template-columns: minmax(0, 1fr) 318px !important;
 }
-.atlas-workspace.solar-flare-active > .solar-flare-sidebar {
+.atlas-workspace.solar-flare-active > .atlas-left {
+  display: none !important;
+}
+.atlas-workspace.solar-flare-active > .atlas-center {
+  display: flex;
+  grid-column: 1;
+  min-width: 0;
+}
+.atlas-workspace.solar-flare-active > .atlas-right {
   display: flex !important;
   flex-direction: column;
-  grid-column: 1;
-  min-height: 0;
+  grid-column: 2;
   min-width: 0;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   gap: 7px;
 }
-.atlas-workspace.solar-flare-active > .atlas-left,
-.atlas-workspace.solar-flare-active > .atlas-right {
-  display: none !important;
-}
-.atlas-workspace.solar-flare-active > .atlas-center {
-  grid-column: 2;
-  min-width: 0;
-}
-.atlas-workspace.solar-flare-active .solar-flare-left-dock-target {
+.atlas-workspace.solar-flare-active .solar-flare-right-dock-target {
   display: block;
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
+  flex: 0 0 auto;
   width: 100%;
+  min-width: 0;
   overflow-x: hidden;
-  overflow-y: auto;
 }
 .atlas-workspace.solar-flare-active .solar-earth-left-dock {
   width: 100%;
@@ -1396,7 +1393,7 @@ button:hover, button:focus-visible {
 }
 @media (max-width: 900px) {
   .atlas-workspace.solar-flare-active {
-    grid-template-columns: minmax(235px, 34vw) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(0, 1fr) minmax(235px, 34vw) !important;
   }
 }
 @media (max-width: 560px) {
@@ -1405,14 +1402,14 @@ button:hover, button:focus-visible {
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-rows: minmax(0, 1fr) auto !important;
   }
-  .atlas-workspace.solar-flare-active > .solar-flare-sidebar {
+  .atlas-workspace.solar-flare-active > .atlas-center {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .atlas-workspace.solar-flare-active > .atlas-right {
     grid-column: 1;
     grid-row: 2;
     max-height: 38vh;
     overflow: auto;
-  }
-  .atlas-workspace.solar-flare-active > .atlas-center {
-    grid-column: 1;
-    grid-row: 1;
   }
 }
