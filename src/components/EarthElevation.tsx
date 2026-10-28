@@ -579,7 +579,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     const soilColors = soilGeometry.getAttribute('color') as THREE.BufferAttribute;
     const inBox = (lat: number, lon: number, south: number, north: number, west: number, east: number) =>
       lat >= south && lat <= north && lon >= west && lon <= east;
-    const expansion = soilYear < 0 ? Math.min(8, Math.abs(soilYear) / 1500) : soilYear < 1849 ? (1849 - soilYear) / 500 : 0;
+    const expansion = Math.min(8, Math.abs(soilYear - 1849) / 500);
     const drylandBoxes: Array<[number, number, number, number]> = [
       [8, 36, -20, 40], [10, 34, 35, 62], [-35, -15, 10, 36],
       [-36, -14, 112, 153], [34, 50, 75, 122], [-32, -4, -82, -66],
