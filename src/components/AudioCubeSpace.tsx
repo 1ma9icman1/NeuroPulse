@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import Globe3D from 'react-globe.gl';
 import * as THREE from 'three';
+import { createPortal } from 'react-dom';
 import { fromUrl } from 'geotiff';
 import { SolarSystemView } from './SolarSystemView';
 import type { EarthSiteSelection } from './EarthSiteExplorer';
