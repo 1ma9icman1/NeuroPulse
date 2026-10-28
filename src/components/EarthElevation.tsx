@@ -346,9 +346,43 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         terrain.renderOrder = 1;
         earthGroup.add(terrain);
 
-        // Separate opt-in soil/sand shell. The original NOAA terrain geometry is not replaced.
+        // Separate opt-in soil/sand overlay. It is masked to modeled dryland regions,
+        // not painted across oceans and every continent. This is a conceptual aridity mask,
+        // not a measured global historical soil-depth dataset.
         const soilGeometry = geometry.clone();
-        const soilMaterial = new THREE.MeshStandardMaterial({ color: '#c8a36a', roughness: 1, metalness: 0, transparent: true, opacity: 0.62, depthWrite: false, side: THREE.DoubleSide });
+        const soilColors = new Float32Array(gridWidth * gridHeight * 4);
+        const inBox = (lat: number, lon: number, south: number, north: number, west: number, east: number) =>
+          lat >= south && lat <= north && lon >= west && lon <= east;
+        const modeledDryland = (lat: number, lon: number, year: number) => {
+          // Older scenarios expand the conceptual dryland mask slightly; this is an
+          // explicit visualization assumption until location-specific paleoclimate data is connected.
+          const expansion = year < 0 ? Math.min(8, Math.abs(year) / 1500) : year < 1849 ? (1849 - year) / 500 : 0;
+          const boxes: Array<[number, number, number, number]> = [
+            [8, 36, -20, 40],       // Sahara / North Africa, including Giza
+            [10, 34, 35, 62],       // Arabian Peninsula
+            [-35, -15, 10, 36],     // southern African drylands
+            [-36, -14, 112, 153],   // Australian interior
+            [34, 50, 75, 122],      // Gobi / Central Asian drylands
+            [-32, -4, -82, -66],    // Atacama
+            [25, 39, -122, -100],   // southwestern North America
+            [30, 50, 35, 75],       // West / Central Asian drylands
+          ];
+          return boxes.some(([south, north, west, east]) =>
+            inBox(lat, lon, south - expansion, north + expansion, west - expansion, east + expansion));
+        };
+        for (let y = 0; y < gridHeight; y++) {
+          const lat = 90 - (y / (gridHeight - 1)) * 180;
+          for (let x = 0; x < gridWidth; x++) {
+            const lon = (x / (gridWidth - 1)) * 360 - 180;
+            const i = (y * gridWidth + x) * 4;
+            soilColors[i] = 0.78;
+            soilColors[i + 1] = 0.64;
+            soilColors[i + 2] = 0.42;
+            soilColors[i + 3] = modeledDryland(lat, lon, 1849) ? 0.72 : 0;
+          }
+        }
+        soilGeometry.setAttribute('color', new THREE.Float32BufferAttribute(soilColors, 4));
+        const soilMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, transparent: true, opacity: 0.78, depthWrite: false, side: THREE.DoubleSide });
         const soilMesh = new THREE.Mesh(soilGeometry, soilMaterial);
         soilMesh.visible = false;
         soilMesh.renderOrder = 3;
@@ -538,13 +572,33 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     const soilGeometry = state.soilMesh.geometry as THREE.BufferGeometry;
     const soilPositions = soilGeometry.getAttribute('position') as THREE.BufferAttribute;
     const terrainPositions = state.geometry.getAttribute('position') as THREE.BufferAttribute;
-    const soilOffset = soilDepth * HEIGHT_SCALE * terrainScale;
+    // The 39 m calibration is too thin to read clearly at globe scale, so the
+    // display uses 8x vertical exaggeration while the UI continues to report metres.
+    // Only dryland vertices receive visible soil color; other areas remain transparent.
+    const soilOffset = soilDepth * HEIGHT_SCALE * terrainScale * 8;
+    const soilColors = soilGeometry.getAttribute('color') as THREE.BufferAttribute;
+    const inBox = (lat: number, lon: number, south: number, north: number, west: number, east: number) =>
+      lat >= south && lat <= north && lon >= west && lon <= east;
+    const expansion = soilYear < 0 ? Math.min(8, Math.abs(soilYear) / 1500) : soilYear < 1849 ? (1849 - soilYear) / 500 : 0;
+    const drylandBoxes: Array<[number, number, number, number]> = [
+      [8, 36, -20, 40], [10, 34, 35, 62], [-35, -15, 10, 36],
+      [-36, -14, 112, 153], [34, 50, 75, 122], [-32, -4, -82, -66],
+      [25, 39, -122, -100], [30, 50, 35, 75],
+    ];
     for (let i = 0; i < terrainPositions.count; i++) {
       const x = terrainPositions.getX(i), y = terrainPositions.getY(i), z = terrainPositions.getZ(i);
       const length = Math.sqrt(x * x + y * y + z * z) || 1;
       soilPositions.setXYZ(i, x + (x / length) * soilOffset, y + (y / length) * soilOffset, z + (z / length) * soilOffset);
+      const row = Math.floor(i / state.width);
+      const col = i % state.width;
+      const lat = 90 - (row / (state.height - 1)) * 180;
+      const lon = (col / (state.width - 1)) * 360 - 180;
+      const isDryland = drylandBoxes.some(([south, north, west, east]) =>
+        inBox(lat, lon, south - expansion, north + expansion, west - expansion, east + expansion));
+      soilColors.setW(i, isDryland ? 1 : 0);
     }
     soilPositions.needsUpdate = true;
+    soilColors.needsUpdate = true;
     soilGeometry.computeVertexNormals();
     soilGeometry.computeBoundingSphere();
     // Recalculate bounds after changing vertex positions so Three.js doesn't cull the raised globe.
@@ -552,7 +606,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     // Keep the visible water surface locked to the exact same datum as flooded terrain.
     state.water.geometry.dispose();
     state.water.geometry = new THREE.SphereGeometry(BASE_RADIUS + seaLevel * HEIGHT_SCALE * terrainScale, 128, 64);
-  }, [terrainScale, seaLevel, surfaceMode, surfaceTextureLoaded, waterOpacity, loading, soilLayerEnabled, soilDepth]);
+  }, [terrainScale, seaLevel, surfaceMode, surfaceTextureLoaded, waterOpacity, loading, soilLayerEnabled, soilDepth, soilYear]);
 
   // Right-column controls dispatch these events so the same research tools are available
   // in the elevation workspace without duplicating the global navigation menu.
