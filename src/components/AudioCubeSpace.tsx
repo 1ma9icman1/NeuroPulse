@@ -192,7 +192,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   // Historical soil/sand overlay on the main Earth globe. The raster is a real global soil-property map;
   // 1849 and 39 m are user-selected historical/Giza scenario controls, not global measured soil depths.
   const [soilLayerEnabled, setSoilLayerEnabled] = useState(true);
-  const [soilYear, setSoilYear] = useState(1849);
   const [soilDepth, setSoilDepth] = useState(39);
   const [soilOpacity, setSoilOpacity] = useState(0.40);
   const [soilPanelOpen, setSoilPanelOpen] = useState(true);
