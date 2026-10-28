@@ -420,15 +420,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     }
     return merged;
   })();
-  // Start the Earth view centered on Poverty Point, Louisiana, in the southern United States.
-  // Start each Earth session centered on Rome, Italy.
-  useEffect(() => {
-    if (!isEarthModeActive) return;
-    const centerTimer = window.setTimeout(() => {
-      globeRef.current?.pointOfView({ lat: 41.9028, lng: 12.4964, altitude: Math.max(1.35, 2.05 - cameraZoom * 0.18) }, 700);
-    }, 120);
-    return () => window.clearTimeout(centerTimer);
-  }, [isEarthModeActive]);
+  // Do not force the Earth globe to a hard-coded city on entry. That made the
+  // displayed map start at Rome regardless of the research site being inspected.
+  // Site selection and the explicit locate action center the camera on the site's
+  // stored latitude/longitude instead. Keep the current globe view on mode changes.
 
   // Only update React when the actual camera crosses a detail-tier boundary.
   // Avoiding continuous zoom-state renders keeps Globe.gl's drag/rotation loop smooth.
