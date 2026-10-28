@@ -242,7 +242,7 @@ export default function App() {
     });
     return [...core, ...legacy, ...uniqueAdditions, ...customEarthSites];
   }, [customEarthSites]);
-  const selectedSite = selectedGlobeSite ?? researchSites.find((site) => site.id === selectedSiteId) ?? null;
+  const selectedSite = selectedGlobeSite ?? researchSites.find((site) => String(site.id ?? site.name) === String(selectedSiteId)) ?? null;
 
   // Marker selections open Street View first. Google serves the embedded panorama when
   // coverage exists; because the iframe is cross-origin, NeuroPulse can detect load/network
@@ -450,8 +450,18 @@ export default function App() {
         sites={researchSites}
         onClose={() => setShowKnowledgeGraph(false)}
         onSelectSite={(site) => {
-          setSelectedGlobeSite(null);
-          setSelectedSiteId(String(site.id ?? site.name));
+          const matchedSite = researchSites.find((item) =>
+            String(item.id ?? item.name) === String(site.id ?? site.name) ||
+            item.name.trim().toLocaleLowerCase() === site.name.trim().toLocaleLowerCase()
+          );
+          const location = matchedSite ?? site;
+          setSelectedGlobeSite({
+            ...location,
+            id: String(location.id ?? location.name),
+            lat: location.lat ?? location.latitude,
+            lon: location.lon ?? location.longitude,
+          });
+          setSelectedSiteId(String(location.id ?? location.name));
           setEarthAreaView('globe');
           setShowKnowledgeGraph(false);
         }}
