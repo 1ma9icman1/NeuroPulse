@@ -193,7 +193,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [soilLayerEnabled, setSoilLayerEnabled] = useState(true);
   const [soilYear, setSoilYear] = useState(1849);
   const [soilDepth, setSoilDepth] = useState(39);
-  const [soilOpacity, setSoilOpacity] = useState(0.60);
+  const [soilOpacity, setSoilOpacity] = useState(0.40);
   const [soilPanelOpen, setSoilPanelOpen] = useState(true);
   const [soilRasterStatus, setSoilRasterStatus] = useState('Loading global soil raster…');
   const [earthDisplayTextureUrl, setEarthDisplayTextureUrl] = useState<string>(earthImagerySources.satellite);
@@ -579,7 +579,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         console.warn('[NeuroPulse] Soil raster overlay unavailable:', error);
       });
     return () => { cancelled = true; };
-  }, [soilLayerEnabled, soilYear, soilDepth, soilOpacity, earthTextureUrl, soilRasterUrl]);
+  }, [soilLayerEnabled, soilDepth, soilOpacity, earthTextureUrl, soilRasterUrl]);
 
   // Star Celestial Alignment Mode
   const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
@@ -3400,8 +3400,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <p className="mt-1 text-[9px] leading-relaxed text-slate-500">39 m is the supplied Giza scenario assumption, not a measured global soil depth. This control changes display emphasis only.</p>
             </div>
             <div>
-              <div className="mb-1 flex items-center justify-between text-[10px] text-slate-300"><label htmlFor="soil-opacity">Overlay transparency</label><strong className="text-amber-200">{Math.round(soilOpacity * 100)}%</strong></div>
-              <input id="soil-opacity" aria-label="Soil overlay transparency" type="range" min="0" max="1" step="0.05" value={soilOpacity} onChange={(event) => setSoilOpacity(Number(event.target.value))} className="w-full accent-amber-400" />
+              <div className="mb-1 flex items-center justify-between text-[10px] text-slate-300"><label htmlFor="soil-opacity">Overlay transparency</label><strong className="text-amber-200">{Math.round((1 - soilOpacity) * 100)}%</strong></div>
+              <input id="soil-opacity" aria-label="Soil overlay transparency" type="range" min="0" max="1" step="0.05" value={1 - soilOpacity} onChange={(event) => setSoilOpacity(1 - Number(event.target.value))} className="w-full accent-amber-400" />
             </div>
             <div className="rounded border border-amber-800/60 bg-amber-950/25 p-2">
               <div className="mb-1 text-[9px] font-mono font-bold tracking-wider text-amber-200">DATA / STATUS</div>
