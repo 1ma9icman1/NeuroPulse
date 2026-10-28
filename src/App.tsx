@@ -441,8 +441,8 @@ export default function App() {
         </div>
         <nav className="atlas-topnav" aria-label="Primary views">
           <button type="button" className={showKnowledgeGraph ? 'active' : ''} onClick={() => setShowKnowledgeGraph(true)}><Orbit size={16} /> KNOWLEDGE GRAPH</button>
-          <button type="button" onClick={() => { setShowKnowledgeGraph(false); setEarthAreaView('globe'); }}><Globe2 size={16} /> EARTHCORE</button>
-          <button type="button" onClick={() => { setShowKnowledgeGraph(false); setActiveNav('STELLAR ALIGNMENTS'); setIncludeStars(true); }}><Star size={16} /> STARS</button>
+          <button type="button" onClick={() => { setShowKnowledgeGraph(false); setActiveNav('GLOBAL SEARCH'); setEarthAreaView('globe'); setShowSiteList(false); }}><Globe2 size={16} /> EARTHCORE</button>
+          <button type="button" onClick={() => { setShowKnowledgeGraph(false); setActiveNav('STELLAR ALIGNMENTS'); setIncludeStars(true); setEarthAreaView('globe'); }}><Star size={16} /> STARS</button>
         </nav>
       </header>
 
