@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import Globe3D from 'react-globe.gl';
 import * as THREE from 'three';
 import { fromUrl } from 'geotiff';
-import { createPortal } from 'react-dom';
 import { SolarSystemView } from './SolarSystemView';
 import type { EarthSiteSelection } from './EarthSiteExplorer';
 import {
@@ -197,6 +196,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [soilOpacity, setSoilOpacity] = useState(0.40);
   const [soilPanelOpen, setSoilPanelOpen] = useState(true);
   const [soilRasterStatus, setSoilRasterStatus] = useState('Loading global soil raster…');
+  const [earthDisplayTextureUrl, setEarthDisplayTextureUrl] = useState<string>(earthImagerySources.satellite);
+  // Sea-level mode uses measured DEM elevations and ocean-connected flood fill.
+  const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
+  const [seaLevelFloodPolygons, setSeaLevelFloodPolygons] = useState<Array<{ layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } }>>([]);
+  const activateSeaLevelOverlay = (enabled: boolean) => setShowSeaLevelOverlay(enabled);
+  useEffect(() => {
+    if (openEarthSearchRequest > 0) setShowAddEarthSite(true);
+  }, [openEarthSearchRequest]);
   useEffect(() => {
     if (openWaterElevationRequest > 0) {
       setShowSeaLevelOverlay(true);
