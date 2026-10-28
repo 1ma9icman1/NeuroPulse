@@ -53,7 +53,7 @@ export function buildKnowledgeEntities(sites: GraphSiteInput[]): KnowledgeEntity
   return sites.flatMap((site, index) => {
     const title = String(site.name ?? "").trim();
     if (!title) return [];
-    const id = String(site.id ?? title.toLowerCase().replace(/[^a-z0-9]+/g, "-") ?? index);
+    const id = String(site.id ?? title.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
     if (seen.has(id)) return [];
     seen.add(id);
     const latitude = typeof site.lat === "number" ? site.lat : site.latitude;
