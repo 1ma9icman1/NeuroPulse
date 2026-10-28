@@ -356,7 +356,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         // conceptual dryland map; this avoids tinting oceans and all other terrain.
         // The 0–39 m control is the model's vertical thickness above the terrain.
         const soilGeometry = geometry.clone();
-        const soilMaterial = new THREE.MeshStandardMaterial({ color: '#c8a36a', roughness: 1, metalness: 0, transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+        const soilMaterial = new THREE.MeshBasicMaterial({ color: '#d7a65a', transparent: true, opacity: 0.82, depthTest: true, depthWrite: false, side: THREE.FrontSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, toneMapped: false });
         const soilMesh = new THREE.Mesh(soilGeometry, soilMaterial);
         soilMesh.visible = false;
         soilMesh.renderOrder = 3;
@@ -547,13 +547,19 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     state.soilMesh.visible = soilLayerEnabled;
     const soilMaterial = state.soilMesh.material as THREE.MeshStandardMaterial;
     soilMaterial.opacity = soilOpacity;
+    // Make the selected historical year visibly affect the layer's tint while
+    // retaining the user's transparency setting and depth slider.
+    const timeMix = Math.min(1, Math.abs(soilYear - 1849) / 10177);
+    soilMaterial.color.set('#d7a65a').lerp(new THREE.Color('#8f754f'), timeMix * 0.45);
     soilMaterial.needsUpdate = true;
     const soilGeometry = state.soilMesh.geometry as THREE.BufferGeometry;
     const soilPositions = soilGeometry.getAttribute('position') as THREE.BufferAttribute;
     const terrainPositions = state.geometry.getAttribute('position') as THREE.BufferAttribute;
     // 0 m still sits just above the terrain to avoid z-fighting; the 0–39 m
     // slider then raises the shell consistently across the whole globe.
-    const soilOffset = 0.035 + soilDepth * HEIGHT_SCALE * terrainScale * 8;
+    // Earth-scale metres are sub-pixel at this globe radius, so use a deliberate
+    // 100x display exaggeration; the label remains the user-selected metres.
+    const soilOffset = 0.04 + soilDepth * HEIGHT_SCALE * terrainScale * 100;
     for (let i = 0; i < terrainPositions.count; i++) {
       const x = terrainPositions.getX(i), y = terrainPositions.getY(i), z = terrainPositions.getZ(i);
       const length = Math.sqrt(x * x + y * y + z * z) || 1;
