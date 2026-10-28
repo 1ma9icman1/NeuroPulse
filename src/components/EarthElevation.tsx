@@ -54,12 +54,16 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const hostRef = useRef<HTMLDivElement>(null);
   const onSelectSiteRef = useRef(onSelectSite);
   onSelectSiteRef.current = onSelectSite;
-  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; terrainMaterial: THREE.MeshStandardMaterial; heights: Float32Array; width: number; height: number; geometryOverlay: THREE.Group; constellationOverlay: THREE.Group; countryBorders: THREE.Group } | null>(null);
+  const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; terrainMaterial: THREE.MeshStandardMaterial; heights: Float32Array; width: number; height: number; geometryOverlay: THREE.Group; constellationOverlay: THREE.Group; countryBorders: THREE.Group; soilMesh: THREE.Mesh } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [yearOffset, setYearOffset] = useState(0);
   const [seaLevel, setSeaLevel] = useState(0);
   const [waterOpacity, setWaterOpacity] = useState(0.58);
+  // Additive opt-in soil shell; separate from NOAA terrain and water state.
+  const [soilLayerEnabled, setSoilLayerEnabled] = useState(false);
+  const [soilYear, setSoilYear] = useState(1849);
+  const [soilDepth, setSoilDepth] = useState(39);
   const [levelMode, setLevelMode] = useState<'historical' | 'custom'>('historical');
   const [terrainScale, setTerrainScale] = useState(1);
   const [zoom, setZoom] = useState(1);
@@ -342,6 +346,14 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         terrain.renderOrder = 1;
         earthGroup.add(terrain);
 
+        // Separate opt-in soil/sand shell. The original NOAA terrain geometry is not replaced.
+        const soilGeometry = geometry.clone();
+        const soilMaterial = new THREE.MeshStandardMaterial({ color: '#c8a36a', roughness: 1, metalness: 0, transparent: true, opacity: 0.62, depthWrite: false, side: THREE.DoubleSide });
+        const soilMesh = new THREE.Mesh(soilGeometry, soilMaterial);
+        soilMesh.visible = false;
+        soilMesh.renderOrder = 3;
+        earthGroup.add(soilMesh);
+
         const sitePoints = new THREE.Group();
         // Attach the category-icon marker layer immediately; build markers in small frame batches.
         earthGroup.add(sitePoints);
@@ -357,7 +369,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         marker.visible = false;
         earthGroup.add(marker);
 
-        sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, terrainMaterial, heights, width: gridWidth, height: gridHeight, geometryOverlay, constellationOverlay, countryBorders };
+        sceneRef.current = { renderer, scene, camera, earth: earthGroup, water, marker, sitePoints, geometry, terrainMaterial, heights, width: gridWidth, height: gridHeight, geometryOverlay, constellationOverlay, countryBorders, soilMesh };
 
         buildMarkers = () => {
           let index = 0;
@@ -521,12 +533,26 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     positionAttribute.needsUpdate = true;
     colorAttribute.needsUpdate = true;
     state.geometry.computeVertexNormals();
+    // Raise a separate translucent soil shell above the current terrain surface.
+    state.soilMesh.visible = soilLayerEnabled;
+    const soilGeometry = state.soilMesh.geometry as THREE.BufferGeometry;
+    const soilPositions = soilGeometry.getAttribute('position') as THREE.BufferAttribute;
+    const terrainPositions = state.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const soilOffset = soilDepth * HEIGHT_SCALE * terrainScale;
+    for (let i = 0; i < terrainPositions.count; i++) {
+      const x = terrainPositions.getX(i), y = terrainPositions.getY(i), z = terrainPositions.getZ(i);
+      const length = Math.sqrt(x * x + y * y + z * z) || 1;
+      soilPositions.setXYZ(i, x + (x / length) * soilOffset, y + (y / length) * soilOffset, z + (z / length) * soilOffset);
+    }
+    soilPositions.needsUpdate = true;
+    soilGeometry.computeVertexNormals();
+    soilGeometry.computeBoundingSphere();
     // Recalculate bounds after changing vertex positions so Three.js doesn't cull the raised globe.
     state.geometry.computeBoundingSphere();
     // Keep the visible water surface locked to the exact same datum as flooded terrain.
     state.water.geometry.dispose();
     state.water.geometry = new THREE.SphereGeometry(BASE_RADIUS + seaLevel * HEIGHT_SCALE * terrainScale, 128, 64);
-  }, [terrainScale, seaLevel, surfaceMode, surfaceTextureLoaded, waterOpacity, loading]);
+  }, [terrainScale, seaLevel, surfaceMode, surfaceTextureLoaded, waterOpacity, loading, soilLayerEnabled, soilDepth]);
 
   // Right-column controls dispatch these events so the same research tools are available
   // in the elevation workspace without duplicating the global navigation menu.
@@ -831,6 +857,18 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <div className="flex items-center justify-between gap-2"><label htmlFor="water-transparency" className="text-[10px] font-mono font-bold text-slate-300">WATER TRANSPARENCY · {Math.round((1 - waterOpacity) * 100)}%</label><button type="button" onClick={() => setWaterOpacity(0.58)} className="text-[9px] font-mono text-slate-400 hover:text-white">RESET</button></div>
           <input id="water-transparency" aria-label="Water transparency" type="range" min="0.05" max="1" step="0.05" value={1 - waterOpacity} onChange={event => setWaterOpacity(1 - Number(event.target.value))} className="w-full accent-cyan-400" />
           <div className="flex justify-between text-[9px] text-slate-500"><span>Clear / transparent</span><span>Opaque</span></div>
+        </div>
+        <div className="space-y-2 rounded-lg border border-amber-700/50 bg-amber-950/20 p-3 xl:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-[10px] font-mono font-bold text-amber-200"><input type="checkbox" checked={soilLayerEnabled} onChange={event => setSoilLayerEnabled(event.target.checked)} className="accent-amber-400" /> HISTORICAL SOIL / SAND LAYER</label>
+            <span className="text-[9px] font-mono text-amber-100/80">{soilDepth} m baseline · reference year {soilYear}</span>
+          </div>
+          <div className="flex items-center justify-between gap-2"><label htmlFor="soil-timeframe" className="text-[10px] font-mono font-bold text-slate-300">SOIL TIMEFRAME · {soilYear < 0 ? `${Math.abs(soilYear).toLocaleString()} BCE` : `${soilYear} CE`}</label><button type="button" onClick={() => setSoilYear(1849)} className="text-[9px] font-mono text-slate-400 hover:text-white">GIZA 1849</button></div>
+          <input id="soil-timeframe" aria-label="Historical soil timeframe" type="range" min="-12000" max="2026" step="1" value={soilYear} onChange={event => setSoilYear(Number(event.target.value))} className="w-full accent-amber-400" />
+          <div className="flex justify-between text-[9px] text-slate-500"><span>12,000 BCE</span><span>1849 reference</span><span>2026 CE</span></div>
+          <div className="flex items-center justify-between gap-2"><label htmlFor="soil-depth" className="text-[10px] font-mono font-bold text-slate-300">GLOBAL BASELINE HYPOTHESIS · {soilDepth} m</label><button type="button" onClick={() => setSoilDepth(39)} className="text-[9px] font-mono text-slate-400 hover:text-white">RESET TO 39 m</button></div>
+          <input id="soil-depth" aria-label="Soil layer baseline thickness in metres" type="range" min="0" max="60" step="1" value={soilDepth} onChange={event => setSoilDepth(Number(event.target.value))} className="w-full accent-amber-400" />
+          <div className="text-[9px] leading-relaxed text-amber-100/70">Conceptual global shell only. The 39 m value is your Giza calibration hypothesis, not a verified planetary depth dataset. The timeframe selects the reference date; verified location-specific historical depth records are not yet connected. Existing NOAA terrain and water remain unchanged.</div>
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:col-span-2">
           <span className="text-[9px] font-mono font-bold text-slate-400">SURFACE</span>
