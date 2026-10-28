@@ -3036,7 +3036,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             }`}
             title="Open the water-level and elevation model in this Earth window"
           >
-            Water Elevation
+            Water / Dirt Elevation
           </button>
 
           <button type="button" onClick={() => onOpenSolarFlare?.()} aria-label="Open Solar Flare universe" title="Open Solar Flare universe; details appear in the left panel" className="ml-1 rounded border px-2 py-1 text-[10px] font-mono font-bold border-orange-700/70 text-orange-300 hover:bg-orange-950/60 hover:text-orange-100 transition-colors">☀ SOLAR FLARE</button>
@@ -3406,8 +3406,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <div className="rounded border border-amber-800/60 bg-amber-950/25 p-2">
               <div className="mb-1 text-[9px] font-mono font-bold tracking-wider text-amber-200">DATA / STATUS</div>
               <p className="text-[10px] leading-relaxed text-slate-300">{soilRasterStatus}</p>
-              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">Global SoilGrids sand content · 0–5 cm layer · ISRIC. No Planet Soil Water Content data is displayed because its authenticated feed is not connected.</p>
-              <a href="https://maps.isric.org/" target="_blank" rel="noreferrer" className="mt-1 inline-block text-[9px] text-amber-200 underline">Open ISRIC soil data source</a>
+              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">CURRENT DISPLAY RASTER: ISRIC SoilGrids sand content, 0–5 cm. This is modern surface-soil texture, not buried sand depth. OpenLandMap 30 m SoilDB and Planetary Variables are the requested target sources; neither is currently the raster feeding this overlay. OpenLandMap COG tiles need a compatible tile/COG reader pipeline, and Planet Soil Water Content requires authorized API access.</p>
+              <div className="mt-2 flex flex-col gap-1 text-[9px]"><a href="https://world.soils.app/" target="_blank" rel="noreferrer" className="text-amber-200 underline">Open OpenLandMap 30 m SoilDB</a><a href="https://docs.openlandmap.org/" target="_blank" rel="noreferrer" className="text-amber-200 underline">OpenLandMap data access / STAC documentation</a><a href="https://docs.planet.com/data/planetary-variables/" target="_blank" rel="noreferrer" className="text-amber-200 underline">Planetary Variables — Soil Water Content</a><a href="https://docs.planet.com/guides/subscribe-to-planetary-variables/" target="_blank" rel="noreferrer" className="text-amber-200 underline">Planet API subscription setup</a><a href="https://maps.isric.org/" target="_blank" rel="noreferrer" className="text-slate-400 underline">Current ISRIC raster service</a></div>
             </div>
           </div>
         </section>,
