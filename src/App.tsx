@@ -14,6 +14,7 @@ import { SolarFlareEarth } from './components/SolarFlareEarth';
 import { OscillatorDeck } from './components/OscillatorDeck';
 import { DeltaHUD } from './components/DeltaHUD';
 import { FrequencyMatrix } from './components/FrequencyMatrix';
+import { KnowledgeExplorer } from './components/KnowledgeExplorer';
 import type { CameraView, SpatialPosition, SpatialRoutingMode } from './types';
 import { DEFAULT_EARTH_POINTS, LEGACY_HISTORICAL_SITES } from './data/earthData';
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
@@ -90,6 +91,7 @@ export default function App() {
   useEffect(() => { const engine = new AudioEngine(INITIAL_CONFIG); audioEngineRef.current = engine; return () => { engine.stop(); audioEngineRef.current = null; }; }, []);
   const handleUpdateConfig = useCallback((patch: Partial<TrinauralConfig>) => { setConfig((previous) => { const next = { ...previous, ...patch }; audioEngineRef.current?.updateConfig(next); return next; }); }, []);
   const handleToggleAudio = async () => { const engine = audioEngineRef.current; if (!engine) return; if (isRunning) { engine.stop(); setIsRunning(false); } else { await engine.start(); setIsRunning(true); } };
+  const [showKnowledgeGraph, setShowKnowledgeGraph] = useState(false);
   const [activeNav, setActiveNav] = useState('GLOBAL SEARCH');
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -437,9 +439,23 @@ export default function App() {
             <div className="atlas-brand-micro">ALIGNMENT · FREQUENCY · GEOMETRY · THE STARS</div>
           </div>
         </div>
-        <div className="atlas-topnav" aria-hidden="true" />
+        <nav className="atlas-topnav" aria-label="Primary views">
+          <button type="button" className={showKnowledgeGraph ? 'active' : ''} onClick={() => setShowKnowledgeGraph(true)}><Orbit size={16} /> KNOWLEDGE GRAPH</button>
+          <button type="button" onClick={() => { setShowKnowledgeGraph(false); setEarthAreaView('globe'); }}><Globe2 size={16} /> EARTHCORE</button>
+          <button type="button" onClick={() => { setShowKnowledgeGraph(false); setActiveNav('STELLAR ALIGNMENTS'); setIncludeStars(true); }}><Star size={16} /> STARS</button>
+        </nav>
       </header>
 
+      {showKnowledgeGraph && <KnowledgeExplorer
+        sites={researchSites}
+        onClose={() => setShowKnowledgeGraph(false)}
+        onSelectSite={(site) => {
+          setSelectedGlobeSite(null);
+          setSelectedSiteId(String(site.id ?? site.name));
+          setEarthAreaView('globe');
+          setShowKnowledgeGraph(false);
+        }}
+      />}
       {showFavorites && <section className="atlas-panel" role="dialog" aria-label="Favorite sites" style={{position:'absolute',zIndex:100,top:84,right:20,width:'min(420px, calc(100vw - 32px))',maxHeight:'70vh',overflow:'auto',padding:16}}>
         <div className="atlas-panel-heading"><Star size={14} fill="currentColor"/> FAVORITE SITES <button className="atlas-secondary-button" onClick={() => setShowFavorites(false)}>CLOSE</button></div>
         {favoriteSites.length ? favoriteSites.map((site: any) => <div key={site.id} className="atlas-favorite-row" style={{display:'flex',gap:8,alignItems:'center',justifyContent:'space-between',padding:'6px 0'}}><button className="atlas-result-chip" onClick={() => { setSelectedGlobeSite(site); setSelectedSiteId(site.id); setEarthAreaView('street'); setShowFavorites(false); }}><MapPin size={12}/><span>{site.name}</span></button><button aria-label={'Remove '+site.name+' from favorites'} onClick={() => toggleFavorite(site)}><Star size={14} fill="currentColor"/></button></div>) : <p className="atlas-no-data">No favorites saved yet. Select a site and use Save to Favorites.</p>}
