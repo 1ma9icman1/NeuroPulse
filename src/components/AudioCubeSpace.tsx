@@ -188,6 +188,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     'land-ocean': 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/land_ocean_ice_2048.png',
   };
   const [earthTextureUrl, setEarthTextureUrl] = useState<string>(earthImagerySources.satellite);
+  // Historical soil/sand overlay on the main Earth globe. The raster is a real global soil-property map;
+  // 1849 and 39 m are user-selected historical/Giza scenario controls, not global measured soil depths.
+  const [soilLayerEnabled, setSoilLayerEnabled] = useState(true);
+  const [soilYear, setSoilYear] = useState(1849);
+  const [soilDepth, setSoilDepth] = useState(39);
+  const [soilOpacity, setSoilOpacity] = useState(0.60);
+  const [soilPanelOpen, setSoilPanelOpen] = useState(true);
+  const [soilRasterStatus, setSoilRasterStatus] = useState('Loading global soil raster…');
+  const [earthDisplayTextureUrl, setEarthDisplayTextureUrl] = useState<string>(earthImagerySources.satellite);
+  const soilRasterUrl = 'https://maps.isric.org/mapserv?map=/map/sand.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS=EPSG:4326&BBOX=-90,-180,90,180&WIDTH=2048&HEIGHT=1024&LAYERS=sand_0-5cm_mean&STYLES=default&FORMAT=image/png';
   // Sea-level mode uses measured DEM elevations and ocean-connected flood fill.
   const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
   const [seaLevelFloodPolygons, setSeaLevelFloodPolygons] = useState<Array<{ layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } }>>([]);
@@ -508,6 +518,68 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       texture.onerror = null;
     };
   }, [earthTextureUrl]);
+
+  // Composite the real global SoilGrids sand-property raster over the selected Earth imagery.
+  // The raster describes modern soil sand content, not ancient sand thickness. Planet SWC is not
+  // substituted here because its data service requires authorized access.
+  useEffect(() => {
+    let cancelled = false;
+    if (!soilLayerEnabled) {
+      setEarthDisplayTextureUrl(earthTextureUrl);
+      setSoilRasterStatus('Soil layer off');
+      return () => { cancelled = true; };
+    }
+    setSoilRasterStatus('Loading global sand-property raster…');
+    const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.crossOrigin = 'anonymous';
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Raster image unavailable'));
+      image.src = src;
+    });
+    Promise.all([loadImage(earthTextureUrl), loadImage(soilRasterUrl)])
+      .then(([base, raster]) => {
+        if (cancelled) return;
+        const width = 2048;
+        const height = 1024;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) throw new Error('Canvas compositing is unavailable');
+        ctx.drawImage(base, 0, 0, width, height);
+        const rasterCanvas = document.createElement('canvas');
+        rasterCanvas.width = width;
+        rasterCanvas.height = height;
+        const rasterCtx = rasterCanvas.getContext('2d', { willReadFrequently: true });
+        if (!rasterCtx) throw new Error('Soil raster sampling is unavailable');
+        rasterCtx.drawImage(raster, 0, 0, width, height);
+        const soilPixels = rasterCtx.getImageData(0, 0, width, height);
+        const basePixels = ctx.getImageData(0, 0, width, height);
+        // Preserve the raster's real spatial variation; amber is a display tint, not a depth estimate.
+        const depthEmphasis = 0.25 + 0.75 * Math.max(0, Math.min(39, soilDepth)) / 39;
+        const alpha = Math.max(0, Math.min(1, soilOpacity * depthEmphasis));
+        for (let i = 0; i < soilPixels.data.length; i += 4) {
+          const a = soilPixels.data[i + 3] / 255;
+          if (a <= 0.02) continue;
+          const soilSignal = (soilPixels.data[i] * 0.299 + soilPixels.data[i + 1] * 0.587 + soilPixels.data[i + 2] * 0.114) / 255;
+          const strength = alpha * a * (0.35 + 0.65 * soilSignal);
+          basePixels.data[i] = basePixels.data[i] * (1 - strength) + 215 * strength;
+          basePixels.data[i + 1] = basePixels.data[i + 1] * (1 - strength) + 155 * strength;
+          basePixels.data[i + 2] = basePixels.data[i + 2] * (1 - strength) + 72 * strength;
+        }
+        ctx.putImageData(basePixels, 0, 0);
+        setEarthDisplayTextureUrl(canvas.toDataURL('image/jpeg', 0.92));
+        setSoilRasterStatus('Global soil sand raster applied · amber tint is visual only');
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setEarthDisplayTextureUrl(earthTextureUrl);
+        setSoilRasterStatus('Soil raster unavailable in this browser; base Earth imagery retained');
+        console.warn('[NeuroPulse] Soil raster overlay unavailable:', error);
+      });
+    return () => { cancelled = true; };
+  }, [soilLayerEnabled, soilYear, soilDepth, soilOpacity, earthTextureUrl, soilRasterUrl]);
 
   // Star Celestial Alignment Mode
   const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
@@ -3306,6 +3378,46 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
+      {soilPanelOpen && typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
+        <section className="atlas-panel max-h-[70vh] overflow-y-auto overscroll-contain" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto', borderColor: 'rgba(217,153,67,.65)' }}>
+          <div className="atlas-panel-heading" style={{ color: '#f3c27a', borderBottomColor: 'rgba(217,153,67,.35)' }}>
+            <span className="flex items-center gap-2"><Layers className="h-4 w-4" /> HISTORICAL SOIL / SAND LAYER</span>
+            <button onClick={() => setSoilPanelOpen(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close soil layer controls"><X className="h-3.5 w-3.5" /></button>
+          </div>
+          <div className="space-y-3 p-3">
+            <label className="flex items-center justify-between gap-3 text-[11px] text-slate-200">
+              <span>Show soil texture overlay</span>
+              <input type="checkbox" checked={soilLayerEnabled} onChange={(event) => setSoilLayerEnabled(event.target.checked)} className="accent-amber-400" />
+            </label>
+            <div>
+              <div className="mb-1 flex items-center justify-between text-[10px] text-slate-300"><label htmlFor="soil-year">Historical reference year</label><strong className="text-amber-200">{soilYear} CE</strong></div>
+              <input id="soil-year" aria-label="Historical reference year" type="range" min="1500" max="2026" step="1" value={soilYear} onChange={(event) => setSoilYear(Number(event.target.value))} className="w-full accent-amber-400" />
+              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">Year is a reference setting; this modern soil-property raster does not reconstruct past landscapes.</p>
+            </div>
+            <div>
+              <div className="mb-1 flex items-center justify-between text-[10px] text-slate-300"><label htmlFor="soil-depth">Giza sand-depth scenario</label><strong className="text-amber-200">{soilDepth} m</strong></div>
+              <input id="soil-depth" aria-label="Giza sand-depth scenario in metres" type="range" min="0" max="39" step="1" value={soilDepth} onChange={(event) => setSoilDepth(Number(event.target.value))} className="w-full accent-amber-400" />
+              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">39 m is the supplied Giza scenario assumption, not a measured global soil depth. This control changes display emphasis only.</p>
+            </div>
+            <div>
+              <div className="mb-1 flex items-center justify-between text-[10px] text-slate-300"><label htmlFor="soil-opacity">Overlay transparency</label><strong className="text-amber-200">{Math.round(soilOpacity * 100)}%</strong></div>
+              <input id="soil-opacity" aria-label="Soil overlay transparency" type="range" min="0" max="1" step="0.05" value={soilOpacity} onChange={(event) => setSoilOpacity(Number(event.target.value))} className="w-full accent-amber-400" />
+            </div>
+            <div className="rounded border border-amber-800/60 bg-amber-950/25 p-2">
+              <div className="mb-1 text-[9px] font-mono font-bold tracking-wider text-amber-200">DATA / STATUS</div>
+              <p className="text-[10px] leading-relaxed text-slate-300">{soilRasterStatus}</p>
+              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">Global SoilGrids sand content · 0–5 cm layer · ISRIC. No Planet Soil Water Content data is displayed because its authenticated feed is not connected.</p>
+              <a href="https://maps.isric.org/" target="_blank" rel="noreferrer" className="mt-1 inline-block text-[9px] text-amber-200 underline">Open ISRIC soil data source</a>
+            </div>
+          </div>
+        </section>,
+        document.querySelector('.atlas-right')!
+      )}
+
+      {!soilPanelOpen && isEarthModeActive && (
+        <button type="button" onClick={() => setSoilPanelOpen(true)} className="absolute right-3 top-12 z-30 rounded-md border border-amber-500/70 bg-slate-950/90 px-2.5 py-1.5 text-[10px] font-mono font-bold text-amber-200 shadow-lg" aria-label="Open historical soil layer controls">SOIL / SAND LAYER</button>
+      )}
+
       {showSeaLevelOverlay && typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
         <section className="atlas-panel atlas-sea-level-panel max-h-[65vh] overflow-y-auto overscroll-contain" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto' }}>
           <div className="atlas-panel-heading">
@@ -3917,7 +4029,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <Globe3D ref={globeRef} rendererConfig={{ preserveDrawingBuffer: true }} width={Math.max(320, containerRef.current?.clientWidth || 800)}
               height={Math.max(320, containerRef.current?.clientHeight || 600)}
               onZoom={(pov: any) => updateEarthZoomTier(Number(pov?.altitude))}
-              globeImageUrl={earthTextureUrl}
+              globeImageUrl={earthDisplayTextureUrl}
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
               backgroundColor="rgba(0,0,0,0)"
               showGraticules={isEarthModeActive} showAtmosphere={earthAtmosphere}
