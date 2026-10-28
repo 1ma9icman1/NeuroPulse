@@ -3471,15 +3471,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <span>Show soil texture overlay</span>
               <input type="checkbox" checked={soilLayerEnabled} onChange={(event) => setSoilLayerEnabled(event.target.checked)} className="accent-amber-400" />
             </label>
-            <div>
-              <div className="mb-1 flex items-center justify-between text-[10px] text-slate-300"><label htmlFor="soil-year">Historical reference year</label><strong className="text-amber-200">{soilYear} CE</strong></div>
-              <input id="soil-year" aria-label="Historical reference year" type="range" min="1500" max="2026" step="1" value={soilYear} onChange={(event) => setSoilYear(Number(event.target.value))} className="w-full accent-amber-400" />
-              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">Year is a reference setting; this modern soil-property raster does not reconstruct past landscapes.</p>
+            <div className="rounded border border-slate-700 bg-slate-900/70 p-2">
+              <div className="text-[10px] font-bold text-slate-200">SOURCE DATA PERIOD</div>
+              <div className="mt-1 text-[11px] text-amber-200">Modern OpenLandMap soil texture</div>
+              <p className="mt-1 text-[9px] leading-relaxed text-slate-400">The available raster maps sand percentage, not historical sand thickness. A year slider would falsely imply historical measurements, so this panel uses the real available data instead.</p>
             </div>
             <div>
-              <div className="mb-1 flex items-center justify-between text-[10px] text-slate-300"><label htmlFor="soil-depth">Giza sand-depth scenario</label><strong className="text-amber-200">{soilDepth} m</strong></div>
-              <input id="soil-depth" aria-label="Giza sand-depth scenario in metres" type="range" min="0" max="39" step="1" value={soilDepth} onChange={(event) => setSoilDepth(Number(event.target.value))} className="w-full accent-amber-400" />
-              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">39 m is the supplied Giza scenario assumption, not a measured global soil depth. This control changes display emphasis only.</p>
+              <div className="mb-1 flex items-center justify-between text-[10px] text-slate-300"><label htmlFor="soil-depth">Giza scenario display emphasis</label><strong className="text-amber-200">{soilDepth} / 39 m</strong></div>
+              <input id="soil-depth" aria-label="Giza scenario display emphasis in metres" type="range" min="0" max="39" step="1" value={soilDepth} onChange={(event) => setSoilDepth(Number(event.target.value))} className="w-full accent-amber-400" />
+              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">This slider adjusts overlay emphasis live. 39 m is your Giza scenario assumption; it is not applied as a measured global depth or terrain displacement.</p>
             </div>
             <div>
               <div className="mb-1 flex items-center justify-between text-[10px] text-slate-300"><label htmlFor="soil-opacity">Overlay transparency</label><strong className="text-amber-200">{Math.round((1 - soilOpacity) * 100)}%</strong></div>
@@ -3488,7 +3488,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <div className="rounded border border-amber-800/60 bg-amber-950/25 p-2">
               <div className="mb-1 text-[9px] font-mono font-bold tracking-wider text-amber-200">DATA / STATUS</div>
               <p className="text-[10px] leading-relaxed text-slate-300">{soilRasterStatus}</p>
-              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">CURRENT DISPLAY RASTER: OpenLandMap SoilDB sand fraction, 30 m product, 0–30 cm layer discovered from its public STAC catalog and read as a Cloud Optimized GeoTIFF. This is modeled modern soil texture (% sand), not buried sand thickness and not a reconstruction of 1849. Planet Soil Water Content is a separate ~1 km moisture product, not a sand-depth dataset; its API requires an authorized subscription and is not substituted for the OpenLandMap raster.</p>
+              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">CURRENT DISPLAY RASTER: OpenLandMap SoilDB sand-fraction GeoTIFF. The globe uses a contrast color ramp by sand percentage; transparency and display emphasis redraw the cached raster live without re-downloading it. This is soil texture, not buried sand thickness or a reconstruction of 1849.</p>
               <div className="mt-2 flex flex-col gap-1 text-[9px]"><a href="https://world.soils.app/" target="_blank" rel="noreferrer" className="text-amber-200 underline">Open OpenLandMap 30 m SoilDB</a><a href="https://docs.openlandmap.org/" target="_blank" rel="noreferrer" className="text-amber-200 underline">OpenLandMap data access / STAC documentation</a><a href="https://docs.planet.com/data/planetary-variables/" target="_blank" rel="noreferrer" className="text-amber-200 underline">Planetary Variables — Soil Water Content</a><a href="https://docs.planet.com/guides/subscribe-to-planetary-variables/" target="_blank" rel="noreferrer" className="text-amber-200 underline">Planet API subscription setup</a><a href="https://stac.openlandmap.org/sand.tot_iso.11277.2020.wpct/collection.json" target="_blank" rel="noreferrer" className="text-amber-200 underline">OpenLandMap SoilDB sand-fraction STAC collection</a></div>
             </div>
           </div>
