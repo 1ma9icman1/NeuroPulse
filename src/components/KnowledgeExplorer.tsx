@@ -16,11 +16,11 @@ export function KnowledgeExplorer({ sites, onSelectSite, onClose }: Props) {
   const [radius, setRadius] = useState(250);
   const [selectedId, setSelectedId] = useState("");
   const entities = useMemo(() => buildKnowledgeEntities(sites), [sites]);
-  const allRelationships = useMemo(() => buildKnowledgeRelationships(filteredEntities.slice(0, 36), radius), [filteredEntities, radius]);
   const filteredEntities = useMemo(() => {
     const q = query.trim().toLowerCase();
     return entities.filter(e => !q || [e.title, e.category, e.description].some(v => String(v ?? "").toLowerCase().includes(q)));
   }, [entities, query]);
+  const allRelationships = useMemo(() => buildKnowledgeRelationships(filteredEntities.slice(0, 36), radius), [filteredEntities, radius]);
   const visibleIds = useMemo(() => new Set(filteredEntities.slice(0, 36).map(e => e.id)), [filteredEntities]);
   const relationships = allRelationships.filter(r => visibleIds.has(r.sourceId) && visibleIds.has(r.targetId) && (relationshipType === "all" || r.type === relationshipType));
   const nodes = filteredEntities.slice(0, 36);
