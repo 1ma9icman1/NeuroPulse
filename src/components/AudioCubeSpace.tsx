@@ -197,6 +197,20 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [soilOpacity, setSoilOpacity] = useState(0.40);
   const [soilPanelOpen, setSoilPanelOpen] = useState(true);
   const [soilRasterStatus, setSoilRasterStatus] = useState('Loading global soil raster…');
+  const [soilPortalTarget, setSoilPortalTarget] = useState<HTMLElement | null>(null);
+  // The right dock can mount after this globe component. Track it instead of
+  // checking once during render, which can permanently hide the whole panel.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const findTarget = () => {
+      const target = document.querySelector('.atlas-right');
+      if (target instanceof HTMLElement) setSoilPortalTarget(target);
+    };
+    findTarget();
+    const observer = new MutationObserver(findTarget);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
   const [earthDisplayTextureUrl, setEarthDisplayTextureUrl] = useState<string>(earthImagerySources.satellite);
   // Sea-level mode uses measured DEM elevations and ocean-connected flood fill.
   const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
@@ -3461,7 +3475,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
-      {soilPanelOpen && typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
+      {soilPanelOpen && soilPortalTarget && createPortal(
         <section className="atlas-panel max-h-[70vh] overflow-y-auto overscroll-contain" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto', borderColor: 'rgba(217,153,67,.65)' }}>
           <div className="atlas-panel-heading" style={{ color: '#f3c27a', borderBottomColor: 'rgba(217,153,67,.35)' }}>
             <span className="flex items-center gap-2"><Layers className="h-4 w-4" /> HISTORICAL SOIL / SAND LAYER</span>
@@ -3494,7 +3508,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             </div>
           </div>
         </section>,
-        document.querySelector('.atlas-right')!
+        soilPortalTarget
       )}
 
       {!soilPanelOpen && isEarthModeActive && (
