@@ -198,6 +198,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [soilPanelOpen, setSoilPanelOpen] = useState(true);
   const [soilRasterStatus, setSoilRasterStatus] = useState('Loading global soil raster…');
   const [earthDisplayTextureUrl, setEarthDisplayTextureUrl] = useState<string>(earthImagerySources.satellite);
+  const soilRasterCacheRef = useRef<{ values: Float32Array; width: number; height: number; bounds: [number, number, number, number]; nodata: number | null; samples: number } | null>(null);
   // Sea-level mode uses measured DEM elevations and ocean-connected flood fill.
   const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
   const [seaLevelFloodPolygons, setSeaLevelFloodPolygons] = useState<Array<{ layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } }>>([]);
@@ -518,15 +519,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     };
   }, [earthTextureUrl]);
 
-  // Load the OpenLandMap SoilDB sand-fraction COG through its public STAC metadata,
-  // then resample it to an equirectangular globe texture. This is soil texture (% sand),
-  // not a measured sand-thickness/depth map and not a reconstruction of 1849.
+  // Load the real OpenLandMap sand-fraction raster once, cache its samples, and redraw the
+  // overlay locally as controls change. The raster measures soil texture (% sand), not buried depth.
   useEffect(() => {
     let cancelled = false;
     let objectUrl = '';
     if (!soilLayerEnabled) {
       setEarthDisplayTextureUrl(earthTextureUrl);
-      setSoilRasterStatus('OpenLandMap soil texture overlay off');
+      setSoilRasterStatus('Soil/sand data overlay OFF — satellite imagery remains visible');
       return () => { cancelled = true; };
     }
 
@@ -534,79 +534,73 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const image = new Image();
       image.crossOrigin = 'anonymous';
       image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error('Earth base imagery unavailable'));
+      image.onerror = () => reject(new Error('Could not load the selected Earth base imagery'));
       image.src = src;
     });
 
     const findAsset = async (): Promise<string> => {
-      const collectionUrl = 'https://s3.eu-central-1.wasabisys.com/stac/openlandmap/sand.tot_iso.11277.2020.wpct/collection.json';
+      const collectionUrl = 'https://stac.openlandmap.org/sand.tot_iso.11277.2020.wpct/collection.json';
       const fetchJson = async (url: string, label: string): Promise<any> => {
         const response = await fetch(url, { headers: { Accept: 'application/json' } });
         if (!response.ok) throw new Error(`${label} returned HTTP ${response.status}`);
         return response.json();
       };
       const collection = await fetchJson(collectionUrl, 'OpenLandMap STAC collection');
-      const links: Array<{ rel?: string; href?: string; type?: string }> = collection.links || [];
-      // STAC collections usually point to items via /items or child links, not rel="item".
-      // Try advertised item/child links first, then the STAC API items endpoint.
+      const links: Array<{ rel?: string; href?: string }> = collection.links || [];
       const candidates = links
         .filter(link => link.href && (link.rel === 'item' || link.rel === 'child'))
         .map(link => new URL(link.href!, collectionUrl).toString());
       const itemsLink = links.find(link => link.href && link.rel === 'items');
       if (itemsLink?.href) candidates.push(new URL(itemsLink.href, collectionUrl).toString());
-      candidates.push('https://s3.eu-central-1.wasabisys.com/stac/openlandmap/sand.tot_iso.11277.2020.wpct/items.json');
-      const uniqueCandidates = [...new Set(candidates)];
+      candidates.push('https://stac.openlandmap.org/sand.tot_iso.11277.2020.wpct/items.json');
       const failures: string[] = [];
-      for (const candidateUrl of uniqueCandidates) {
+      for (const candidateUrl of [...new Set(candidates)]) {
         try {
           const payload = await fetchJson(candidateUrl, 'OpenLandMap STAC item lookup');
           const items = Array.isArray(payload.features) ? payload.features : [payload];
           for (const item of items) {
-            const itemUrl = item.id && !item.assets
-              ? new URL(`items/${encodeURIComponent(item.id)}.json`, collectionUrl).toString()
-              : candidateUrl;
             let resolvedItem = item;
-            if (!resolvedItem.assets && itemUrl !== candidateUrl) {
+            if (!resolvedItem.assets && item.id) {
+              const itemUrl = new URL(`items/${encodeURIComponent(item.id)}.json`, collectionUrl).toString();
               resolvedItem = await fetchJson(itemUrl, 'OpenLandMap STAC item');
             }
             const entries = Object.entries(resolvedItem.assets || {}) as Array<[string, any]>;
             const isTiff = (asset: any) => /\.tif(f)?($|[?#])/i.test(asset?.href || '');
-            const selected = entries.find(([key, asset]) =>
-              /sand.*30m.*b0cm.*30cm/i.test(key) && isTiff(asset)
-            ) || entries.find(([key, asset]) =>
-              /sand/i.test(key) && /30m/i.test(key) && isTiff(asset)
-            ) || entries.find(([key, asset]) =>
-              /sand/i.test(key) && isTiff(asset)
-            );
-            if (selected?.[1]?.href) return new URL(selected[1].href, itemUrl).toString();
-            failures.push(`${candidateUrl}: assets [${entries.map(([key]) => key).join(', ') || 'none'}]`);
+            const selected = entries.find(([key, asset]) => /sand.*30m.*b0cm.*30cm/i.test(key) && isTiff(asset))
+              || entries.find(([key, asset]) => /sand/i.test(key) && /30m/i.test(key) && isTiff(asset))
+              || entries.find(([key, asset]) => /sand/i.test(key) && isTiff(asset));
+            if (selected?.[1]?.href) return new URL(selected[1].href, candidateUrl).toString();
+            failures.push(`${candidateUrl}: no sand GeoTIFF in [${entries.map(([key]) => key).join(', ') || 'empty assets'}]`);
           }
         } catch (error) {
           failures.push(`${candidateUrl}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
-      throw new Error('Could not discover an OpenLandMap sand GeoTIFF. Tried: ' + failures.join(' | '));
+      throw new Error('OpenLandMap sand raster discovery failed: ' + failures.join(' | '));
     };
 
-    const loadOpenLandMapTexture = async () => {
-      setSoilRasterStatus('Connecting to OpenLandMap STAC JSON catalog…');
-      const [base, cogUrl] = await Promise.all([loadImage(earthTextureUrl), findAsset()]);
-      if (cancelled) return;
-      setSoilRasterStatus('Reading OpenLandMap 30 m soil texture (0–30 cm)…');
+    const loadRasterOnce = async () => {
+      if (soilRasterCacheRef.current) return soilRasterCacheRef.current;
+      setSoilRasterStatus('Connecting to OpenLandMap STAC catalog…');
+      const cogUrl = await findAsset();
+      if (cancelled) throw new Error('Soil raster loading cancelled');
+      setSoilRasterStatus('Reading measured/modelled soil sand fraction from Cloud Optimized GeoTIFF…');
       const tiff = await fromUrl(cogUrl);
       const image = await tiff.getImage();
-      // Resample the cloud-optimized raster to the same 2:1 equirectangular dimensions
-      // used by the globe. GeoTIFF.js reads COG byte ranges instead of downloading the full file.
-      const bounds = image.getBoundingBox(); // [west, south, east, north] in the raster CRS
+      const bounds = image.getBoundingBox() as [number, number, number, number];
       const width = 2048;
-      const rasterHeight = Math.max(1, Math.round(width * (bounds[3] - bounds[1]) / (bounds[2] - bounds[0])));
-      const raster = await image.readRasters({
-        width,
-        height: rasterHeight,
-        interleave: true,
-        resampleMethod: 'bilinear',
-      }) as unknown as Float32Array;
+      const height = Math.max(1, Math.round(width * (bounds[3] - bounds[1]) / (bounds[2] - bounds[0])));
+      const values = await image.readRasters({ width, height, interleave: true, resampleMethod: 'bilinear' }) as unknown as Float32Array;
+      const cache = { values, width, height, bounds, nodata: image.getGDALNoData(), samples: image.getSamplesPerPixel() };
+      soilRasterCacheRef.current = cache;
+      return cache;
+    };
+
+    const renderSoilOverlay = async () => {
+      setSoilRasterStatus('Loading soil raster and drawing the adjustable overlay…');
+      const [base, raster] = await Promise.all([loadImage(earthTextureUrl), loadRasterOnce()]);
       if (cancelled) return;
+      const width = 2048;
       const height = 1024;
       const canvas = document.createElement('canvas');
       canvas.width = width;
@@ -614,48 +608,54 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) throw new Error('Canvas compositing is unavailable');
       ctx.drawImage(base, 0, 0, width, height);
-      const basePixels = ctx.getImageData(0, 0, width, height);
-      const depthEmphasis = 0.25 + 0.75 * Math.max(0, Math.min(39, soilDepth)) / 39;
-      const alpha = Math.max(0, Math.min(1, soilOpacity * depthEmphasis));
-      const nodata = image.getGDALNoData();
-      const samples = image.getSamplesPerPixel();
-      // The SoilDB item excludes some latitudes/deserts. Place its sampled rows at their
-      // actual geographic latitude rather than stretching the raster across both poles.
-      for (let row = 0; row < rasterHeight; row++) {
-        const latitude = bounds[3] - ((row + 0.5) / rasterHeight) * (bounds[3] - bounds[1]);
+      const pixels = ctx.getImageData(0, 0, width, height);
+      const emphasis = Math.max(0, Math.min(39, soilDepth)) / 39;
+      const alphaBase = Math.max(0, Math.min(1, soilOpacity)) * (0.15 + 0.85 * emphasis);
+      let sampled = 0;
+      // Contrast ramp: low sand fraction = blue/teal, medium = bright yellow, high = orange/red.
+      for (let row = 0; row < raster.height; row++) {
+        const latitude = raster.bounds[3] - ((row + 0.5) / raster.height) * (raster.bounds[3] - raster.bounds[1]);
         const targetY = Math.floor(((90 - latitude) / 180) * height);
         if (targetY < 0 || targetY >= height) continue;
-        for (let col = 0; col < width; col++) {
-          const value = Number(raster[(row * width + col) * samples]);
-          if (!Number.isFinite(value) || (nodata !== null && value === nodata) || value < 0 || value > 100) continue;
-          // SoilDB sand fraction is a percentage. Amber intensity tracks the data value,
-          // while opacity/depth controls remain display controls only.
-          const strength = alpha * (0.15 + 0.85 * value / 100);
+        for (let col = 0; col < raster.width; col++) {
+          const value = Number(raster.values[(row * raster.width + col) * raster.samples]);
+          if (!Number.isFinite(value) || (raster.nodata !== null && value === raster.nodata) || value < 0 || value > 100) continue;
+          const t = value / 100;
+          let r: number, g: number, b: number;
+          if (t < 0.5) {
+            const u = t * 2;
+            r = 15 + 235 * u; g = 90 + 150 * u; b = 155 * (1 - u) + 15 * u;
+          } else {
+            const u = (t - 0.5) * 2;
+            r = 250; g = 240 * (1 - u) + 45 * u; b = 15 * (1 - u) + 20 * u;
+          }
           const i = (targetY * width + col) * 4;
-          basePixels.data[i] = basePixels.data[i] * (1 - strength) + 215 * strength;
-          basePixels.data[i + 1] = basePixels.data[i + 1] * (1 - strength) + 155 * strength;
-          basePixels.data[i + 2] = basePixels.data[i + 2] * (1 - strength) + 72 * strength;
+          const a = alphaBase * (0.25 + 0.75 * t);
+          pixels.data[i] = pixels.data[i] * (1 - a) + r * a;
+          pixels.data[i + 1] = pixels.data[i + 1] * (1 - a) + g * a;
+          pixels.data[i + 2] = pixels.data[i + 2] * (1 - a) + b * a;
+          sampled++;
         }
       }
-      ctx.putImageData(basePixels, 0, 0);
+      ctx.putImageData(pixels, 0, 0);
       canvas.toBlob(blob => {
         if (cancelled) return;
         if (!blob) {
-          setSoilRasterStatus('Soil raster was read, but the browser could not encode the Earth overlay image.');
+          setSoilRasterStatus('Raster was read, but the browser could not encode the globe texture.');
           return;
         }
         objectUrl = URL.createObjectURL(blob);
         setEarthDisplayTextureUrl(objectUrl);
-        setSoilRasterStatus('RENDERED: OpenLandMap SoilDB sand fraction · 0–30 cm. Amber intensity follows real raster sand %; this is not buried depth.');
-      }, 'image/jpeg', 0.92);
+        setSoilRasterStatus(`LIVE OVERLAY RENDERED · ${sampled.toLocaleString()} valid raster pixels · soil sand fraction 0–100% · opacity ${Math.round(soilOpacity * 100)}% · visual emphasis ${soilDepth} m`);
+      }, 'image/jpeg', 0.94);
     };
 
-    loadOpenLandMapTexture().catch(error => {
+    renderSoilOverlay().catch(error => {
       if (cancelled) return;
       setEarthDisplayTextureUrl(earthTextureUrl);
       const message = error instanceof Error ? error.message : String(error);
-      setSoilRasterStatus(`OpenLandMap soil layer unavailable: ${message}`);
-      console.warn('[NeuroPulse] OpenLandMap SoilDB overlay unavailable:', error);
+      setSoilRasterStatus(`SOIL RASTER FAILED: ${message}`);
+      console.error('[NeuroPulse] OpenLandMap soil overlay failed:', error);
     });
     return () => {
       cancelled = true;
