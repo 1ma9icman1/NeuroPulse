@@ -197,29 +197,6 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [soilOpacity, setSoilOpacity] = useState(0.40);
   const [soilPanelOpen, setSoilPanelOpen] = useState(true);
   const [soilRasterStatus, setSoilRasterStatus] = useState('Loading global soil raster…');
-  const [soilPortalTarget, setSoilPortalTarget] = useState<HTMLElement | null>(null);
-  // The right dock can mount after this globe component. Track it instead of
-  // checking once during render, which can permanently hide the whole panel.
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const findTarget = () => {
-      const target = document.querySelector('.atlas-right');
-      if (target instanceof HTMLElement) setSoilPortalTarget(target);
-    };
-    findTarget();
-    const observer = new MutationObserver(findTarget);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
-  const [earthDisplayTextureUrl, setEarthDisplayTextureUrl] = useState<string>(earthImagerySources.satellite);
-  // Sea-level mode uses measured DEM elevations and ocean-connected flood fill.
-  const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
-  const [seaLevelFloodPolygons, setSeaLevelFloodPolygons] = useState<Array<{ layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } }>>([]);
-  const activateSeaLevelOverlay = (enabled: boolean) => setShowSeaLevelOverlay(enabled);
-  useEffect(() => {
-    if (openEarthSearchRequest > 0) setShowAddEarthSite(true);
-  }, [openEarthSearchRequest]);
-
   useEffect(() => {
     if (openWaterElevationRequest > 0) {
       setShowSeaLevelOverlay(true);
@@ -3475,8 +3452,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
-      {soilPanelOpen && soilPortalTarget && createPortal(
-        <section className="atlas-panel max-h-[70vh] overflow-y-auto overscroll-contain" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto', borderColor: 'rgba(217,153,67,.65)' }}>
+      {soilPanelOpen && (
+        <section className="fixed right-4 top-20 z-[9999] w-[min(350px,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto overscroll-contain rounded-lg border bg-slate-950/95 shadow-2xl" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto', borderColor: 'rgba(217,153,67,.85)' }}>
           <div className="atlas-panel-heading" style={{ color: '#f3c27a', borderBottomColor: 'rgba(217,153,67,.35)' }}>
             <span className="flex items-center gap-2"><Layers className="h-4 w-4" /> HISTORICAL SOIL / SAND LAYER</span>
             <button onClick={() => setSoilPanelOpen(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close soil layer controls"><X className="h-3.5 w-3.5" /></button>
@@ -3507,8 +3484,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               <div className="mt-2 flex flex-col gap-1 text-[9px]"><a href="https://world.soils.app/" target="_blank" rel="noreferrer" className="text-amber-200 underline">Open OpenLandMap 30 m SoilDB</a><a href="https://docs.openlandmap.org/" target="_blank" rel="noreferrer" className="text-amber-200 underline">OpenLandMap data access / STAC documentation</a><a href="https://docs.planet.com/data/planetary-variables/" target="_blank" rel="noreferrer" className="text-amber-200 underline">Planetary Variables — Soil Water Content</a><a href="https://docs.planet.com/guides/subscribe-to-planetary-variables/" target="_blank" rel="noreferrer" className="text-amber-200 underline">Planet API subscription setup</a><a href="https://stac.openlandmap.org/sand.tot_iso.11277.2020.wpct/collection.json" target="_blank" rel="noreferrer" className="text-amber-200 underline">OpenLandMap SoilDB sand-fraction STAC collection</a></div>
             </div>
           </div>
-        </section>,
-        soilPortalTarget
+        </section>
       )}
 
       {!soilPanelOpen && isEarthModeActive && (
