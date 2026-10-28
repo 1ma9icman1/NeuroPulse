@@ -569,14 +569,16 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const image = await tiff.getImage();
       // Resample the cloud-optimized raster to the same 2:1 equirectangular dimensions
       // used by the globe. GeoTIFF.js reads COG byte ranges instead of downloading the full file.
+      const bounds = image.getBoundingBox(); // [west, south, east, north] in the raster CRS
+      const width = 2048;
+      const rasterHeight = Math.max(1, Math.round(width * (bounds[3] - bounds[1]) / (bounds[2] - bounds[0])));
       const raster = await image.readRasters({
-        width: 2048,
-        height: 1024,
+        width,
+        height: rasterHeight,
         interleave: true,
         resampleMethod: 'bilinear',
       }) as unknown as Float32Array;
       if (cancelled) return;
-      const width = 2048;
       const height = 1024;
       const canvas = document.createElement('canvas');
       canvas.width = width;
@@ -589,16 +591,23 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       const alpha = Math.max(0, Math.min(1, soilOpacity * depthEmphasis));
       const nodata = image.getGDALNoData();
       const samples = image.getSamplesPerPixel();
-      for (let pixel = 0; pixel < width * height; pixel++) {
-        const value = Number(raster[pixel * samples]);
-        if (!Number.isFinite(value) || (nodata !== null && value === nodata) || value < 0 || value > 100) continue;
-        // SoilDB sand fraction is a percentage. Amber intensity tracks the data value,
-        // while opacity/depth controls remain display controls only.
-        const strength = alpha * (0.15 + 0.85 * value / 100);
-        const i = pixel * 4;
-        basePixels.data[i] = basePixels.data[i] * (1 - strength) + 215 * strength;
-        basePixels.data[i + 1] = basePixels.data[i + 1] * (1 - strength) + 155 * strength;
-        basePixels.data[i + 2] = basePixels.data[i + 2] * (1 - strength) + 72 * strength;
+      // The SoilDB item excludes some latitudes/deserts. Place its sampled rows at their
+      // actual geographic latitude rather than stretching the raster across both poles.
+      for (let row = 0; row < rasterHeight; row++) {
+        const latitude = bounds[3] - ((row + 0.5) / rasterHeight) * (bounds[3] - bounds[1]);
+        const targetY = Math.floor(((90 - latitude) / 180) * height);
+        if (targetY < 0 || targetY >= height) continue;
+        for (let col = 0; col < width; col++) {
+          const value = Number(raster[(row * width + col) * samples]);
+          if (!Number.isFinite(value) || (nodata !== null && value === nodata) || value < 0 || value > 100) continue;
+          // SoilDB sand fraction is a percentage. Amber intensity tracks the data value,
+          // while opacity/depth controls remain display controls only.
+          const strength = alpha * (0.15 + 0.85 * value / 100);
+          const i = (targetY * width + col) * 4;
+          basePixels.data[i] = basePixels.data[i] * (1 - strength) + 215 * strength;
+          basePixels.data[i + 1] = basePixels.data[i + 1] * (1 - strength) + 155 * strength;
+          basePixels.data[i + 2] = basePixels.data[i + 2] * (1 - strength) + 72 * strength;
+        }
       }
       ctx.putImageData(basePixels, 0, 0);
       canvas.toBlob(blob => {
