@@ -541,23 +541,52 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
 
     const findAsset = async (): Promise<string> => {
       const collectionUrl = 'https://s3.eu-central-1.wasabisys.com/stac/openlandmap/sand.tot_iso.11277.2020.wpct/collection.json';
-      const collectionResponse = await fetch(collectionUrl);
-      if (!collectionResponse.ok) throw new Error(`OpenLandMap STAC collection returned HTTP ${collectionResponse.status}`);
-      const collection = await collectionResponse.json();
-      const itemLink = (collection.links || []).find((link: any) => link.rel === 'item' && link.href);
-      if (!itemLink) throw new Error('OpenLandMap collection JSON loaded, but it exposed no STAC item link');
-      const itemUrl = new URL(itemLink.href, collectionUrl).toString();
-      const itemResponse = await fetch(itemUrl);
-      if (!itemResponse.ok) throw new Error(`OpenLandMap STAC item returned HTTP ${itemResponse.status}`);
-      const item = await itemResponse.json();
-      const entries = Object.entries(item.assets || {}) as Array<[string, any]>;
-      const selected = entries.find(([key, asset]) =>
-        /sand.*30m.*b0cm.*30cm/i.test(key) && /\.tif(f)?($|\?)/i.test(asset.href || '')
-      ) || entries.find(([key, asset]) =>
-        /sand.*30m/i.test(key) && /\.tif(f)?($|\?)/i.test(asset.href || '')
-      );
-      if (!selected?.[1]?.href) throw new Error('OpenLandMap STAC item loaded, but no 30 m 0–30 cm sand-fraction GeoTIFF asset matched. Available assets: ' + entries.map(([key]) => key).join(', '));
-      return new URL(selected[1].href, itemUrl).toString();
+      const fetchJson = async (url: string, label: string): Promise<any> => {
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error(`${label} returned HTTP ${response.status}`);
+        return response.json();
+      };
+      const collection = await fetchJson(collectionUrl, 'OpenLandMap STAC collection');
+      const links: Array<{ rel?: string; href?: string; type?: string }> = collection.links || [];
+      // STAC collections usually point to items via /items or child links, not rel="item".
+      // Try advertised item/child links first, then the STAC API items endpoint.
+      const candidates = links
+        .filter(link => link.href && (link.rel === 'item' || link.rel === 'child'))
+        .map(link => new URL(link.href!, collectionUrl).toString());
+      const itemsLink = links.find(link => link.href && link.rel === 'items');
+      if (itemsLink?.href) candidates.push(new URL(itemsLink.href, collectionUrl).toString());
+      candidates.push('https://s3.eu-central-1.wasabisys.com/stac/openlandmap/sand.tot_iso.11277.2020.wpct/items.json');
+      const uniqueCandidates = [...new Set(candidates)];
+      const failures: string[] = [];
+      for (const candidateUrl of uniqueCandidates) {
+        try {
+          const payload = await fetchJson(candidateUrl, 'OpenLandMap STAC item lookup');
+          const items = Array.isArray(payload.features) ? payload.features : [payload];
+          for (const item of items) {
+            const itemUrl = item.id && !item.assets
+              ? new URL(`items/${encodeURIComponent(item.id)}.json`, collectionUrl).toString()
+              : candidateUrl;
+            let resolvedItem = item;
+            if (!resolvedItem.assets && itemUrl !== candidateUrl) {
+              resolvedItem = await fetchJson(itemUrl, 'OpenLandMap STAC item');
+            }
+            const entries = Object.entries(resolvedItem.assets || {}) as Array<[string, any]>;
+            const isTiff = (asset: any) => /\.tif(f)?($|[?#])/i.test(asset?.href || '');
+            const selected = entries.find(([key, asset]) =>
+              /sand.*30m.*b0cm.*30cm/i.test(key) && isTiff(asset)
+            ) || entries.find(([key, asset]) =>
+              /sand/i.test(key) && /30m/i.test(key) && isTiff(asset)
+            ) || entries.find(([key, asset]) =>
+              /sand/i.test(key) && isTiff(asset)
+            );
+            if (selected?.[1]?.href) return new URL(selected[1].href, itemUrl).toString();
+            failures.push(`${candidateUrl}: assets [${entries.map(([key]) => key).join(', ') || 'none'}]`);
+          }
+        } catch (error) {
+          failures.push(`${candidateUrl}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      throw new Error('Could not discover an OpenLandMap sand GeoTIFF. Tried: ' + failures.join(' | '));
     };
 
     const loadOpenLandMapTexture = async () => {
@@ -611,10 +640,14 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       }
       ctx.putImageData(basePixels, 0, 0);
       canvas.toBlob(blob => {
-        if (cancelled || !blob) return;
+        if (cancelled) return;
+        if (!blob) {
+          setSoilRasterStatus('Soil raster was read, but the browser could not encode the Earth overlay image.');
+          return;
+        }
         objectUrl = URL.createObjectURL(blob);
         setEarthDisplayTextureUrl(objectUrl);
-        setSoilRasterStatus('OpenLandMap SoilDB 30 m sand fraction · 0–30 cm · amber intensity follows sand %; not buried depth');
+        setSoilRasterStatus('RENDERED: OpenLandMap SoilDB sand fraction · 0–30 cm. Amber intensity follows real raster sand %; this is not buried depth.');
       }, 'image/jpeg', 0.92);
     };
 
