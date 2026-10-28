@@ -1560,3 +1560,14 @@ button:hover, button:focus-visible {
 .atlas-topnav{justify-content:flex-end}.atlas-topnav button{display:flex;align-items:center;gap:8px;padding:0 14px;font-size:9px;letter-spacing:.06em}
 @media(max-width:1100px){.kg-layout{grid-template-columns:185px minmax(300px,1fr) 275px;gap:6px;padding:6px}.kg-brand{min-width:245px}.kg-detail{padding:11px}.kg-node strong{font-size:9px}}
 @media(max-width:760px){.kg-layout{grid-template-columns:minmax(0,1fr);overflow:auto}.kg-sidebar{display:none}.kg-main{min-height:65vh}.kg-detail{min-height:300px}.kg-topbar{gap:10px;padding:0 10px}.kg-brand{min-width:0}.kg-brand strong{font-size:14px}.kg-brand small{font-size:7px}.kg-query kbd{display:none}.atlas-brand{flex-basis:auto}.atlas-topnav button{padding:0 6px;font-size:8px}.atlas-topnav button svg{display:none}}
+
+/* Knowledge graph navigation: draggable canvas and bounded zoom controls */
+.kg-canvas{touch-action:none;cursor:grab}
+.kg-canvas:active{cursor:grabbing}
+.kg-world{position:absolute;inset:0;transform-origin:50% 50%;will-change:transform}
+.kg-canvas-controls{position:absolute;z-index:5;top:12px;right:12px;display:flex;align-items:center;gap:5px;padding:5px;border:1px solid #1b4968;border-radius:8px;background:#020a16e8;box-shadow:0 5px 18px #0008}
+.kg-canvas-controls button{display:grid;place-items:center;width:30px;height:30px;border:1px solid #214a65;border-radius:5px;background:#071a2b;color:#b8eaff;cursor:pointer}
+.kg-canvas-controls button:hover{border-color:#37c7ff;background:#0b3150}
+.kg-canvas-controls span{min-width:42px;padding:0 4px;color:#8bc8e9;text-align:center;font:10px ui-monospace,monospace}
+.kg-pan-hint{position:absolute;z-index:4;top:18px;left:14px;display:flex;align-items:center;gap:6px;color:#77a9c8;font:9px ui-monospace,monospace;pointer-events:none}
+@media(max-width:760px){.kg-pan-hint{top:auto;bottom:58px;left:12px;font-size:8px}.kg-canvas-controls{top:9px;right:9px}.kg-canvas-controls button{width:28px;height:28px}}
