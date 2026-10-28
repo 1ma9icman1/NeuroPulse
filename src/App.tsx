@@ -462,7 +462,11 @@ export default function App() {
             lon: location.lon ?? location.longitude,
           });
           setSelectedSiteId(String(location.id ?? location.name));
-          setEarthAreaView('globe');
+          // EarthCore's globe mode renders the spatial audio workspace; open the actual
+          // selected place in its map view so this handoff lands on the requested location.
+          setActiveNav('GLOBAL SEARCH');
+          setEarthAreaView('street');
+          setShowSiteList(false);
           setShowKnowledgeGraph(false);
         }}
       />}
