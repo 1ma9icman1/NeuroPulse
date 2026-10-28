@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import Globe3D from 'react-globe.gl';
 import * as THREE from 'three';
+import { fromUrl } from 'geotiff';
 import { createPortal } from 'react-dom';
 import { SolarSystemView } from './SolarSystemView';
 import type { EarthSiteSelection } from './EarthSiteExplorer';
@@ -519,67 +520,108 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     };
   }, [earthTextureUrl]);
 
-  // Composite the real global SoilGrids sand-property raster over the selected Earth imagery.
-  // The raster describes modern soil sand content, not ancient sand thickness. Planet SWC is not
-  // substituted here because its data service requires authorized access.
+  // Load the OpenLandMap SoilDB sand-fraction COG through its public STAC metadata,
+  // then resample it to an equirectangular globe texture. This is soil texture (% sand),
+  // not a measured sand-thickness/depth map and not a reconstruction of 1849.
   useEffect(() => {
     let cancelled = false;
+    let objectUrl = '';
     if (!soilLayerEnabled) {
       setEarthDisplayTextureUrl(earthTextureUrl);
-      setSoilRasterStatus('Soil layer off');
+      setSoilRasterStatus('OpenLandMap soil texture overlay off');
       return () => { cancelled = true; };
     }
-    setSoilRasterStatus('Loading global sand-property raster…');
+
     const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
       const image = new Image();
       image.crossOrigin = 'anonymous';
       image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error('Raster image unavailable'));
+      image.onerror = () => reject(new Error('Earth base imagery unavailable'));
       image.src = src;
     });
-    Promise.all([loadImage(earthTextureUrl), loadImage(soilRasterUrl)])
-      .then(([base, raster]) => {
-        if (cancelled) return;
-        const width = 2048;
-        const height = 1024;
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) throw new Error('Canvas compositing is unavailable');
-        ctx.drawImage(base, 0, 0, width, height);
-        const rasterCanvas = document.createElement('canvas');
-        rasterCanvas.width = width;
-        rasterCanvas.height = height;
-        const rasterCtx = rasterCanvas.getContext('2d', { willReadFrequently: true });
-        if (!rasterCtx) throw new Error('Soil raster sampling is unavailable');
-        rasterCtx.drawImage(raster, 0, 0, width, height);
-        const soilPixels = rasterCtx.getImageData(0, 0, width, height);
-        const basePixels = ctx.getImageData(0, 0, width, height);
-        // Preserve the raster's real spatial variation; amber is a display tint, not a depth estimate.
-        const depthEmphasis = 0.25 + 0.75 * Math.max(0, Math.min(39, soilDepth)) / 39;
-        const alpha = Math.max(0, Math.min(1, soilOpacity * depthEmphasis));
-        for (let i = 0; i < soilPixels.data.length; i += 4) {
-          const a = soilPixels.data[i + 3] / 255;
-          if (a <= 0.02) continue;
-          const soilSignal = (soilPixels.data[i] * 0.299 + soilPixels.data[i + 1] * 0.587 + soilPixels.data[i + 2] * 0.114) / 255;
-          const strength = alpha * a * (0.35 + 0.65 * soilSignal);
-          basePixels.data[i] = basePixels.data[i] * (1 - strength) + 215 * strength;
-          basePixels.data[i + 1] = basePixels.data[i + 1] * (1 - strength) + 155 * strength;
-          basePixels.data[i + 2] = basePixels.data[i + 2] * (1 - strength) + 72 * strength;
-        }
-        ctx.putImageData(basePixels, 0, 0);
-        setEarthDisplayTextureUrl(canvas.toDataURL('image/jpeg', 0.92));
-        setSoilRasterStatus('Global soil sand raster applied · amber tint is visual only');
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setEarthDisplayTextureUrl(earthTextureUrl);
-        setSoilRasterStatus('Soil raster unavailable in this browser; base Earth imagery retained');
-        console.warn('[NeuroPulse] Soil raster overlay unavailable:', error);
-      });
-    return () => { cancelled = true; };
-  }, [soilLayerEnabled, soilDepth, soilOpacity, earthTextureUrl, soilRasterUrl]);
+
+    const findAsset = async (): Promise<string> => {
+      const collectionUrl = 'https://stac.openlandmap.org/sand.tot_iso.11277.2020.wpct/collection.json';
+      const collectionResponse = await fetch(collectionUrl);
+      if (!collectionResponse.ok) throw new Error(`OpenLandMap STAC collection returned HTTP ${collectionResponse.status}`);
+      const collection = await collectionResponse.json();
+      const itemLink = (collection.links || []).find((link: any) => link.rel === 'item' && link.href);
+      if (!itemLink) throw new Error('OpenLandMap sand collection did not expose a STAC item');
+      const itemUrl = new URL(itemLink.href, collectionUrl).toString();
+      const itemResponse = await fetch(itemUrl);
+      if (!itemResponse.ok) throw new Error(`OpenLandMap STAC item returned HTTP ${itemResponse.status}`);
+      const item = await itemResponse.json();
+      const entries = Object.entries(item.assets || {}) as Array<[string, any]>;
+      const selected = entries.find(([key, asset]) =>
+        /sand.*30m.*b0cm.*30cm/i.test(key) && /\.tif(f)?($|\?)/i.test(asset.href || '')
+      ) || entries.find(([key, asset]) =>
+        /sand.*30m/i.test(key) && /\.tif(f)?($|\?)/i.test(asset.href || '')
+      );
+      if (!selected?.[1]?.href) throw new Error('No 30 m sand-fraction Cloud Optimized GeoTIFF was found in the OpenLandMap item');
+      return new URL(selected[1].href, itemUrl).toString();
+    };
+
+    const loadOpenLandMapTexture = async () => {
+      setSoilRasterStatus('Discovering OpenLandMap 30 m soil-sand COG via STAC…');
+      const [base, cogUrl] = await Promise.all([loadImage(earthTextureUrl), findAsset()]);
+      if (cancelled) return;
+      setSoilRasterStatus('Reading OpenLandMap 30 m soil texture (0–30 cm)…');
+      const tiff = await fromUrl(cogUrl);
+      const image = await tiff.getImage();
+      // Resample the cloud-optimized raster to the same 2:1 equirectangular dimensions
+      // used by the globe. GeoTIFF.js reads COG byte ranges instead of downloading the full file.
+      const raster = await image.readRasters({
+        width: 2048,
+        height: 1024,
+        interleave: true,
+        resampleMethod: 'bilinear',
+      }) as unknown as Float32Array;
+      if (cancelled) return;
+      const width = 2048;
+      const height = 1024;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) throw new Error('Canvas compositing is unavailable');
+      ctx.drawImage(base, 0, 0, width, height);
+      const basePixels = ctx.getImageData(0, 0, width, height);
+      const depthEmphasis = 0.25 + 0.75 * Math.max(0, Math.min(39, soilDepth)) / 39;
+      const alpha = Math.max(0, Math.min(1, soilOpacity * depthEmphasis));
+      const nodata = image.getGDALNoData();
+      const samples = image.getSamplesPerPixel();
+      for (let pixel = 0; pixel < width * height; pixel++) {
+        const value = Number(raster[pixel * samples]);
+        if (!Number.isFinite(value) || (nodata !== null && value === nodata) || value < 0 || value > 100) continue;
+        // SoilDB sand fraction is a percentage. Amber intensity tracks the data value,
+        // while opacity/depth controls remain display controls only.
+        const strength = alpha * (0.15 + 0.85 * value / 100);
+        const i = pixel * 4;
+        basePixels.data[i] = basePixels.data[i] * (1 - strength) + 215 * strength;
+        basePixels.data[i + 1] = basePixels.data[i + 1] * (1 - strength) + 155 * strength;
+        basePixels.data[i + 2] = basePixels.data[i + 2] * (1 - strength) + 72 * strength;
+      }
+      ctx.putImageData(basePixels, 0, 0);
+      canvas.toBlob(blob => {
+        if (cancelled || !blob) return;
+        objectUrl = URL.createObjectURL(blob);
+        setEarthDisplayTextureUrl(objectUrl);
+        setSoilRasterStatus('OpenLandMap SoilDB 30 m sand fraction · 0–30 cm · amber intensity follows sand %; not buried depth');
+      }, 'image/jpeg', 0.92);
+    };
+
+    loadOpenLandMapTexture().catch(error => {
+      if (cancelled) return;
+      setEarthDisplayTextureUrl(earthTextureUrl);
+      const message = error instanceof Error ? error.message : String(error);
+      setSoilRasterStatus(`OpenLandMap soil layer unavailable: ${message}`);
+      console.warn('[NeuroPulse] OpenLandMap SoilDB overlay unavailable:', error);
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [soilLayerEnabled, soilDepth, soilOpacity, earthTextureUrl]);
 
   // Star Celestial Alignment Mode
   const [isStarModeActive, setIsStarModeActive] = useState<boolean>(true);
