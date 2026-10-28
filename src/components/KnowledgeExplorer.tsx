@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { ArrowUpRight, CircleHelp, Network, Search, X } from "lucide-react";
+import React, { useMemo, useRef, useState } from "react";
+import { ArrowUpRight, CircleHelp, Network, Search, X, ZoomIn, ZoomOut, Maximize2, Move } from "lucide-react";
 import { buildKnowledgeEntities, buildKnowledgeRelationships, type GraphSiteInput, type KnowledgeEntity, type KnowledgeRelationship } from "../graph/graphEngine";
 
 interface Props {
@@ -15,6 +15,24 @@ export function KnowledgeExplorer({ sites, onSelectSite, onClose }: Props) {
   const [relationshipType, setRelationshipType] = useState("all");
   const [radius, setRadius] = useState(250);
   const [selectedId, setSelectedId] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const clampZoom = (value: number) => Math.max(0.45, Math.min(2.8, value));
+  const resetView = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
+  const onCanvasPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("button")) return;
+    dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pan.x, originY: pan.y };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const onCanvasPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setPan({ x: drag.originX + event.clientX - drag.startX, y: drag.originY + event.clientY - drag.startY });
+  };
+  const onCanvasPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+  };
   const entities = useMemo(() => buildKnowledgeEntities(sites), [sites]);
   const filteredEntities = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -66,8 +84,9 @@ export function KnowledgeExplorer({ sites, onSelectSite, onClose }: Props) {
       </aside>
       <main className="kg-main">
         <div className="kg-heading"><div><div className="kg-eyebrow">RELATIONSHIP EXPLORER / EARTH CATALOGUE</div><h1>Knowledge Network</h1><p>Explore how catalogued locations relate by distance and classification.</p></div><div className="kg-pill"><span/> DATA-DRIVEN GRAPH</div></div>
-        <div className="kg-canvas">
+        <div className="kg-canvas" onPointerDown={onCanvasPointerDown} onPointerMove={onCanvasPointerMove} onPointerUp={onCanvasPointerUp} onPointerCancel={onCanvasPointerUp} onWheel={event => { event.preventDefault(); setZoom(current => clampZoom(current * (event.deltaY < 0 ? 1.12 : 0.89))); }} title="Drag to pan · Use mouse wheel to zoom">
           <div className="kg-canvas-stars"/>
+          <div className="kg-world" style={{ transform: "translate(" + pan.x + "px, " + pan.y + "px) scale(" + zoom + ")" }}>
           <svg className="kg-lines" viewBox="0 0 960 530" preserveAspectRatio="none" aria-label="Connections between catalogue entities">
             {relationships.slice(0, 500).map((r: KnowledgeRelationship) => {
               const a = positions.get(r.sourceId), b = positions.get(r.targetId);
@@ -83,6 +102,14 @@ export function KnowledgeExplorer({ sites, onSelectSite, onClose }: Props) {
               <span className="kg-node-orb"><span/></span><strong>{node.title}</strong><small>{node.category ?? "Catalogue site"}</small>
             </button>;
           })}
+          </div>
+          <div className="kg-canvas-controls" onPointerDown={event => event.stopPropagation()}>
+            <button type="button" onClick={() => setZoom(current => clampZoom(current * 1.2))} aria-label="Zoom in" title="Zoom in"><ZoomIn size={16}/></button>
+            <button type="button" onClick={() => setZoom(current => clampZoom(current / 1.2))} aria-label="Zoom out" title="Zoom out"><ZoomOut size={16}/></button>
+            <button type="button" onClick={resetView} aria-label="Reset view" title="Reset view"><Maximize2 size={15}/></button>
+            <span>{Math.round(zoom * 100)}%</span>
+          </div>
+          <div className="kg-pan-hint"><Move size={13}/> DRAG TO PAN · SCROLL TO ZOOM</div>
           <div className="kg-canvas-legend"><span><i className="kg-legend-line cyan"/> Geographic proximity</span><span><i className="kg-legend-line purple"/> Shared category</span></div>
           <div className="kg-canvas-counter">{nodes.length} NODES · {relationships.length} LINKS</div>
         </div>
