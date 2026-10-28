@@ -164,9 +164,14 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
             const brightest = Math.max(red, green, blue);
             const darkest = Math.min(red, green, blue);
             const spread = brightest - darkest;
-            if (brightest > 218 && spread < 32) {
-              const matteStrength = Math.min(1, Math.max(0, (brightest - 218) / 30));
+            // Remove white/grey matte backgrounds even when the PNG was exported with
+            // opaque pixels. Keep saturated bright icon details; fade only near-neutral whites.
+            if (brightest > 210 && spread < 58) {
+              const matteStrength = Math.min(1, Math.max(0, (brightest - 210) / 38));
               pixels[offset + 3] = Math.round(pixels[offset + 3] * (1 - matteStrength));
+              if (pixels[offset + 3] === 0) {
+                pixels[offset] = 0; pixels[offset + 1] = 0; pixels[offset + 2] = 0;
+              }
             }
           }
           let minX = cellRight, minY = cellBottom, maxX = cellX - 1, maxY = cellY - 1;
@@ -351,7 +356,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         // conceptual dryland map; this avoids tinting oceans and all other terrain.
         // The 0–39 m control is the model's vertical thickness above the terrain.
         const soilGeometry = geometry.clone();
-        const soilMaterial = new THREE.MeshStandardMaterial({ color: '#c8a36a', roughness: 1, metalness: 0, transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide });
+        const soilMaterial = new THREE.MeshStandardMaterial({ color: '#c8a36a', roughness: 1, metalness: 0, transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
         const soilMesh = new THREE.Mesh(soilGeometry, soilMaterial);
         soilMesh.visible = false;
         soilMesh.renderOrder = 3;
@@ -536,52 +541,27 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     positionAttribute.needsUpdate = true;
     colorAttribute.needsUpdate = true;
     state.geometry.computeVertexNormals();
-    // Raise a separate translucent soil shell above the current terrain surface.
+    // Keep the global soil/sand baseline registered to NOAA terrain. The old
+    // per-slider 2.3-million-cell dryland mask made the controls stall and could
+    // leave the layer looking inactive. This is a global visualization shell.
     state.soilMesh.visible = soilLayerEnabled;
-    (state.soilMesh.material as THREE.MeshStandardMaterial).opacity = soilOpacity;
+    const soilMaterial = state.soilMesh.material as THREE.MeshStandardMaterial;
+    soilMaterial.opacity = soilOpacity;
+    soilMaterial.needsUpdate = true;
     const soilGeometry = state.soilMesh.geometry as THREE.BufferGeometry;
     const soilPositions = soilGeometry.getAttribute('position') as THREE.BufferAttribute;
     const terrainPositions = state.geometry.getAttribute('position') as THREE.BufferAttribute;
-    // The mesh follows NOAA terrain and its thickness is controlled directly in metres.
-    // A small vertical display exaggeration keeps 0–39 m legible on the globe.
-    const soilOffset = soilDepth * HEIGHT_SCALE * terrainScale * 8;
-    const isDryland = (lat: number, lon: number) => {
-      // Approximate global dryland regions for visualization; not a measured soil-depth raster.
-      const expansion = Math.min(4, Math.abs(soilYear - 1849) / 3000);
-      const boxes: Array<[number, number, number, number]> = [
-        [8, 36, -20, 40], [10, 34, 35, 62], [-35, -15, 10, 36],
-        [-36, -14, 112, 153], [34, 50, 75, 122], [-32, -4, -82, -66],
-        [25, 39, -122, -100], [30, 50, 35, 75],
-      ];
-      return boxes.some(([south, north, west, east]) =>
-        lat >= south - expansion && lat <= north + expansion &&
-        lon >= west - expansion && lon <= east + expansion);
-    };
+    // 0 m still sits just above the terrain to avoid z-fighting; the 0–39 m
+    // slider then raises the shell consistently across the whole globe.
+    const soilOffset = 0.035 + soilDepth * HEIGHT_SCALE * terrainScale * 8;
     for (let i = 0; i < terrainPositions.count; i++) {
       const x = terrainPositions.getX(i), y = terrainPositions.getY(i), z = terrainPositions.getZ(i);
       const length = Math.sqrt(x * x + y * y + z * z) || 1;
       soilPositions.setXYZ(i, x + (x / length) * soilOffset, y + (y / length) * soilOffset, z + (z / length) * soilOffset);
     }
-    // MeshStandardMaterial does not use alpha in a vertex color attribute, so actually
-    // remove faces outside the dryland mask instead of accidentally painting the whole globe.
-    const maskedIndices: number[] = [];
-    for (let row = 0; row < state.height - 1; row++) {
-      for (let col = 0; col < state.width - 1; col++) {
-        const a = row * state.width + col, b = a + 1, d = a + state.width + 1, e = a + state.width;
-        const latA = 90 - (row / (state.height - 1)) * 180;
-        const latE = 90 - ((row + 1) / (state.height - 1)) * 180;
-        const lonA = (col / (state.width - 1)) * 360 - 180;
-        const lonB = ((col + 1) / (state.width - 1)) * 360 - 180;
-        if (isDryland(latA, lonA) && isDryland(latA, lonB) && isDryland(latE, lonA) && isDryland(latE, lonB)) {
-          maskedIndices.push(a, e, b, b, e, d);
-        }
-      }
-    }
-    soilGeometry.setIndex(maskedIndices);
     soilPositions.needsUpdate = true;
     soilGeometry.computeVertexNormals();
     soilGeometry.computeBoundingSphere();
-    // Recalculate bounds after changing vertex positions so Three.js doesn't cull the raised globe.
     state.geometry.computeBoundingSphere();
     // Keep the visible water surface locked to the exact same datum as flooded terrain.
     state.water.geometry.dispose();
@@ -892,19 +872,19 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <input id="water-transparency" aria-label="Water transparency" type="range" min="0.05" max="1" step="0.05" value={1 - waterOpacity} onChange={event => setWaterOpacity(1 - Number(event.target.value))} className="w-full accent-cyan-400" />
           <div className="flex justify-between text-[9px] text-slate-500"><span>Clear / transparent</span><span>Opaque</span></div>
         </div>
-        <div className="space-y-1.5 rounded-lg border border-amber-700/50 bg-amber-950/20 p-2 lg:col-span-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-2 rounded-lg border border-amber-700/50 bg-amber-950/20 p-2 sm:grid-cols-2 lg:col-span-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:col-span-2">
             <label className="flex items-center gap-2 text-[10px] font-mono font-bold text-amber-200"><input type="checkbox" checked={soilLayerEnabled} onChange={event => setSoilLayerEnabled(event.target.checked)} className="accent-amber-400" /> HISTORICAL SOIL / SAND LAYER</label>
             <span className="text-[9px] font-mono text-amber-100/80">{soilDepth} m depth · reference year {soilYear}</span>
           </div>
-          <div className="flex items-center justify-between gap-2"><label htmlFor="soil-timeframe" className="text-[10px] font-mono font-bold text-slate-300">SOIL TIMEFRAME · {soilYear < 0 ? `${Math.abs(soilYear).toLocaleString()} BCE` : `${soilYear} CE`}</label><button type="button" onClick={() => setSoilYear(1849)} className="text-[9px] font-mono text-slate-400 hover:text-white">GIZA 1849</button></div>
+          <div className="space-y-1"><div className="flex items-center justify-between gap-2"><label htmlFor="soil-timeframe" className="text-[10px] font-mono font-bold text-slate-300">SOIL TIMEFRAME · {soilYear < 0 ? `${Math.abs(soilYear).toLocaleString()} BCE` : `${soilYear} CE`}</label><button type="button" onClick={() => setSoilYear(1849)} className="text-[9px] font-mono text-slate-400 hover:text-white">GIZA 1849</button></div>
           <input id="soil-timeframe" aria-label="Historical soil timeframe" type="range" min="-12000" max="2026" step="1" value={soilYear} onChange={event => setSoilYear(Number(event.target.value))} className="w-full accent-amber-400" />
-          <div className="flex justify-between text-[9px] text-slate-500"><span>12,000 BCE</span><span>1849 reference</span><span>2026 CE</span></div>
-          <div className="flex items-center justify-between gap-2"><label htmlFor="soil-depth" className="text-[10px] font-mono font-bold text-slate-300">GLOBAL SOIL DEPTH · {soilDepth} m</label><button type="button" onClick={() => setSoilDepth(0)} className="text-[9px] font-mono text-slate-400 hover:text-white">RESET TO 0 m</button></div>
-          <input id="soil-depth" aria-label="Soil layer baseline thickness in metres" type="range" min="0" max="39" step="1" value={soilDepth} onChange={event => setSoilDepth(Number(event.target.value))} className="w-full accent-amber-400" />
-          <div className="flex items-center justify-between gap-2"><label htmlFor="soil-transparency" className="text-[10px] font-mono font-bold text-slate-300">SOIL TRANSPARENCY · {Math.round((1 - soilOpacity) * 100)}%</label><button type="button" onClick={() => setSoilOpacity(0.72)} className="text-[9px] font-mono text-slate-400 hover:text-white">RESET</button></div>
+          <div className="flex justify-between text-[9px] text-slate-500"><span>12,000 BCE</span><span>1849</span><span>2026 CE</span></div></div>
+          <div className="space-y-1"><div className="flex items-center justify-between gap-2"><label htmlFor="soil-depth" className="text-[10px] font-mono font-bold text-slate-300">GLOBAL SOIL DEPTH · {soilDepth} m</label><button type="button" onClick={() => setSoilDepth(0)} className="text-[9px] font-mono text-slate-400 hover:text-white">RESET TO 0 m</button></div>
+          <input id="soil-depth" aria-label="Soil layer baseline thickness in metres" type="range" min="0" max="39" step="1" value={soilDepth} onChange={event => setSoilDepth(Number(event.target.value))} className="w-full accent-amber-400" /></div>
+          <div className="space-y-1"><div className="flex items-center justify-between gap-2"><label htmlFor="soil-transparency" className="text-[10px] font-mono font-bold text-slate-300">SOIL TRANSPARENCY · {Math.round((1 - soilOpacity) * 100)}%</label><button type="button" onClick={() => setSoilOpacity(0.72)} className="text-[9px] font-mono text-slate-400 hover:text-white">RESET</button></div>
           <input id="soil-transparency" aria-label="Soil layer transparency" type="range" min="0.05" max="1" step="0.05" value={soilOpacity} onChange={event => setSoilOpacity(Number(event.target.value))} className="w-full accent-amber-400" />
-          <div className="flex justify-between text-[9px] text-slate-500"><span>Clear / transparent</span><span>Opaque</span></div>
+          <div className="flex justify-between text-[9px] text-slate-500"><span>Clear</span><span>Opaque</span></div></div>
         </div>
         <div className="flex flex-wrap items-center gap-2 lg:col-span-3">
           <span className="text-[9px] font-mono font-bold text-slate-400">SURFACE</span>
