@@ -48,7 +48,7 @@ const headers = [
   'name', 'latitude_current', 'longitude_current', 'valid_range',
   'latitude_decimal_places', 'longitude_decimal_places',
   'duplicate_name_count', 'same_name_coordinate_conflict',
-  'audit_status', 'google_maps_coordinate_check_url'
+  'audit_status', 'google_maps_feature_search_url', 'google_maps_coordinate_check_url'
 ];
 const lines = [headers.map(csv).join(',')];
 for (const site of sites) {
@@ -59,12 +59,16 @@ for (const site of sites) {
   const status = !site.valid ? 'INVALID_RANGE' :
     conflict ? 'DUPLICATE_NAME_COORDINATE_CONFLICT' :
     lowPrecision ? 'LOW_PRECISION_REVIEW' : 'VERIFY_FEATURE_LOCATION';
-  const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' +
+  // Open both the named feature and the stored coordinate. Comparing these two
+  // views makes an off-site pin visible; neither URL alone proves accuracy.
+  const featureUrl = 'https://www.google.com/maps/search/?api=1&query=' +
+    encodeURIComponent(site.name);
+  const coordinateUrl = 'https://www.google.com/maps/search/?api=1&query=' +
     encodeURIComponent(site.lat + ',' + site.lon);
   lines.push([
     site.name, site.lat, site.lon, site.valid ? 'yes' : 'no',
     site.latDigits, site.lonDigits, matches.length, conflict ? 'yes' : 'no',
-    status, mapsUrl
+    status, featureUrl, coordinateUrl
   ].map(csv).join(','));
 }
 
