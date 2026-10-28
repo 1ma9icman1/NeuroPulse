@@ -16,7 +16,7 @@ export function KnowledgeExplorer({ sites, onSelectSite, onClose }: Props) {
   const [radius, setRadius] = useState(250);
   const [selectedId, setSelectedId] = useState("");
   const entities = useMemo(() => buildKnowledgeEntities(sites), [sites]);
-  const allRelationships = useMemo(() => buildKnowledgeRelationships(entities, radius), [entities, radius]);
+  const allRelationships = useMemo(() => buildKnowledgeRelationships(filteredEntities.slice(0, 36), radius), [filteredEntities, radius]);
   const filteredEntities = useMemo(() => {
     const q = query.trim().toLowerCase();
     return entities.filter(e => !q || [e.title, e.category, e.description].some(v => String(v ?? "").toLowerCase().includes(q)));
