@@ -540,12 +540,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     });
 
     const findAsset = async (): Promise<string> => {
-      const collectionUrl = 'https://stac.openlandmap.org/sand.tot_iso.11277.2020.wpct/collection.json';
+      const collectionUrl = 'https://s3.eu-central-1.wasabisys.com/stac/openlandmap/sand.tot_iso.11277.2020.wpct/collection.json';
       const collectionResponse = await fetch(collectionUrl);
       if (!collectionResponse.ok) throw new Error(`OpenLandMap STAC collection returned HTTP ${collectionResponse.status}`);
       const collection = await collectionResponse.json();
       const itemLink = (collection.links || []).find((link: any) => link.rel === 'item' && link.href);
-      if (!itemLink) throw new Error('OpenLandMap sand collection did not expose a STAC item');
+      if (!itemLink) throw new Error('OpenLandMap collection JSON loaded, but it exposed no STAC item link');
       const itemUrl = new URL(itemLink.href, collectionUrl).toString();
       const itemResponse = await fetch(itemUrl);
       if (!itemResponse.ok) throw new Error(`OpenLandMap STAC item returned HTTP ${itemResponse.status}`);
@@ -556,12 +556,12 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
       ) || entries.find(([key, asset]) =>
         /sand.*30m/i.test(key) && /\.tif(f)?($|\?)/i.test(asset.href || '')
       );
-      if (!selected?.[1]?.href) throw new Error('No 30 m sand-fraction Cloud Optimized GeoTIFF was found in the OpenLandMap item');
+      if (!selected?.[1]?.href) throw new Error('OpenLandMap STAC item loaded, but no 30 m 0–30 cm sand-fraction GeoTIFF asset matched. Available assets: ' + entries.map(([key]) => key).join(', '));
       return new URL(selected[1].href, itemUrl).toString();
     };
 
     const loadOpenLandMapTexture = async () => {
-      setSoilRasterStatus('Discovering OpenLandMap 30 m soil-sand COG via STAC…');
+      setSoilRasterStatus('Connecting to OpenLandMap STAC JSON catalog…');
       const [base, cogUrl] = await Promise.all([loadImage(earthTextureUrl), findAsset()]);
       if (cancelled) return;
       setSoilRasterStatus('Reading OpenLandMap 30 m soil texture (0–30 cm)…');
