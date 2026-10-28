@@ -906,14 +906,14 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <input id="soil-transparency" aria-label="Soil layer transparency" type="range" min="0.05" max="1" step="0.05" value={soilOpacity} onChange={event => setSoilOpacity(Number(event.target.value))} className="w-full accent-amber-400" />
           <div className="flex justify-between text-[9px] text-slate-500"><span>Clear / transparent</span><span>Opaque</span></div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 xl:col-span-2">
+        <div className="flex flex-wrap items-center gap-2 lg:col-span-3">
           <span className="text-[9px] font-mono font-bold text-slate-400">SURFACE</span>
           <button type="button" onClick={() => setSurfaceMode('satellite')} disabled={!surfaceTextureLoaded} aria-pressed={surfaceMode === 'satellite'} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${surfaceMode === 'satellite' ? 'border-cyan-300 bg-cyan-900/70 text-cyan-100' : 'border-slate-700 text-slate-300 hover:border-cyan-500 disabled:opacity-40'}`}>SATELLITE TEXTURE</button>
           <button type="button" onClick={() => setSurfaceMode('relief')} aria-pressed={surfaceMode === 'relief'} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${surfaceMode === 'relief' ? 'border-emerald-300 bg-emerald-900/70 text-emerald-100' : 'border-slate-700 text-slate-300 hover:border-emerald-500'}`}>ELEVATION RELIEF</button>
           <button type="button" onClick={() => setShowCountryBorders(value => !value)} aria-pressed={showCountryBorders} className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${showCountryBorders ? 'border-amber-300 bg-amber-900/60 text-amber-100' : 'border-slate-700 text-slate-300 hover:border-amber-500'}`}><MapIcon className="h-3 w-3" /> COUNTRY BORDERS {showCountryBorders ? 'ON' : 'OFF'}</button>
           <span className="text-[9px] text-slate-500">{surfaceTextureError ? 'Satellite service unavailable · shaded relief active' : surfaceMode === 'satellite' ? 'World imagery draped over NOAA height data' : 'Elevation-colored, hill-shaded terrain'}</span>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 xl:col-span-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 lg:col-span-3">
           <div className="min-w-0 text-[9px] text-slate-500">{datasetInfo} <span className="mx-1">·</span> <a className="text-sky-300 underline" href={NOAA_SOURCE} target="_blank" rel="noreferrer">NOAA ETOPO / NCEI source</a><span className="mx-1">·</span> <span>Imagery © Esri and its data providers</span></div>
           <label className="flex items-center gap-2 text-[9px] font-mono text-slate-400">TERRAIN RELIEF <input type="range" min="0.6" max="1.8" step="0.1" value={terrainScale} onChange={event => setTerrainScale(Number(event.target.value))} className="w-20 accent-emerald-400" /></label>
           <label className="flex items-center gap-2 text-[9px] font-mono text-slate-400">ZOOM <input type="range" min="0.7" max="2.2" step="0.1" value={zoom} onChange={event => setZoom(Number(event.target.value))} className="w-20 accent-sky-400" /></label>
