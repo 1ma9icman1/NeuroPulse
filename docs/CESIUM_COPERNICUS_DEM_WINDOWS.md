@@ -12,7 +12,7 @@ The current integration path is: acquire actual AOI GeoTIFFs with CopernicusDEM,
 ## Windows setup
 
 1. Install [R for Windows](https://cran.r-project.org/bin/windows/base/).
-2. Install [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html). The upstream CopernicusDEM package uses it to copy public AWS objects; public-data reads do not require personal AWS credentials.
+2. Install [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html). The upstream package uses AWS CLI for downloads; follow its README for AWS CLI configuration if the package reports missing credentials. The DEM bucket is public, but the R package's CLI invocation does not expose an anonymous-request flag.
 3. In R, install the package requirements:
 
    ```r
