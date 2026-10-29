@@ -39,6 +39,43 @@ type DemManifest = {
 };
 
 const PREVIEW_GRID_SIZE = 129;
+type CachedDemTile = { west: number; south: number; east: number; north: number; raster: ArrayLike<number>; noData: number };
+
+function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
+  const count = PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE;
+  const positions = new Float64Array(count * 3);
+  const indexValues: number[] = [];
+  const validMask = new Uint8Array(count);
+  let validVertices = 0;
+  for (let y = 0; y < PREVIEW_GRID_SIZE; y++) {
+    const latitude = tile.north - (y / (PREVIEW_GRID_SIZE - 1)) * (tile.north - tile.south);
+    for (let x = 0; x < PREVIEW_GRID_SIZE; x++) {
+      const index = y * PREVIEW_GRID_SIZE + x;
+      const longitude = tile.west + (x / (PREVIEW_GRID_SIZE - 1)) * (tile.east - tile.west);
+      const elevation = Number(tile.raster[index]);
+      const valid = Number.isFinite(elevation) && (!Number.isFinite(tile.noData) || elevation !== tile.noData);
+      if (valid) { validMask[index] = 1; validVertices++; }
+      const point = Cartesian3.fromDegrees(longitude, latitude, valid ? elevation + soilDepth : 0);
+      positions[index * 3] = point.x; positions[index * 3 + 1] = point.y; positions[index * 3 + 2] = point.z;
+    }
+  }
+  if (validVertices < count * 0.9) throw new Error('Too many invalid elevation samples in a cached DEM tile.');
+  for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y++) for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x++) {
+    const a = y * PREVIEW_GRID_SIZE + x, b = a + 1, c = a + PREVIEW_GRID_SIZE, d = c + 1;
+    if (validMask[a] && validMask[b] && validMask[c] && validMask[d]) indexValues.push(a, c, b, b, c, d);
+  }
+  const geometry = new Geometry({
+    attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
+    indices: Uint32Array.from(indexValues), primitiveType: PrimitiveType.TRIANGLES,
+    boundingSphere: BoundingSphere.fromVertices(positions),
+  });
+  return new Primitive({
+    geometryInstances: new GeometryInstance({ geometry, attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#c9a66b').withAlpha(0.48)) } }),
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false }),
+    asynchronous: false, allowPicking: false,
+  });
+}
+
 
 function safeTileUrl(filename: string): string {
   const normalized = filename.replace(/\\\\/g, '/').replace(/^\/+/, '');
@@ -56,6 +93,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   const [showSoilLayer, setShowSoilLayer] = useState(true);
   const [showSatellite, setShowSatellite] = useState(true);
   const soilPrimitivesRef = useRef<Primitive[]>([]);
+  const terrainTilesRef = useRef<CachedDemTile[]>([]);
+  const rebuildSoilRef = useRef<((depth: number) => void) | null>(null);
   const showSoilLayerRef = useRef(showSoilLayer);
   showSoilLayerRef.current = showSoilLayer;
   const showSatelliteRef = useRef(showSatellite);
@@ -124,6 +163,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         }
 
         let loaded = 0;
+        terrainTilesRef.current = [];
         for (const filename of manifest.files) {
           if (cancelled) return;
           setStatus(`Reading measured ${manifest.dataset} tile ${loaded + 1} of ${manifest.files.length}…`);
@@ -142,68 +182,31 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           const count = PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE;
           if (raster.length !== count) throw new Error(`Incomplete elevation raster: ${filename}`);
 
-          const positions = new Float64Array(count * 3);
-          const indexValues: number[] = [];
-          const rawNoData = typeof image.getGDALNoData === 'function' ? image.getGDALNoData() : undefined;
-          const noData = rawNoData === null || rawNoData === undefined ? NaN : Number(rawNoData);
-          const validMask = new Uint8Array(count);
-          let validVertices = 0;
-          for (let y = 0; y < PREVIEW_GRID_SIZE; y++) {
-            const latitude = north - (y / (PREVIEW_GRID_SIZE - 1)) * (north - south);
-            for (let x = 0; x < PREVIEW_GRID_SIZE; x++) {
-              const index = y * PREVIEW_GRID_SIZE + x;
-              const longitude = west + (x / (PREVIEW_GRID_SIZE - 1)) * (east - west);
-              const elevation = Number(raster[index]);
-              const valid = Number.isFinite(elevation) && (!Number.isFinite(noData) || elevation !== noData);
-              if (valid) { validMask[index] = 1; validVertices++; }
-              // GLO-90 supplies the measured ground elevation. soilDepth is an explicitly adjustable cover-depth scenario layered above it, not a measured soil raster.
-              const point = Cartesian3.fromDegrees(longitude, latitude, valid ? elevation + soilDepth : 0);
-              positions[index * 3] = point.x;
-              positions[index * 3 + 1] = point.y;
-              positions[index * 3 + 2] = point.z;
-            }
-          }
-          if (validVertices < count * 0.9) {
-            throw new Error(`Too many invalid elevation samples in ${filename}; tile not rendered.`);
-          }
-
-          for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y++) {
-            for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x++) {
-              const a = y * PREVIEW_GRID_SIZE + x;
-              const b = a + 1;
-              const c = a + PREVIEW_GRID_SIZE;
-              const d = c + 1;
-              if (!validMask[a] || !validMask[b] || !validMask[c] || !validMask[d]) continue;
-              indexValues.push(a, c, b, b, c, d);
-            }
-          }
-          const geometry = new Geometry({
-            // Cesium's public typings require placeholder fields that its runtime geometry does not need for a flat position-only mesh.
-            attributes: { position: new GeometryAttribute({
-              componentDatatype: ComponentDatatype.DOUBLE,
-              componentsPerAttribute: 3,
-              values: positions,
-            }) } as never,
-            indices: Uint32Array.from(indexValues),
-            primitiveType: PrimitiveType.TRIANGLES,
-            boundingSphere: BoundingSphere.fromVertices(positions),
-          });
-          const primitive = new Primitive({
-            geometryInstances: new GeometryInstance({
-              geometry,
-              attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#c9a66b').withAlpha(0.48)) },
-            }),
-            appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false }),
-            // This is a custom Geometry without a Cesium worker factory. Build synchronously to avoid Cesium's _workerName/_workerPath runtime error.
-            asynchronous: false,
-            allowPicking: false,
-            show: showSoilLayerRef.current,
-          });
+          const cachedTile: CachedDemTile = { west, south, east, north, raster, noData };
+          terrainTilesRef.current.push(cachedTile);
+          const primitive = buildSoilPrimitive(cachedTile, soilDepth);
+          primitive.show = showSoilLayerRef.current;
           viewer.scene.primitives.add(primitive);
           primitives.push(primitive);
           soilPrimitivesRef.current = primitives;
           loaded++;
         }
+        rebuildSoilRef.current = (depth: number) => {
+          const activeViewer = viewerRef.current;
+          if (!activeViewer || activeViewer.isDestroyed()) return;
+          for (const oldPrimitive of soilPrimitivesRef.current) {
+            if (!oldPrimitive.isDestroyed()) activeViewer.scene.primitives.remove(oldPrimitive);
+          }
+          const nextPrimitives: Primitive[] = [];
+          for (const tile of terrainTilesRef.current) {
+            const next = buildSoilPrimitive(tile, depth);
+            next.show = showSoilLayerRef.current;
+            activeViewer.scene.primitives.add(next);
+            nextPrimitives.push(next);
+          }
+          soilPrimitivesRef.current = nextPrimitives;
+          setStatus(`Soil/sand surface updated to ${depth} m over ${nextPrimitives.length} local GLO-90 GeoTIFF tile(s).`);
+        };
 
         if (cancelled) return;
         // Plot the existing NeuroPulse catalogue on the same Cesium world. Markers retain
@@ -271,10 +274,34 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
       }
       viewer?.destroy();
       soilPrimitivesRef.current = [];
+      terrainTilesRef.current = [];
+      rebuildSoilRef.current = null;
       viewer = null;
       viewerRef.current = null;
     };
-  }, [open, selectedSite?.lat, selectedSite?.lon, selectedSite?.name, soilDepth, siteCatalogue]);
+  }, [open, siteCatalogue]);
+
+  useEffect(() => {
+    if (soilDepth > -1) rebuildSoilRef.current?.(soilDepth);
+  }, [soilDepth]);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed() || !selectedSite) return;
+    const destination = Rectangle.fromDegrees(
+      Math.max(-180, selectedSite.lon - 0.08), Math.max(-89, selectedSite.lat - 0.06),
+      Math.min(180, selectedSite.lon + 0.08), Math.min(89, selectedSite.lat + 0.06)
+    );
+    const existing = viewer.entities.getById('neuropulse-selected-site');
+    if (existing) viewer.entities.remove(existing);
+    viewer.entities.add({
+      id: 'neuropulse-selected-site', name: selectedSite.name,
+      position: Cartesian3.fromDegrees(selectedSite.lon, selectedSite.lat, 180),
+      point: { pixelSize: 11, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+      label: { text: selectedSite.name, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    });
+    viewer.camera.flyTo({ destination, duration: 1.2 });
+  }, [selectedSite?.id, selectedSite?.name, selectedSite?.lat, selectedSite?.lon]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
