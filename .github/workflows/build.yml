@@ -1,4 +1,4 @@
-name: Build verification
+name: Build verification # Copernicus DEM branch verification
 
 on:
   push:
