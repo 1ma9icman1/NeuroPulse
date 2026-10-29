@@ -41,7 +41,7 @@ type Props = {
   showAlignmentTriangles?: boolean;
 };
 
-const siteId = (site: EarthSite) => `np-earth-site:${site.id ?? site.name}:${site.lat}:${site.lon}`;
+const siteId = (site: EarthSite) => `np-earth-site:${site.id ?? site.name}:${Number(site.lat)}:${Number(site.lon)}`;
 
 export const CesiumEarthGlobe = forwardRef<any, Props>(({
   sites,
@@ -158,7 +158,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
         if (!viewer || viewer.isDestroyed()) return;
         const nextIds = new Set<string>();
         for (const site of sitesRef.current) {
-          if (!site || !site.name || !Number.isFinite(site.lat) || !Number.isFinite(site.lon) || Math.abs(site.lat) > 90 || Math.abs(site.lon) > 180) continue;
+          if (!site || !site.name || !Number.isFinite(Number(site.lat)) || !Number.isFinite(Number(site.lon)) || Math.abs(Number(site.lat)) > 90 || Math.abs(Number(site.lon)) > 180) continue;
           const id = siteId(site);
           nextIds.add(id);
           const selected = selectedRef.current && siteId(selectedRef.current) === id;
@@ -168,9 +168,9 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
             id,
             name: site.name,
             properties: { neuroPulseSite: true, siteId: site.id ?? site.name },
-            position: Cartesian3.fromDegrees(site.lon, site.lat, Math.max(0, Number(site.altitude) || 0) + (selected ? 100 : 40)),
+            position: Cartesian3.fromDegrees(Number(site.lon), Number(site.lat), Math.max(0, Number(site.altitude) || 0) + (selected ? 100 : 40)),
             point: {
-              pixelSize: selected ? 13 : site.isCity ? 8 : 9,
+              pixelSize: selected ? 16 : site.isCity ? 12 : 13,
               color: Color.fromCssColorString(selected ? '#ffffff' : site.color || (site.isCity ? '#7dd3fc' : '#fbbf24')),
               outlineColor: Color.fromCssColorString(selected ? '#22d3ee' : '#07111f'),
               outlineWidth: selected ? 3 : 2,
@@ -315,14 +315,14 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
       if (entity.id.startsWith('np-earth-site:') && !existing.has(entity.id)) viewer.entities.remove(entity);
     }
     for (const site of sites) {
-      if (!site || !site.name || !Number.isFinite(site.lat) || !Number.isFinite(site.lon) || Math.abs(site.lat) > 90 || Math.abs(site.lon) > 180) continue;
+      if (!site || !site.name || !Number.isFinite(Number(site.lat)) || !Number.isFinite(Number(site.lon)) || Math.abs(Number(site.lat)) > 90 || Math.abs(Number(site.lon)) > 180) continue;
       const id = siteId(site);
       const selected = selectedSite && siteId(selectedSite) === id;
       const entity = viewer.entities.getById(id);
       if (entity) viewer.entities.remove(entity);
       viewer.entities.add({
         id, name: site.name, properties: { neuroPulseSite: true, siteId: site.id ?? site.name },
-        position: Cartesian3.fromDegrees(site.lon, site.lat, Math.max(0, Number(site.altitude) || 0) + (selected ? 100 : 40)),
+        position: Cartesian3.fromDegrees(Number(site.lon), Number(site.lat), Math.max(0, Number(site.altitude) || 0) + (selected ? 100 : 40)),
         point: { pixelSize: selected ? 13 : site.isCity ? 8 : 9, color: Color.fromCssColorString(selected ? '#ffffff' : site.color || (site.isCity ? '#7dd3fc' : '#fbbf24')), outlineColor: Color.fromCssColorString(selected ? '#22d3ee' : '#07111f'), outlineWidth: selected ? 3 : 2 },
         label: { text: site.name, show: selected || site.showLabel === true, font: selected ? 'bold 14px sans-serif' : '12px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, pixelOffset: new Cartesian2(0, -14) },
       });
