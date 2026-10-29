@@ -223,24 +223,32 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             name: site.name,
             properties: { siteId: site.id ?? site.name, latitude: site.lat, longitude: site.lon, category: site.category ?? 'Research site' },
             position: Cartesian3.fromDegrees(site.lon, site.lat, 120),
-            point: { pixelSize: 5, color: Color.fromCssColorString(site.color || '#57d7ff'), outlineColor: Color.BLACK.withAlpha(0.9), outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+            point: { pixelSize: 9, color: Color.fromCssColorString(site.color || '#57d7ff'), outlineColor: Color.WHITE.withAlpha(0.95), outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
           });
         }
         const clickHandler = viewer.screenSpaceEventHandler;
         clickHandler.setInputAction((movement: { position: { x: number; y: number } }) => {
-          const picked = viewer?.scene.pick(movement.position);
+          const pickedItems = viewer?.scene.drillPick(movement.position, 12) ?? [];
+          const picked = pickedItems.find((item: any) => {
+            const id = item?.id?.id ?? item?.id;
+            return typeof id === 'string' && id.startsWith('neuropulse-site:');
+          }) ?? viewer?.scene.pick(movement.position);
           const entity = picked?.id;
           const props = entity?.properties;
           const siteId = props?.siteId?.getValue?.();
-          if (typeof siteId !== 'string') return;
-          const match = validSites.find(site => String(site.id ?? site.name) === siteId || site.name === entity.name);
-          if (match) {
-            onSelectSiteRef.current?.(match);
-            viewer?.camera.flyTo({
-              destination: Rectangle.fromDegrees(Math.max(-180, match.lon - 0.08), Math.max(-89, match.lat - 0.06), Math.min(180, match.lon + 0.08), Math.min(89, match.lat + 0.06)),
-              duration: 0.7,
-            });
-          }
+          const match = validSites.find(site =>
+            (typeof siteId === 'string' && String(site.id ?? site.name) === siteId) ||
+            (entity?.name && site.name === entity.name)
+          );
+          if (!match) return;
+          onSelectSiteRef.current?.(match);
+          // Fly to a real camera height over the exact catalogue coordinate instead of
+          // fitting a geographic rectangle (whose apparent zoom varies by latitude).
+          viewer?.camera.flyTo({
+            destination: Cartesian3.fromDegrees(match.lon, match.lat, 12000),
+            orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+            duration: 1,
+          });
         }, ScreenSpaceEventType.LEFT_CLICK);
         const focus = selectedSite;
         if (focus) {
@@ -252,8 +260,9 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             label: { text: focus.name, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
           });
           viewer.camera.flyTo({
-            destination: Rectangle.fromDegrees(Math.max(-180, focus.lon - 0.08), Math.max(-89, focus.lat - 0.06), Math.min(180, focus.lon + 0.08), Math.min(89, focus.lat + 0.06)),
-            duration: 0.8,
+            destination: Cartesian3.fromDegrees(focus.lon, focus.lat, 12000),
+            orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+            duration: 1,
           });
         } else {
           viewer.camera.setView({ destination: Cartesian3.fromDegrees(0, 20, 22000000) });
@@ -290,10 +299,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer || viewer.isDestroyed() || !selectedSite) return;
-    const destination = Rectangle.fromDegrees(
-      Math.max(-180, selectedSite.lon - 0.08), Math.max(-89, selectedSite.lat - 0.06),
-      Math.min(180, selectedSite.lon + 0.08), Math.min(89, selectedSite.lat + 0.06)
-    );
+    const destination = Cartesian3.fromDegrees(selectedSite.lon, selectedSite.lat, 12000);
     const existing = viewer.entities.getById('neuropulse-selected-site');
     if (existing) viewer.entities.remove(existing);
     viewer.entities.add({
@@ -302,7 +308,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
       point: { pixelSize: 11, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
       label: { text: selectedSite.name, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
     });
-    viewer.camera.flyTo({ destination, duration: 1.2 });
+    viewer.camera.flyTo({ destination, orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 }, duration: 1 });
   }, [selectedSite?.id, selectedSite?.name, selectedSite?.lat, selectedSite?.lon]);
 
   useEffect(() => {
