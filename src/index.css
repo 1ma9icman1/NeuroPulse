@@ -1496,6 +1496,21 @@ button:hover, button:focus-visible {
   .solar-earth-event-summary { flex-wrap: wrap; }
 }
 
+/* Solar Flare compact live-measurement cards: keep all three readable in the narrow left rail. */
+.solar-earth-left-dock .swpc-index-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+.solar-earth-left-dock .swpc-index-card {
+  min-height: 58px;
+  padding: 8px 9px 11px;
+}
+.solar-earth-left-dock .swpc-index-card > span { font-size: 9px; }
+.solar-earth-left-dock .swpc-index-card > strong { font-size: 13px; }
+.solar-earth-left-dock .swpc-index-card > small { font-size: 8px; line-height: 1.35; }
+.solar-earth-left-dock .solar-earth-playback { min-width: 0; }
+.solar-earth-left-dock .solar-earth-timeline-time { text-align: left; }
+
 /* NOAA live imagery and the three measured flare/space-weather windows in the LEFT rail. */
 .solar-earth-left-dock .swpc-live-panel { display:flex; flex-direction:column; gap:10px; padding:10px; border:1px solid rgba(63,177,231,.42); border-radius:7px; background:linear-gradient(180deg,rgba(5,20,36,.98),rgba(2,9,20,.98)); color:#d9efff; }
 .swpc-live-heading,.swpc-imagery-title { display:flex; align-items:center; justify-content:space-between; gap:8px; }
