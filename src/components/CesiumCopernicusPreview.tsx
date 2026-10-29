@@ -107,7 +107,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           const positions = new Float64Array(count * 3);
           const indexValues: number[] = [];
           const rawNoData = typeof image.getGDALNoData === 'function' ? image.getGDALNoData() : undefined;
-          const noData = rawNoData === null || rawNoData === undefined || rawNoData === '' ? NaN : Number(rawNoData);
+          const noData = rawNoData === null || rawNoData === undefined ? NaN : Number(rawNoData);
           const validMask = new Uint8Array(count);
           let validVertices = 0;
           for (let y = 0; y < PREVIEW_GRID_SIZE; y++) {
