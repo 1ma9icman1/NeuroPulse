@@ -3917,6 +3917,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               showCountryBorders={showCountryBorders}
               countryBorderPaths={countryBorderPaths}
               imagerySource={earthImagerySource}
+              triangleEdges={triangleEdges}
+              showAlignmentTriangles={showAlignmentTriangles}
               onZoom={(altitude: number) => updateEarthZoomTier(Number(altitude) / 6371000)}
               onSiteClick={(site: any) => {
                 if (isEarthAssignMode) {
