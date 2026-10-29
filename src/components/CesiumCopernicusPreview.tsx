@@ -7,6 +7,7 @@ import {
   ColorGeometryInstanceAttribute,
   ComponentDatatype,
   CesiumTerrainProvider,
+  TerrainProvider,
   EllipsoidTerrainProvider,
   Ion,
   Geometry,
@@ -58,7 +59,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         setError('');
         setStatus('Checking Cesium ion configuration…');
         const ionToken = import.meta.env.VITE_CESIUM_ION_ACCESS_TOKEN?.trim();
-        let terrainProvider = new EllipsoidTerrainProvider();
+        let terrainProvider: TerrainProvider = new EllipsoidTerrainProvider();
 
         if (ionToken) {
           Ion.defaultAccessToken = ionToken;
