@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ArcGisMapServerImageryProvider,
+  ArcType,
   ScreenSpaceEventType,
   BoundingSphere,
   Cartesian2,
@@ -314,7 +315,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               const points = tri.map(surfacePosition);
               if (flags.triangulation) addOverlayEntity({
                 id: `neuro-triangle-${ti}`,
-                polyline: { positions: [...points, points[0]], width: 2, material: Color.fromCssColorString('#29e8ff'), arcType: 1, clampToGround: false }
+                polyline: { positions: [...points, points[0]], width: 2, material: Color.fromCssColorString('#29e8ff'), arcType: ArcType.GEODESIC, clampToGround: false }
               });
               if (flags.angles) {
                 // Calculate interior angles in a local tangent plane from the actual site coordinates.
@@ -346,19 +347,16 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               if (!a || !b) continue;
               addOverlayEntity({
                 id: `neuro-constellation-${fromId}-${toId}`,
-                polyline: { positions: [starPosition(a),starPosition(b)], width: 2, material: Color.fromCssColorString('#a78bfa').withAlpha(0.9), arcType: 0, clampToGround: false }
+                polyline: { positions: [starPosition(a),starPosition(b)], width: 2, material: Color.fromCssColorString('#a78bfa').withAlpha(0.9), arcType: ArcType.NONE, clampToGround: false }
               });
+            }
+            for (const star of REAL_CELESTIAL_STARS) {
+              if (!CONSTELLATION_EDGES.some(([fromId, toId]) => fromId === star.id || toId === star.id)) continue;
               addOverlayEntity({
-                id: `neuro-constellation-star-${fromId}`,
-                position: starPosition(a),
-                point: { pixelSize: 5, color: Color.fromCssColorString(a.color), outlineColor: Color.WHITE, outlineWidth: 1 },
-                label: { text: a.name, font: '11px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 2, style: 2, disableDepthTestDistance: 0 }
-              });
-              addOverlayEntity({
-                id: `neuro-constellation-star-${toId}`,
-                position: starPosition(b),
-                point: { pixelSize: 5, color: Color.fromCssColorString(b.color), outlineColor: Color.WHITE, outlineWidth: 1 },
-                label: { text: b.name, font: '11px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 2, style: 2, disableDepthTestDistance: 0 }
+                id: `neuro-constellation-star-${star.id}`,
+                position: starPosition(star),
+                point: { pixelSize: 5, color: Color.fromCssColorString(star.color), outlineColor: Color.WHITE, outlineWidth: 1 },
+                label: { text: star.name, font: '11px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 2, style: 2, disableDepthTestDistance: 0 }
               });
             }
           }
