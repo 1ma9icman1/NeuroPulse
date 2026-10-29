@@ -517,6 +517,14 @@ export default function App() {
               selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
               siteCatalogue={researchSites}
               onBack={() => setEarthAreaView('globe')}
+              onSelectSite={(site) => {
+                // Keep the user inside Water / Dirt Elevation while selecting a marker.
+                // This updates the existing right-hand site-information panel; map buttons
+                // there can then open the same coordinates in satellite or Street View.
+                setSelectedGlobeSite(site);
+                setSelectedSiteId(site.id ?? site.name);
+                setShowSiteList(false);
+              }}
               onAssignChannel={(channel, latitude, longitude) => {
                 const lat = latitude * Math.PI / 180;
                 const lon = longitude * Math.PI / 180;
