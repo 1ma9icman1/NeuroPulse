@@ -234,7 +234,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             point: { pixelSize: 9, color: Color.fromCssColorString(site.color || '#57d7ff'), outlineColor: Color.WHITE.withAlpha(0.95), outlineWidth: 2 },
             label: {
               text: site.name,
-              show: false,
+              show: true,
               font: '14px sans-serif',
               fillColor: Color.WHITE,
               outlineColor: Color.BLACK,
@@ -261,12 +261,9 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           );
           return match ? { match, entity } : null;
         };
-        let hoveredSiteEntity: any = null;
+        // Site names remain visible at all times; hover only changes the cursor.
         clickHandler.setInputAction((movement: { endPosition: { x: number; y: number } }) => {
           const result = siteEntityFromPick(movement.endPosition);
-          if (hoveredSiteEntity?.label) hoveredSiteEntity.label.show = false;
-          hoveredSiteEntity = result?.entity ?? null;
-          if (hoveredSiteEntity?.label) hoveredSiteEntity.label.show = true;
           if (viewer?.canvas) viewer.canvas.style.cursor = result ? 'pointer' : 'default';
         }, ScreenSpaceEventType.MOUSE_MOVE);
         clickHandler.setInputAction((movement: { position: { x: number; y: number } }) => {
