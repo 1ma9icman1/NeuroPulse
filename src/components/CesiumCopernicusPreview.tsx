@@ -120,13 +120,13 @@ function buildElevationPrimitive(tile: CachedDemTile): Primitive {
     return [new GeometryInstance({
       id: `copernicus-elevation-band-${band}-${tile.west}-${tile.south}`,
       geometry,
-      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band])) },
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band]).withAlpha(0.12)) },
     })];
   });
   if (!instances.length) throw new Error('The DEM tile contains no valid terrain triangles.');
   return new Primitive({
     geometryInstances: instances,
-    appearance: new PerInstanceColorAppearance({ flat: true, translucent: false, closed: false, faceForward: true }),
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
   });
@@ -188,7 +188,7 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
   return new Primitive({
     geometryInstances: new GeometryInstance({
       geometry,
-      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d7a04a').withAlpha(0.38)) },
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d7a04a').withAlpha(Math.min(0.52, 0.08 + soilDepth * 0.0044))) },
     }),
     // Keep satellite imagery visible underneath the sand cover; solid fill hides the map even at 1 m.
     appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false, faceForward: true }),
