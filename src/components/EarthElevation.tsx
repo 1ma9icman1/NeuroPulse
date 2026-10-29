@@ -298,13 +298,14 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
             // the water surface and turn ocean blue, so the slider changes the globe itself.
             const activeSeaLevel = seaLevelRef.current;
             const activeTerrainScale = terrainScaleRef.current;
-            const submerged = elevation < activeSeaLevel;
+            const oceanCell = elevation === 0; // Copernicus documents ocean areas as zero-valued/no-tile cells.
+            const submerged = oceanCell || elevation < activeSeaLevel;
             const visibleHeight = submerged ? activeSeaLevel : elevation;
             const radius = BASE_RADIUS + visibleHeight * HEIGHT_SCALE * activeTerrainScale;
             positions.push(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
-            const color = surfaceModeRef.current === 'satellite'
-              ? (submerged ? new THREE.Color('#9ac4dc') : new THREE.Color('#ffffff'))
-              : elevationColor(elevation);
+            const color = submerged
+              ? (surfaceModeRef.current === 'satellite' ? new THREE.Color('#9ac4dc') : new THREE.Color('#287ea7'))
+              : surfaceModeRef.current === 'satellite' ? new THREE.Color('#ffffff') : elevationColor(elevation);
             colors.push(color.r, color.g, color.b);
             // Geographic equirectangular mapping: west/east across U, north/south across V.
             uvs.push(x / (gridWidth - 1), 1 - y / (gridHeight - 1));
@@ -433,7 +434,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           animationFrame = window.requestAnimationFrame(animate);
         };
         animate();
-        setDatasetInfo('Copernicus GLO-90 land elevations loaded; ocean cells use the dataset’s documented zero-height convention.');
+        setDatasetInfo('Copernicus GLO-90 samples loaded. Zero-valued ocean cells follow the dataset convention; no bathymetry is invented.');
         setLoading(false);
       } catch (error) {
         if (cancelled) return;
@@ -498,13 +499,14 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         const lon = ((x / (state.width - 1)) * 360 - 180) * Math.PI / 180;
         const index = y * state.width + x;
         const elevation = state.heights[index];
-        const submerged = elevation < seaLevel;
+        const oceanCell = elevation === 0;
+        const submerged = oceanCell || elevation < seaLevel;
         const visibleHeight = submerged ? seaLevel : elevation;
         const radius = BASE_RADIUS + visibleHeight * HEIGHT_SCALE * terrainScale;
         positionAttribute.setXYZ(index, radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
-        const color = surfaceMode === 'satellite'
-          ? (submerged ? new THREE.Color('#9ac4dc') : new THREE.Color('#ffffff'))
-          : elevationColor(elevation);
+        const color = submerged
+          ? (surfaceMode === 'satellite' ? new THREE.Color('#9ac4dc') : new THREE.Color('#287ea7'))
+          : surfaceMode === 'satellite' ? new THREE.Color('#ffffff') : elevationColor(elevation);
         colorAttribute.setXYZ(index, color.r, color.g, color.b);
       }
     }
@@ -827,10 +829,10 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <button type="button" onClick={() => setSurfaceMode('satellite')} disabled={!surfaceTextureLoaded} aria-pressed={surfaceMode === 'satellite'} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${surfaceMode === 'satellite' ? 'border-cyan-300 bg-cyan-900/70 text-cyan-100' : 'border-slate-700 text-slate-300 hover:border-cyan-500 disabled:opacity-40'}`}>SATELLITE TEXTURE</button>
           <button type="button" onClick={() => setSurfaceMode('relief')} aria-pressed={surfaceMode === 'relief'} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${surfaceMode === 'relief' ? 'border-emerald-300 bg-emerald-900/70 text-emerald-100' : 'border-slate-700 text-slate-300 hover:border-emerald-500'}`}>ELEVATION RELIEF</button>
           <button type="button" onClick={() => setShowCountryBorders(value => !value)} aria-pressed={showCountryBorders} className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${showCountryBorders ? 'border-amber-300 bg-amber-900/60 text-amber-100' : 'border-slate-700 text-slate-300 hover:border-amber-500'}`}><MapIcon className="h-3 w-3" /> COUNTRY BORDERS {showCountryBorders ? 'ON' : 'OFF'}</button>
-          <span className="text-[9px] text-slate-500">{surfaceTextureError ? 'Satellite service unavailable · shaded relief active' : surfaceMode === 'satellite' ? 'World imagery draped over Copernicus GLO-90 elevation' : 'Elevation-colored, hill-shaded terrain'}</span>
+          <span className="text-[9px] text-slate-500">{surfaceTextureError ? 'Satellite service unavailable · shaded relief active' : surfaceMode === 'satellite' ? 'World imagery draped over Copernicus GLO-90 samples' : 'Elevation-colored, hill-shaded terrain'}</span>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 xl:col-span-2">
-          <div className="min-w-0 text-[9px] text-slate-500">{datasetInfo} <span className="mx-1">·</span> <a className="text-sky-300 underline" href="https://registry.opendata.aws/copernicus-dem/" target="_blank" rel="noreferrer">Copernicus DEM GLO-90 source</a><span className="mx-1">·</span> <span>Imagery © Esri and its data providers</span></div>
+          <div className="min-w-0 text-[9px] text-slate-500">{datasetInfo} <span className="mx-1">·</span> <a className="text-sky-300 underline" href="https://registry.opendata.aws/copernicus-dem/" target="_blank" rel="noreferrer">Copernicus DEM GLO-90</a><span className="mx-1">via</span><a className="text-sky-300 underline" href="https://open-meteo.com/en/docs/elevation-api" target="_blank" rel="noreferrer">Open-Meteo elevation API</a><span className="mx-1">·</span> <span>Imagery © Esri and its data providers</span></div>
           <label className="flex items-center gap-2 text-[9px] font-mono text-slate-400">TERRAIN RELIEF <input type="range" min="0.6" max="1.8" step="0.1" value={terrainScale} onChange={event => setTerrainScale(Number(event.target.value))} className="w-20 accent-emerald-400" /></label>
           <label className="flex items-center gap-2 text-[9px] font-mono text-slate-400">ZOOM <input type="range" min="0.7" max="2.2" step="0.1" value={zoom} onChange={event => setZoom(Number(event.target.value))} className="w-20 accent-sky-400" /></label>
         </div>
