@@ -138,13 +138,12 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             }
           }
           const geometry = new Geometry({
-            attributes: {
-              position: new GeometryAttribute({
-                componentDatatype: ComponentDatatype.DOUBLE,
-                componentsPerAttribute: 3,
-                values: positions,
-              }),
-            },
+            // Cesium's public typings require placeholder fields that its runtime geometry does not need for a flat position-only mesh.
+            attributes: { position: new GeometryAttribute({
+              componentDatatype: ComponentDatatype.DOUBLE,
+              componentsPerAttribute: 3,
+              values: positions,
+            }) } as never,
             indices,
             primitiveType: PrimitiveType.TRIANGLES,
             boundingSphere: BoundingSphere.fromVertices(positions),
