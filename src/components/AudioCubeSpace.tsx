@@ -65,6 +65,7 @@ import {
 } from '../data/earthData';
 import { calculateSubstellarPoint, fetchIersDut1Seconds, fetchPlaceImages, resolveStarAstrometry, EarthTarget, PlaceImage } from '../services/celestialEarthData';
 import { SeaLevelDemTool } from './SeaLevelDemTool';
+import { CesiumEarthGlobe } from './CesiumEarthGlobe';
 
 
 const calculateTimelineGmstDeg = (year: number): number => {
@@ -3909,195 +3910,25 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               </div>
             )}
             <button type="button" onClick={() => setShowCountryBorders(value => !value)} aria-pressed={showCountryBorders} title="Toggle country borders on the Earth map" className={`absolute right-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[10px] font-mono font-bold shadow-lg backdrop-blur transition-colors ${showCountryBorders ? 'border-amber-300/80 bg-slate-950/90 text-amber-100' : 'border-slate-600 bg-slate-950/80 text-slate-300 hover:border-amber-400'}`}><MapIcon className="h-3.5 w-3.5" /> BORDERS {showCountryBorders ? 'ON' : 'OFF'}</button>
-            <Globe3D ref={globeRef} rendererConfig={{ preserveDrawingBuffer: true }} width={Math.max(320, containerRef.current?.clientWidth || 800)}
-              height={Math.max(320, containerRef.current?.clientHeight || 600)}
-              onZoom={(pov: any) => updateEarthZoomTier(Number(pov?.altitude))}
-              globeImageUrl={earthTextureUrl}
-              bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-              backgroundColor="rgba(0,0,0,0)"
-              showGraticules={isEarthModeActive} showAtmosphere={earthAtmosphere}
-              arcsData={showAlignmentTriangles ? triangleEdges : []}
-              arcStartLat={(d: any) => d.startLat} arcStartLng={(d: any) => d.startLng}
-              arcEndLat={(d: any) => d.endLat} arcEndLng={(d: any) => d.endLng}
-              arcColor={() => '#67e8f9'} arcStroke={0.075} arcAltitude={0}
-              // Triangulation is lines-only; reserve filled polygons for the Sea Level flood overlay.
-              polygonsData={showSeaLevelOverlay ? seaLevelFloodPolygons : []}
-              polygonGeoJsonGeometry={(d: any) => d.geometry}
-              polygonCapColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(56,189,248,0.42)' : 'rgba(34,211,238,0.055)'}
-              polygonSideColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(14,165,233,0.32)' : 'rgba(8,145,178,0.22)'} polygonStrokeColor={(d: any) => d.layerType === 'sea-level-flood' ? 'rgba(125,211,252,0.85)' : 'rgba(165,243,252,0.92)'} polygonAltitude={(d: any) => d.layerType === 'sea-level-flood' ? 0.022 : 0.018}
-              pathsData={showCountryBorders ? countryBorderPaths : []}
-              pathPoints={(d: any) => d.points}
-              pathPointLat={(point: number[]) => point[0]}
-              pathPointLng={(point: number[]) => point[1]}
-              pathColor={() => 'rgba(255,255,255,0.88)'}
-              pathStroke={0.45}
-              pathAltitude={0.0015}
-              labelsData={[]}
-              labelLat={(d: any) => d.lat} labelLng={(d: any) => d.lon} labelText={(d: any) => d.name}
-              labelColor={(d: any) => d.isCity ? '#e2e8f0' : d.evidenceStatus ? '#fdba74' : '#fde68a'}
-              labelSize={(d: any) => d.isCity ? 0.40 : 0.31} labelAltitude={0.016} labelDotRadius={(d: any) => d.isCity ? 0.065 : 0.045}
-              pointsData={visibleEarthSites.filter((site: any) => site.isCity ? (showCities && (earthZoomTier >= 2 || isMajorZoomCity(site))) : (earthZoomTier >= 2 && (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures))).map((site: any) => ({ ...site, _ledSpriteRevision: ledSpriteAtlas.length, _ledStateRevision: isRunning ? 1 : 0 }))} pointLat={(d: any) => d.lat} pointLng={(d: any) => d.lon}
-              pointColor={() => 'rgba(0,0,0,0)'} pointRadius={() => 0} pointAltitude={(d: any) => d.altitude}
-              {...({
-                // Use the authored transparent LED PNG tiles for all Earth research markers.
-                pointThreeObject: (d: any) => {
-                  const obj = makeResearchIcon(d);
-                  obj.userData.showLaserSpaceOverlay = showLaserSpaceOverlay;
-                  return obj;
-                },
-                pointThreeObjectExtend: false,
-              } as any)}
-              pointLabel={(d: any) => {
-                if (!d || d.isChannelTarget) return '';
-                const escapeHtml = (value: unknown) => String(value ?? '')
-                  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                const channels = [
-                  { key: 'a' as const, color: '#22d3ee' },
-                  { key: 'b' as const, color: '#f472b6' },
-                  { key: 'c' as const, color: '#fbbf24' },
-                ];
-                const badges = channels.map(({ key, color }) => {
-                  const target = earthChannelTargets[key];
-                  const checked = !!target &&
-                    Math.abs(target.lat - Number(d.lat)) < 0.02 &&
-                    Math.abs(target.lng - Number(d.lon)) < 0.02;
-                  return `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:4px;padding:2px 5px;border:1px solid ${color}88;border-radius:5px;color:${color};font-weight:700;background:${checked ? color + '22' : 'rgba(15,23,42,.6)'}">${key.toUpperCase()} ${checked ? '☑' : '☐'}</span>`;
-                }).join('');
-                return `<div style="min-width:170px;max-width:250px;padding:7px 8px;border:1px solid rgba(125,211,252,.55);border-radius:9px;background:rgba(3,10,22,.96);color:#f8fafc;box-shadow:0 8px 25px rgba(0,0,0,.4);font:12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif">
-                  <div style="font-weight:700;margin-bottom:5px">${escapeHtml(d.name || 'Location')}</div>
-                  <div style="display:flex;gap:3px;align-items:center;margin-bottom:5px">${badges}</div>
-                  <div style="font-size:10px;color:#94a3b8">${Number(d.lat).toFixed(4)}°, ${Number(d.lon).toFixed(4)}°</div>
-                  <div style="font-size:10px;color:#cbd5e1;margin-top:3px">Click the location, then use ADD TO A/B/C to assign a channel.</div>
-                </div>`;
-              }}
-              htmlElementsData={[...earthChannelMarkers, ...(showTriangleAngles && showAlignmentTriangles ? triangulationOverlay.angleLabels : []), ...(showAncientStructures && showMeasuredSoundSites && (show110HzResearchComets || showCosmicBeam) ? [...(show110HzResearchComets ? visibleEarthSites.filter((site: any) => !site.evidenceStatus && !site.isCity) : []), ...ACOUSTIC_SITE_EVIDENCE.filter((site) => timelineYear >= -4000 && (!showNear110BandOnly || site.measuredFrequenciesHz.some((hz) => hz >= 108 && hz <= 114) || (site.measurementContext || '').includes('95–120 Hz')) && ((show110HzResearchComets && site.researchBandHz === 110) || (showCosmicBeam && site.id === 'hal-saflieni-hypogeum'))).map((site) => ({ name: site.name, lat: site.lat, lon: site.lon, year: -3500, color: '#fb923c', size: 0.5, altitude: 0.04, measuredHz: site.measuredFrequenciesHz.find((hz) => Math.abs(hz - (site.researchBandHz ?? 114)) <= 10), evidenceStatus: site.status }))] : []), ...earthSiteLabelData]}
-              htmlLat={(d: any) => d.lat} htmlLng={(d: any) => d.lon} htmlAltitude={(d: any) => d.isChannelTarget ? 0.012 : 0.04}
-              htmlElement={(d: any) => {
-                if (d.isTriangleAngleLabel) {
-                  const angle = document.createElement('div');
-                  angle.textContent = d.label;
-                  angle.title = `Approximate interior angles · ${d.name}`;
-                  angle.setAttribute('aria-label', `Triangle interior angles: ${d.label}`);
-                  angle.style.padding = '2px 4px';
-                  angle.style.border = '1px solid rgba(196,181,253,.72)';
-                  angle.style.borderRadius = '4px';
-                  angle.style.background = 'rgba(8,12,28,.88)';
-                  angle.style.color = '#ddd6fe';
-                  angle.style.font = '700 9px ui-monospace, monospace';
-                  angle.style.whiteSpace = 'nowrap';
-                  angle.style.pointerEvents = 'none';
-                  angle.style.transform = 'translate(-50%, -50%)';
-                  angle.style.boxShadow = '0 0 5px rgba(167,139,250,.22)';
-                  return angle;
-                }
-                if (d.isEarthSiteLabel) {
-                  const label = document.createElement('button');
-                  label.type = 'button';
-                  // Keep the place name clean: the category icon is rendered at the map pin.
-                  label.textContent = String(d.name || 'Unnamed site');
-                  label.title = `${d.layerCategory || (d.isCity ? 'CITY' : d.evidenceStatus ? 'ACOUSTIC SITE' : 'ANCIENT SITE')} · ${d.name} · click to inspect`;
-                  label.setAttribute('aria-label', `Open site details for ${d.name}`);
-                  label.style.maxWidth = '150px';
-                  label.style.padding = '3px 6px';
-                  label.style.borderRadius = '9px';
-                  label.style.border = `1px solid ${d.color || '#facc15'}99`;
-                  label.style.background = 'transparent';
-                  label.style.backdropFilter = 'blur(8px)';
-                  label.style.color = d.color || (d.isCity ? '#60a5fa' : d.evidenceStatus ? '#fb923c' : '#facc15');
-                  label.style.textAlign = 'left';
-                  label.style.minHeight = '24px';
-                  label.style.maxWidth = '190px';
-                  label.style.width = 'max-content';
-                  const labelFontPx = d.isCity ? 20 : (String(d.category || '').toLowerCase() === 'custom' ? 15 : 10);
-                  label.style.font = `600 ${labelFontPx}px Inter, ui-sans-serif, system-ui, sans-serif`;
-                  label.style.letterSpacing = '0.01em';
-                  label.style.lineHeight = '1.3';
-                  label.style.whiteSpace = 'nowrap';
-                  label.style.overflow = 'hidden';
-                  label.style.textOverflow = 'ellipsis';
-                  label.style.boxShadow = 'none';
-                  label.style.cursor = 'pointer';
-                  label.style.pointerEvents = 'auto';
-                  // Anchor the label to the end of a visible leader instead of centering it over the map pin.
-                  label.style.transform = `translate(${Number(d.labelOffsetX ?? 14)}px, calc(-50% + ${Number(d.labelOffsetY ?? 0)}px))`;
-                  label.style.position = 'relative';
-                  label.style.marginLeft = '13px';
-                  label.onclick = (event) => {
-                    event.stopPropagation();
-                    if (isEarthAssignMode) handlePinChannelToEarth(snapTargetChannel, d.lat, d.lon);
-                    else openEarthSite(d);
-                  };
-                  if (d.labelNeedsLeader) {
-                    const leader = document.createElement('span');
-                    leader.style.position = 'absolute';
-                    leader.style.width = '13px';
-                    leader.style.height = '2px';
-                    leader.style.left = '-14px';
-                    leader.style.top = '50%';
-                    leader.style.background = d.color || '#facc15';
-                    leader.style.boxShadow = `0 0 5px ${d.color || '#facc15'}66`;
-                    label.appendChild(leader);
-                  }
-                  return label;
-                }
-                if (d.isChannelTarget) {
-                  const badge = document.createElement('button');
-                  badge.type = 'button';
-                  badge.textContent = `${d.channel.toUpperCase()}${d.locked ? ' 🔒' : ' ↔'}`;
-                  badge.title = d.locked
-                    ? `CH-${d.channel.toUpperCase()} · LOCKED at ${Number(d.lat).toFixed(3)}°, ${Number(d.lon).toFixed(3)}° · click to unlock`
-                    : `CH-${d.channel.toUpperCase()} · target saved at ${Number(d.lat).toFixed(3)}°, ${Number(d.lon).toFixed(3)}° · click to lock here`;
-                  badge.setAttribute('aria-label', d.locked ? `Unlock channel ${d.channel.toUpperCase()} from this Earth location` : `Lock channel ${d.channel.toUpperCase()} to this Earth location`);
-                  badge.style.width = '42px';
-                  badge.style.height = '28px';
-                  badge.style.borderRadius = '999px';
-                  badge.style.border = `2px solid ${d.color}`;
-                  badge.style.background = 'rgba(3, 10, 22, 0.94)';
-                  badge.style.color = d.color;
-                  badge.style.font = 'bold 10px "JetBrains Mono", monospace';
-                  badge.style.boxShadow = `0 0 12px ${d.color}99`;
-                  badge.style.cursor = 'pointer';
-                  badge.style.pointerEvents = 'auto';
-                  badge.style.display = 'grid';
-                  badge.style.placeItems = 'center';
-                  badge.style.transform = 'translate(-50%, -50%)';
-                  badge.onclick = (event) => {
-                    event.stopPropagation();
-                    setSnapTargetChannel(d.channel);
-                    handleToggleChannelLock(d.channel);
-                  };
-                  return badge;
-                }
-                const marker = document.createElement('div');
-                marker.style.width = '52px'; marker.style.height = showCosmicBeam && d.evidenceStatus === 'published-measurement' ? '300px' : '44px'; marker.style.position = 'relative'; marker.style.pointerEvents = 'none';
-                marker.title = d.evidenceStatus === 'published-measurement' ? `Published acoustic measurement: ${d.measuredHz} Hz (not 110 Hz)` : '110 Hz research candidate · resonance unverified at this location';
-                if (showCosmicBeam && d.evidenceStatus === 'published-measurement') {
-                  const beam = document.createElement('div');
-                  beam.style.position = 'absolute'; beam.style.left = '25px'; beam.style.top = '0px'; beam.style.width = '3px'; beam.style.height = '150px';
-                  beam.style.transform = 'translateX(-50%)'; beam.style.background = 'linear-gradient(to top, rgba(251,146,60,.1), rgba(251,146,60,.8), rgba(255,255,255,.95), transparent)';
-                  beam.style.boxShadow = '0 0 12px 3px rgba(251,146,60,.5)'; beam.style.borderRadius = '99px';
-                  beam.animate([{opacity:.45, transform:'translateX(-50%) scaleY(.72)'},{opacity:1,transform:'translateX(-50%) scaleY(1)'},{opacity:.5,transform:'translateX(-50%) scaleY(.82)'}],{duration:1800,iterations:Infinity});
-                  marker.append(beam);
-                }
-                const comet = document.createElement('div');
-                comet.style.position = 'absolute'; comet.style.left = '4px'; comet.style.top = '20px'; comet.style.width = '34px'; comet.style.height = '3px';
-                comet.style.transform = 'rotate(-42deg)'; comet.style.transformOrigin = 'right center';
-                comet.style.background = 'linear-gradient(90deg, transparent, rgba(251,146,60,.15), #fdba74, #fff7ed)';
-                comet.style.filter = 'drop-shadow(0 0 5px #fb923c)';
-                comet.animate([{ opacity: 0.12, transform: 'translate(-4px, 5px) rotate(-42deg) scaleX(.25)' }, { opacity: 1, transform: 'translate(0, 0) rotate(-42deg) scaleX(1)' }, { opacity: 0.05, transform: 'translate(8px, -8px) rotate(-42deg) scaleX(.2)' }], { duration: 1450, iterations: Infinity, delay: (Math.abs(d.lat * 11 + d.lon) % 900) });
-                marker.append(comet); return marker;
-              }}
-              onPointClick={(d: any) => {
+            <CesiumEarthGlobe
+              ref={globeRef}
+              sites={visibleEarthSites.filter((site: any) => site.isCity ? (showCities && (earthZoomTier >= 2 || isMajorZoomCity(site))) : (earthZoomTier >= 2 && (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)))}
+              selectedSite={selectedEarthSite}
+              showCountryBorders={showCountryBorders}
+              countryBorderPaths={countryBorderPaths}
+              imagerySource={earthImagerySource}
+              onZoom={(altitude: number) => updateEarthZoomTier(Number(altitude) / 6371000)}
+              onSiteClick={(site: any) => {
                 if (isEarthAssignMode) {
-                  handlePinChannelToEarth(snapTargetChannel, d.lat, d.lon);
+                  handlePinChannelToEarth(snapTargetChannel, site.lat, site.lon);
                 } else {
-                  openEarthSite(d);
+                  openEarthSite(site);
                 }
               }}
               onGlobeClick={(coords: { lat: number; lng: number }) => {
                 if (isEarthAssignMode) handlePinChannelToEarth(snapTargetChannel, coords.lat, coords.lng);
-              }} />
+              }}
+            />
             {show110HzResearchComets && <div className="absolute inset-0 z-[5] pointer-events-none flex items-start justify-center pt-16"><span className="rounded-full border border-orange-400/50 bg-slate-950/80 px-3 py-1 text-[9px] font-mono text-orange-200 shadow-[0_0_18px_rgba(249,115,22,.18)]">110 Hz RESEARCH BAND · SOURCED MEASUREMENT + UNVERIFIED CANDIDATES</span></div>}
             {showAlignmentTriangles && showAncientStructures && <div className="absolute left-3 bottom-3 z-[6] max-w-[min(92%,440px)] rounded-lg border border-sky-400/40 bg-slate-950/90 p-2 text-[10px] font-mono text-slate-200 pointer-events-none"><div className="font-bold text-sky-200">EARTH TRIANGULATION · nearest 3 neighbors/site</div><div className="mt-1">{trianglePolygons.length} connected triangles · repeated 5° angle bins: {repeatedTriangleAngles.length ? repeatedTriangleAngles.slice(0,5).map(([angle,count]) => angle+'° × '+count).join(' · ') : 'none detected in current set'}</div><div className="mt-1 text-slate-400">Approximate local-plane angles; projection, site coordinates and chance patterns matter.</div></div>}
             <div className={`absolute inset-0 z-[4] pointer-events-none flex items-center justify-center overflow-hidden ${isEarthModeActive ? 'hidden' : ''}`}>
