@@ -14,7 +14,9 @@ const CACHE_DB = 'neuropulse-copernicus-dem';
 const CACHE_STORE = 'rasters';
 const CACHE_KEY = 'copernicus-glo90-global-1deg-v1';
 const BATCH_SIZE = 100;
-const CONCURRENCY = 6;
+// The public elevation endpoint rate-limits burst traffic. Keep global sampling serialized.
+const CONCURRENCY = 1;
+const REQUEST_SPACING_MS = 300;
 
 type CachedRaster = { key: string; width: number; height: number; values: ArrayBuffer; savedAt: number };
 
@@ -88,13 +90,22 @@ async function fetchBatch(points: SamplePoint[], signal: AbortSignal): Promise<A
   const longitude = points.map(point => point.longitude.toFixed(1)).join(',');
   const url = `https://api.open-meteo.com/v1/elevation?latitude=${latitude}&longitude=${longitude}`;
   let lastError: Error | null = null;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     if (signal.aborted) throw new DOMException('Copernicus elevation load cancelled', 'AbortError');
     try {
       const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
       if (response.status === 429 || response.status >= 500) {
-        lastError = new Error(`Copernicus elevation sampling service returned HTTP ${response.status}`);
-        await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
+        const retryAfterHeader = response.headers.get('Retry-After');
+        const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+        const backoffMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+          ? Math.min(60_000, retryAfterSeconds * 1000)
+          : Math.min(30_000, 1_500 * (2 ** attempt));
+        lastError = new Error(
+          response.status === 429
+            ? `Copernicus elevation sampling service is rate-limiting requests (HTTP 429). Retrying after ${Math.ceil(backoffMs / 1000)} seconds.`
+            : `Copernicus elevation sampling service returned HTTP ${response.status}; retrying shortly.`
+        );
+        if (attempt < 4) await new Promise(resolve => setTimeout(resolve, backoffMs));
         continue;
       }
       if (!response.ok) throw new Error(`Copernicus elevation sampling failed (HTTP ${response.status})`);
@@ -111,7 +122,7 @@ async function fetchBatch(points: SamplePoint[], signal: AbortSignal): Promise<A
     } catch (error) {
       if (signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) throw error;
       lastError = error instanceof Error ? error : new Error('Copernicus elevation request failed');
-      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+      if (attempt < 4) await new Promise(resolve => setTimeout(resolve, Math.min(15_000, 1_000 * (2 ** attempt))));
     }
   }
   throw lastError ?? new Error('Copernicus elevation request failed after retries.');
@@ -143,6 +154,8 @@ export async function loadCopernicusGlobalSamples(
       for (const sample of samples) values[sample.index] = sample.elevation;
       completed += samples.length;
       onProgress?.(completed, points.length, false);
+      // Leave a small gap between successful calls to avoid triggering provider burst limits.
+      if (nextBatch < batches.length && !signal.aborted) await new Promise(resolve => setTimeout(resolve, REQUEST_SPACING_MS));
     }
   };
   await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
