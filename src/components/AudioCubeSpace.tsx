@@ -3912,7 +3912,7 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
             <button type="button" onClick={() => setShowCountryBorders(value => !value)} aria-pressed={showCountryBorders} title="Toggle country borders on the Earth map" className={`absolute right-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[10px] font-mono font-bold shadow-lg backdrop-blur transition-colors ${showCountryBorders ? 'border-amber-300/80 bg-slate-950/90 text-amber-100' : 'border-slate-600 bg-slate-950/80 text-slate-300 hover:border-amber-400'}`}><MapIcon className="h-3.5 w-3.5" /> BORDERS {showCountryBorders ? 'ON' : 'OFF'}</button>
             <CesiumEarthGlobe
               ref={globeRef}
-              sites={visibleEarthSites.filter((site: any) => site.isCity ? (showCities && (earthZoomTier >= 2 || isMajorZoomCity(site))) : (earthZoomTier >= 2 && (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)))}
+              sites={visibleEarthSites.filter((site: any) => site.isCity ? showCities : (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)).map((site: any) => ({ ...site, showLabel: site.isCity ? (earthZoomTier >= 2 || isMajorZoomCity(site)) : earthZoomTier >= 2 }))}
               selectedSite={selectedEarthSite}
               showCountryBorders={showCountryBorders}
               countryBorderPaths={countryBorderPaths}
