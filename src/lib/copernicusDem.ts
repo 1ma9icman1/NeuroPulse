@@ -102,8 +102,8 @@ async function fetchBatch(points: SamplePoint[], signal: AbortSignal): Promise<A
           : Math.min(30_000, 1_500 * (2 ** attempt));
         lastError = new Error(
           response.status === 429
-            ? `Copernicus elevation sampling service is rate-limiting requests (HTTP 429). Retrying after ${Math.ceil(backoffMs / 1000)} seconds.`
-            : `Copernicus elevation sampling service returned HTTP ${response.status}; retrying shortly.`
+            ? `Copernicus elevation sampling service is rate-limiting requests (HTTP 429). ${attempt < 4 ? `Retrying after ${Math.ceil(backoffMs / 1000)} seconds.` : 'Automatic retry limit reached.'}`
+            : `Copernicus elevation sampling service returned HTTP ${response.status}. ${attempt < 4 ? 'Retrying shortly.' : 'Automatic retry limit reached.'}`
         );
         if (attempt < 4) await new Promise(resolve => setTimeout(resolve, backoffMs));
         continue;
