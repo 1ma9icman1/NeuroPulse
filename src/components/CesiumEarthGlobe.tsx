@@ -90,7 +90,6 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
     let viewer: Viewer | null = null;
     let pickHandler: ScreenSpaceEventHandler | null = null;
       const borderEntities: Entity[] = [];
-    let imageryLayer: any = null;
 
     const start = async () => {
       viewer = new Viewer(hostRef.current!, {
@@ -125,7 +124,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
             'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
           );
           if (disposed || !viewer || viewer.isDestroyed()) return;
-          imageryLayer = viewer.imageryLayers.addImageryProvider(provider);
+          viewer.imageryLayers.addImageryProvider(provider);
         } else if (imagerySource === 'blue-marble') {
           const provider = await SingleTileImageryProvider.fromUrl(
             'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
@@ -134,10 +133,10 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
           if (disposed || !viewer || viewer.isDestroyed()) return;
           imageryLayer = viewer.imageryLayers.addImageryProvider(provider);
         } else {
-          const provider = await UrlTemplateImageryProvider.fromUrl(
-            'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.jpg',
-            { url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/2020-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg' } as any
-          );
+          const provider = new UrlTemplateImageryProvider({
+            url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/2020-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
+            maximumLevel: 8,
+          });
           if (disposed || !viewer || viewer.isDestroyed()) return;
           imageryLayer = viewer.imageryLayers.addImageryProvider(provider);
         }
