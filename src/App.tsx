@@ -20,6 +20,7 @@ import { DEFAULT_EARTH_POINTS, LEGACY_HISTORICAL_SITES } from './data/earthData'
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
 import { ACOUSTIC_SITE_EVIDENCE } from './data/acousticSiteEvidence';
 import { RESEARCH_CATALOG_SITES } from './data/researchSiteCatalog';
+import { UNDERGROUND_SITE_CATALOG } from './data/undergroundSiteCatalog';
 
 const INITIAL_CONFIG: TrinauralConfig = { aFreq:432,aFineTune:0,aWaveform:'sine',aGain:0.85,aMuted:false,aPos:{x:-4.5,y:1.5,z:0}, bFreq:442,bFineTune:0,bWaveform:'sine',bGain:0.85,bMuted:false,bPos:{x:4.5,y:1.5,z:0}, cFreq:452,cFineTune:0,cWaveform:'sine',cGain:0.85,cMuted:false,cPos:{x:0,y:2.5,z:3.5},isDeltaLocked:true,lockedDeltaAB:10,lockedDeltaBC:10,masterVolume:0.8,spatialMode:'trinaural-isolated',cameraView:'top',cameraYaw:30,cameraPitch:22,cameraZoom:4.6 };
 const CENTER: SpatialPosition = { x: 0, y: 0, z: 0 };
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { label: 'GLOBAL SEARCH', icon: Radar },
   { label: 'ANCIENT SITES', icon: MapPin },
   { label: 'HISTORICAL SITES', icon: Landmark },
+  { label: 'UNDERGROUND CITIES', icon: Mountain },
   { label: 'CITIES', icon: Building2 },
   { label: 'REFERENCE LOCATIONS', icon: Globe2 },
   { label: 'ALIGNMENT ANALYSIS', icon: Target },
@@ -66,6 +68,7 @@ function researchModuleForSite(site: (typeof DEFAULT_EARTH_POINTS)[number]): str
   if (category === 'astronomy' || /observatory|astronom|solstice|equinox|meridian|celestial|star|constellation|sky alignment|chankillo/.test(name + ' ' + description)) modules.push('STELLAR ALIGNMENTS', 'ALIGNMENT ANALYSIS', 'ANGLES & DIRECTIONS');
   if (category === 'acoustic' || /acoustic|sound|resonan|frequency|echo|measured hz|solfeggio/.test(name + ' ' + description)) modules.push('FREQUENCY / HZ', 'SOUND PATTERNS');
   if (category === 'city' || /city|tokyo celestial hub/.test(name)) modules.push('CITIES', 'GLOBAL SEARCH', 'TRIGONOMETRY');
+  if (category === 'underground' || /underground|cave|cavern|tunnel|subterranean|rock-cut|catacomb|bunker/.test(name + ' ' + description)) modules.push('UNDERGROUND CITIES', 'HISTORICAL SITES');
   if (category === 'reference') modules.push('REFERENCE LOCATIONS', 'GLOBAL SEARCH');
   if (!modules.includes('ALIGNMENT ANALYSIS')) modules.push('ALIGNMENT ANALYSIS');
   if (!modules.includes('TRIGONOMETRY')) modules.push('TRIGONOMETRY');
@@ -225,7 +228,10 @@ export default function App() {
           /petra/i.test(site.name) ? 'https://whc.unesco.org/en/list/326/' :
           /caral/i.test(site.name) ? 'https://whc.unesco.org/en/list/1269/' : undefined };
       });
-    const additions = RESEARCH_CATALOG_SITES.map((site, index) => ({
+    const additions = [
+      ...RESEARCH_CATALOG_SITES,
+      ...UNDERGROUND_SITE_CATALOG,
+    ].map((site, index) => ({
       ...site,
       id: 'catalog-' + index + '-' + site.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       color: site.category === 'astronomy' ? '#a78bfa' : site.category === 'acoustic' ? '#fb923c' : site.isCity ? '#60a5fa' : '#facc15',
@@ -283,6 +289,7 @@ export default function App() {
     'SOLAR FLARE EARTH': 'Dedicated animated solar-system map with NOAA live observations and replayable recorded flare events.',
     'ANCIENT SITES': 'Browse archaeological sites, monuments, and ancient structures.',
     'HISTORICAL SITES': 'Browse historic settlements, temples, tombs, and cultural landmarks.',
+    'UNDERGROUND CITIES': 'Browse underground cities, rock-cut settlements, cave systems, tunnels, bunkers, and subterranean heritage. Pins are approximate locality references; verify individual records against official or scholarly sources.'
     'CITIES': 'Browse modern cities and urban reference locations.',
     'REFERENCE LOCATIONS': 'Browse geographic locations that do not fit a specialist category.',
     'ALIGNMENT ANALYSIS': 'Compare coordinates and test candidate alignments without treating proximity as proof.',
