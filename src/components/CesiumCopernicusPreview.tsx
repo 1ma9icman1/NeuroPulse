@@ -188,9 +188,10 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
   return new Primitive({
     geometryInstances: new GeometryInstance({
       geometry,
-      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d7a04a')) },
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d7a04a').withAlpha(0.38)) },
     }),
-    appearance: new PerInstanceColorAppearance({ flat: true, translucent: false, closed: false, faceForward: true }),
+    // Keep satellite imagery visible underneath the sand cover; solid fill hides the map even at 1 m.
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
   });
@@ -608,12 +609,16 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
     if (!viewer || viewer.isDestroyed()) return;
     const layer = viewer.imageryLayers.length ? viewer.imageryLayers.get(0) : null;
     if (layer) layer.show = showSatellite;
+    viewer.scene.requestRender();
   }, [showSatellite]);
 
   useEffect(() => {
+    const viewer = viewerRef.current;
     for (const primitive of soilPrimitivesRef.current) {
       if (!primitive.isDestroyed()) primitive.show = showSoilLayer && soilDepth > 0;
     }
+    // This viewer uses requestRenderMode; visibility changes must explicitly request a frame.
+    if (viewer && !viewer.isDestroyed()) viewer.scene.requestRender();
   }, [showSoilLayer, soilDepth]);
 
   if (!open) return null;
