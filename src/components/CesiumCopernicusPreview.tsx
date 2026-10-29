@@ -163,9 +163,16 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
   if (validVertices < count * 0.9) throw new Error('Too many invalid elevation samples in a cached DEM tile.');
   for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y++) for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x++) {
     const a = y * PREVIEW_GRID_SIZE + x, b = a + 1, c = a + PREVIEW_GRID_SIZE, d = c + 1;
-    if (validMask[a] && validMask[b] && validMask[c] && validMask[d]) indexValues.push(a, c, b, b, c, d);
+    if (!(validMask[a] && validMask[b] && validMask[c] && validMask[d])) continue;
+    // Top surface: each vertex is positioned at its measured DEM elevation + requested cover depth.
+    indexValues.push(a, c, b, b, c, d);
+    // Close the soil volume with a bottom surface following the measured DEM ground.
+    // Reversed winding keeps the underside oriented outward from the volume.
+    const ba = count + a, bb = count + b, bc = count + c, bd = count + d;
+    indexValues.push(ba, bb, bc, bb, bd, bc);
   }
-  // Four perimeter skirts connect the cover surface down to the DEM ground surface.
+  // Four perimeter skirts connect the elevated cover surface down to the measured DEM ground.
+  // This is a closed 3D cover volume, not a screen-space tint or a transparency-only effect.
   const addWall = (topA: number, topB: number) => {
     const bottomA = count + topA, bottomB = count + topB;
     indexValues.push(topA, bottomA, topB, topB, bottomA, bottomB);
@@ -188,9 +195,10 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
   return new Primitive({
     geometryInstances: new GeometryInstance({
       geometry,
-      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d7a04a').withAlpha(Math.min(0.52, 0.08 + soilDepth * 0.0044))) },
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d7a04a').withAlpha(0.34)) },
     }),
-    // Keep satellite imagery visible underneath the sand cover; solid fill hides the map even at 1 m.
+    // The satellite remains the base map; the cover itself is real ECEF geometry whose top is
+    // DEM + soilDepth, whose underside follows the DEM, and whose perimeter exposes thickness.
     appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
