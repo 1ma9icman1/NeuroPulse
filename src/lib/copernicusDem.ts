@@ -99,11 +99,12 @@ async function fetchBatch(points: SamplePoint[], signal: AbortSignal): Promise<A
       }
       if (!response.ok) throw new Error(`Copernicus elevation sampling failed (HTTP ${response.status})`);
       const data = await response.json() as { elevation?: unknown };
-      if (!Array.isArray(data.elevation) || data.elevation.length !== points.length) {
+      const elevations = data.elevation;
+      if (!Array.isArray(elevations) || elevations.length !== points.length) {
         throw new Error('Copernicus elevation service returned an incomplete sample batch.');
       }
       return points.map((point, i) => {
-        const elevation = Number(data.elevation[i]);
+        const elevation = Number(elevations[i]);
         if (!Number.isFinite(elevation)) throw new Error(`Invalid Copernicus elevation sample at ${point.latitude}, ${point.longitude}`);
         return { index: point.index, elevation };
       });
