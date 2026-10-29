@@ -182,6 +182,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           const count = PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE;
           if (raster.length !== count) throw new Error(`Incomplete elevation raster: ${filename}`);
 
+          const rawNoData = typeof image.getGDALNoData === 'function' ? image.getGDALNoData() : undefined;
+          const noData = rawNoData === null || rawNoData === undefined ? NaN : Number(rawNoData);
           const cachedTile: CachedDemTile = { west, south, east, north, raster, noData };
           terrainTilesRef.current.push(cachedTile);
           const primitive = buildSoilPrimitive(cachedTile, soilDepth);
