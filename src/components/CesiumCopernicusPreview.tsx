@@ -6,7 +6,9 @@ import {
   Color,
   ColorGeometryInstanceAttribute,
   ComponentDatatype,
+  CesiumTerrainProvider,
   EllipsoidTerrainProvider,
+  Ion,
   Geometry,
   GeometryAttribute,
   GeometryInstance,
@@ -54,7 +56,26 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
     const start = async () => {
       try {
         setError('');
-        setStatus('Starting CesiumJS viewer…');
+        setStatus('Checking Cesium ion configuration…');
+        const ionToken = import.meta.env.VITE_CESIUM_ION_ACCESS_TOKEN?.trim();
+        let terrainProvider = new EllipsoidTerrainProvider();
+
+        if (ionToken) {
+          Ion.defaultAccessToken = ionToken;
+          try {
+            terrainProvider = await CesiumTerrainProvider.fromIonAssetId(1);
+            if (cancelled) return;
+            setStatus('Cesium ion token accepted; initializing terrain and imagery…');
+          } catch {
+            // Do not expose token details. Keep the local DEM preview usable if ion access fails.
+            if (cancelled) return;
+            setStatus('Cesium ion terrain unavailable; continuing with ellipsoid terrain and local DEM data…');
+          }
+        } else {
+          setStatus('No Cesium ion token found; using ellipsoid terrain and local DEM data.');
+        }
+
+        if (cancelled) return;
         viewer = new Viewer(hostRef.current!, {
           animation: false,
           timeline: false,
@@ -65,7 +86,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           navigationHelpButton: false,
           infoBox: false,
           selectionIndicator: false,
-          terrainProvider: new EllipsoidTerrainProvider(),
+          terrainProvider,
           baseLayer: false,
           requestRenderMode: true,
         });
