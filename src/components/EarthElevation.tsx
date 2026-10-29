@@ -4,6 +4,7 @@ import { COPERNICUS_DATASET, loadCopernicusGlobalSamples, resampleCopernicusGrid
 import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle, Stars, Ruler, Camera, Eye, EyeOff, Map as MapIcon } from 'lucide-react';
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 import { FreeStreetImageryPanel } from './FreeStreetImageryPanel';
+import { CesiumCopernicusPreview } from './CesiumCopernicusPreview';
 
 type Site = { name: string; lat: number; lon: number } | null;
 type CatalogueSite = { name: string; lat: number; lon: number; category?: string; color?: string };
@@ -54,6 +55,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   onSelectSiteRef.current = onSelectSite;
   const sceneRef = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; earth: THREE.Group; water: THREE.Mesh; marker: THREE.Mesh | null; sitePoints: THREE.Group; geometry: THREE.BufferGeometry; terrainMaterial: THREE.MeshStandardMaterial; heights: Float32Array; width: number; height: number; geometryOverlay: THREE.Group; constellationOverlay: THREE.Group; countryBorders: THREE.Group } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCesiumPreview, setShowCesiumPreview] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [yearOffset, setYearOffset] = useState(0);
   const [seaLevel, setSeaLevel] = useState(0);
@@ -791,6 +793,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         </div>
         <div className="flex items-center gap-2">
           <span className="hidden sm:inline text-[9px] font-mono text-slate-500">DRAG TO ROTATE · WHEEL TO ZOOM</span>
+          <button type="button" onClick={() => setShowCesiumPreview(true)} className="rounded border border-violet-400/70 bg-violet-950/50 px-2 py-1 text-[9px] font-mono font-bold text-violet-100 hover:bg-violet-900/70">CESIUM DEM DETAIL</button>
           <button onClick={onBack} className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-400 hover:text-white"><ArrowLeft className="h-3 w-3" /> BACK TO EARTH</button>
         </div>
       </div>
@@ -837,6 +840,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <label className="flex items-center gap-2 text-[9px] font-mono text-slate-400">ZOOM <input type="range" min="0.7" max="2.2" step="0.1" value={zoom} onChange={event => setZoom(Number(event.target.value))} className="w-20 accent-sky-400" /></label>
         </div>
       </div>
+      <CesiumCopernicusPreview open={showCesiumPreview} onClose={() => setShowCesiumPreview(false)} selectedSite={selectedSite} />
     </div>
   );
 };
