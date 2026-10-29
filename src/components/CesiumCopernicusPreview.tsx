@@ -43,7 +43,7 @@ type DemManifest = {
   files: string[];
 };
 
-const PREVIEW_GRID_SIZE = 129;
+const PREVIEW_GRID_SIZE = 257;
 type CachedDemTile = { west: number; south: number; east: number; north: number; raster: ArrayLike<number>; noData: number };
 
 function sampleTileElevation(site: MapSite, tiles: CachedDemTile[]): number {
@@ -122,7 +122,7 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0): Primitive 
     return [new GeometryInstance({
       id: `copernicus-elevation-band-${band}-${tile.west}-${tile.south}`,
       geometry,
-      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band]).withAlpha(0.32)) },
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band]).withAlpha(0.62)) },
     })];
   });
   if (!instances.length) throw new Error('The DEM tile contains no valid terrain triangles.');
@@ -209,6 +209,9 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           requestRenderMode: true,
         });
         viewerRef.current = viewer;
+        // Keep normal Cesium mouse navigation available alongside site picking.
+        viewer.scene.screenSpaceCameraController.enableInputs = true;
+        viewer.scene.screenSpaceCameraController.enableRotate = true;
         const imagery = await ArcGisMapServerImageryProvider.fromUrl(
           'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
         );
@@ -517,7 +520,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             viewer.camera.setView({ destination: Cartesian3.fromDegrees(0, 20, 22000000) });
           }
         }
-        setStatus(`Rendered ${loaded} real ${manifest.dataset} GeoTIFF tile(s) at ${manifest.resolutionMeters} m source resolution: elevation-colored 3D ground mesh plus a separate translucent adjustable soil/sand cover. Display mesh is resampled to ${PREVIEW_GRID_SIZE}×${PREVIEW_GRID_SIZE} vertices per tile.`);
+        setStatus(`Rendered ${loaded} real ${manifest.dataset} GeoTIFF tile(s) at ${manifest.resolutionMeters} m source resolution: elevation-colored 3D ground mesh. Display mesh is resampled to ${PREVIEW_GRID_SIZE}×${PREVIEW_GRID_SIZE} vertices per tile; resampling smooths the mesh but does not add source-data detail.`);
       } catch (cause) {
         if (!cancelled) {
           const message = cause instanceof Error ? cause.message : 'Unable to initialize Cesium Copernicus terrain preview.';
