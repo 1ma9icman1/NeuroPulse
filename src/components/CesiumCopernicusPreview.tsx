@@ -21,6 +21,7 @@ import {
   Primitive,
   PrimitiveType,
   Rectangle,
+  SceneTransforms,
   Viewer,
 } from 'cesium';
 import { fromUrl } from 'geotiff';
@@ -380,7 +381,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             name: site.name,
             properties: { siteId: site.id ?? site.name, latitude: site.lat, longitude: site.lon, category: site.category ?? 'Research site' },
             position: Cartesian3.fromDegrees(site.lon, site.lat, sampleTileElevation(site, terrainTilesRef.current) + (showSoilLayerRef.current ? soilDepth : 0) + 250),
-            point: { pixelSize: 9, color: Color.fromCssColorString(site.color || '#57d7ff'), outlineColor: Color.WHITE.withAlpha(0.95), outlineWidth: 2 },
+            point: { pixelSize: 11, color: Color.fromCssColorString(site.color || '#57d7ff'), outlineColor: Color.WHITE.withAlpha(0.95), outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
             label: {
               text: site.name,
               show: true,
@@ -390,7 +391,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               outlineWidth: 3,
               style: 2,
               pixelOffset: new Cartesian2(0, -16),
-              disableDepthTestDistance: 0,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
             },
           });
         }
@@ -504,19 +505,44 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         if (elevationToolHandler) window.addEventListener('neuro-pulse-elevation-tool', elevationToolHandler);
         const clickHandler = viewer.screenSpaceEventHandler;
         const siteEntityFromPick = (position: Cartesian2) => {
-          const pickedItems = viewer?.scene.drillPick(position, 12) ?? [];
-          const picked = pickedItems.find((item: any) => {
-            const id = item?.id?.id ?? item?.id;
-            return typeof id === 'string' && id.startsWith('neuropulse-site:');
-          }) ?? viewer?.scene.pick(position);
-          const entity = picked?.id;
-          const props = entity?.properties;
-          const siteId = props?.siteId?.getValue?.();
-          const match = validSites.find(site =>
-            (typeof siteId === 'string' && String(site.id ?? site.name) === siteId) ||
-            (entity?.name && site.name === entity.name)
-          );
-          return match ? { match, entity } : null;
+          // Soil/DEM primitives can be returned ahead of an entity by Cesium's depth pick.
+          // Inspect every drilled result and resolve both Entity objects and primitive IDs.
+          const pickedItems = viewer?.scene.drillPick(position, 24) ?? [];
+          const singlePick = viewer?.scene.pick(position);
+          if (singlePick) pickedItems.push(singlePick);
+          for (const item of pickedItems as any[]) {
+            const candidates = [item?.id, item?.primitive?.id, item?.collection?.get?.(item?.id)];
+            for (const candidate of candidates) {
+              const entity = candidate && typeof candidate === 'object' ? candidate : null;
+              const rawId = typeof candidate === 'string' ? candidate : entity?.id;
+              if (!(typeof rawId === 'string' && rawId.startsWith('neuropulse-site:'))) continue;
+              const props = entity?.properties;
+              const siteIdValue = props?.siteId?.getValue?.();
+              const siteName = entity?.name;
+              const match = validSites.find(site =>
+                (typeof siteIdValue === 'string' && String(site.id ?? site.name) === siteIdValue) ||
+                (typeof rawId === 'string' && rawId.includes(`:${site.id ?? site.name}:`)) ||
+                (siteName && site.name === siteName)
+              );
+              if (match) return { match, entity };
+            }
+          }
+
+          // Reliable fallback: hit-test the rendered screen position of visible catalogue markers.
+          // This keeps selection working when the soil mesh wins Cesium's depth-buffer pick.
+          let nearest: { match: MapSite; distance: number } | null = null;
+          for (const site of validSites) {
+            const height = sampleTileElevation(site, terrainTilesRef.current) +
+              (showSoilLayerRef.current ? soilDepth : 0) + 250;
+            const screen = SceneTransforms.wgs84ToWindowCoordinates(
+              viewer!.scene,
+              Cartesian3.fromDegrees(site.lon, site.lat, height)
+            );
+            if (!screen) continue;
+            const distance = Cartesian2.distance(position, screen);
+            if (distance <= 24 && (!nearest || distance < nearest.distance)) nearest = { match: site, distance };
+          }
+          return nearest ? { match: nearest.match, entity: null } : null;
         };
         // Site names remain visible at all times; hover only changes the cursor.
         clickHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
