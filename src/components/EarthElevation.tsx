@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { COPERNICUS_DATASET, loadCopernicusGlobalSamples, resampleCopernicusGrid } from '../lib/copernicusDem';
+import { ELEVATION_DATASET, loadCopernicusGlobalSamples, resampleCopernicusGrid } from '../lib/copernicusDem';
 import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle, Stars, Ruler, Camera, Eye, EyeOff, Map as MapIcon } from 'lucide-react';
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 import { FreeStreetImageryPanel } from './FreeStreetImageryPanel';
@@ -243,7 +243,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         setLoading(true);
         setLoadError('');
         setLoadProgress({ completed: 0, total: 64800, fromCache: false });
-        setDatasetInfo(`Loading measured elevations from ${COPERNICUS_DATASET}…`);
+        setDatasetInfo(`Loading measured elevations from ${ELEVATION_DATASET}…`);
         const sampled = await loadCopernicusGlobalSamples(demAbortController.signal, (completed, total, fromCache) => {
           if (cancelled) return;
           const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -789,7 +789,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <Mountain className="h-4 w-4 text-emerald-300" />
           <div>
             <div className="text-xs font-mono font-bold tracking-wider text-emerald-200">EARTH · ELEVATION</div>
-            <div className="text-[9px] font-mono text-slate-500">COPERNICUS GLO-90 · REAL LAND ELEVATION</div>
+            <div className="text-[9px] font-mono text-slate-500">GLOBAL TERRAIN-RGB · REAL ELEVATION DATA</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -805,8 +805,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
           onSelectSite={site => onSelectSite?.({ name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color })}
         />
-        {loading && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/85 p-6 text-center"><div className="w-full max-w-md"><LoaderCircle className="mx-auto mb-3 h-7 w-7 animate-spin text-sky-300" /><div className="text-sm font-mono text-sky-100">LOADING COPERNICUS GLO-90 ELEVATION</div><div className="mt-3 flex items-center justify-between gap-3 text-xs font-mono text-sky-100"><span>{loadProgress.completed.toLocaleString()} / {loadProgress.total.toLocaleString()} samples</span><span>{loadProgress.total ? Math.round(loadProgress.completed / loadProgress.total * 100) : 0}%</span></div><div className="mt-2 h-3 w-full overflow-hidden rounded-full border border-sky-700 bg-slate-900" role="progressbar" aria-label="Copernicus elevation download progress" aria-valuemin={0} aria-valuemax={loadProgress.total} aria-valuenow={loadProgress.completed}><div className="h-full rounded-full bg-sky-400 transition-[width] duration-200" style={{ width: `${loadProgress.total ? Math.min(100, loadProgress.completed / loadProgress.total * 100) : 0}%` }} /></div><div className="mt-2 text-xs text-slate-400">{datasetInfo}</div><div className="mt-1 text-[10px] text-slate-500">Small requests: 25 coordinates per API call · local checkpoint every 4,000 samples</div></div></div>}
-        {loadError && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/95 p-6"><div className="max-w-lg text-center"><Database className="mx-auto mb-3 h-8 w-8 text-rose-300" /><div className="text-sm font-mono font-bold text-rose-200">COPERNICUS DEM COULD NOT BE LOADED</div><p className="mt-2 text-xs text-slate-300">{loadError}</p><p className="mt-2 text-[10px] text-slate-500">This view requires measured Copernicus GLO-90 elevation samples; it will not substitute a fake terrain model.</p><a className="mt-3 inline-block text-xs text-sky-300 underline" href="https://registry.opendata.aws/copernicus-dem/" target="_blank" rel="noreferrer">Open Copernicus DEM data source ↗</a></div></div>}
+        {loading && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/85 p-6 text-center"><div className="w-full max-w-md"><LoaderCircle className="mx-auto mb-3 h-7 w-7 animate-spin text-sky-300" /><div className="text-sm font-mono text-sky-100">LOADING GLOBAL TERRAIN ELEVATION</div><div className="mt-3 flex items-center justify-between gap-3 text-xs font-mono text-sky-100"><span>{loadProgress.completed.toLocaleString()} / {loadProgress.total.toLocaleString()} samples</span><span>{loadProgress.total ? Math.round(loadProgress.completed / loadProgress.total * 100) : 0}%</span></div><div className="mt-2 h-3 w-full overflow-hidden rounded-full border border-sky-700 bg-slate-900" role="progressbar" aria-label="Copernicus elevation download progress" aria-valuemin={0} aria-valuemax={loadProgress.total} aria-valuenow={loadProgress.completed}><div className="h-full rounded-full bg-sky-400 transition-[width] duration-200" style={{ width: `${loadProgress.total ? Math.min(100, loadProgress.completed / loadProgress.total * 100) : 0}%` }} /></div><div className="mt-2 text-xs text-slate-400">{datasetInfo}</div><div className="mt-1 text-[10px] text-slate-500">Loading real elevation tiles · sampling 64,800 global grid points</div></div></div>}
+        {loadError && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/95 p-6"><div className="max-w-lg text-center"><Database className="mx-auto mb-3 h-8 w-8 text-rose-300" /><div className="text-sm font-mono font-bold text-rose-200">GLOBAL ELEVATION DATA COULD NOT BE LOADED</div><p className="mt-2 text-xs text-slate-300">{loadError}</p><p className="mt-2 text-[10px] text-slate-500">This view requires measured elevation data from public terrain tiles; it will not substitute a fake terrain model.</p><a className="mt-3 inline-block text-xs text-sky-300 underline" href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">Open public terrain tile data source ↗</a></div></div>}
         <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-slate-700/80 bg-slate-950/80 px-3 py-2 backdrop-blur">
           <div className="text-[9px] font-mono text-slate-400">GLOBAL SEA LEVEL</div>
           <div className="mt-1 text-lg font-mono font-bold text-sky-200">{seaLevel > 0 ? '+' : ''}{seaLevel.toFixed(1)} m</div>
@@ -836,7 +836,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <span className="text-[9px] text-slate-500">{surfaceTextureError ? 'Satellite service unavailable · shaded relief active' : surfaceMode === 'satellite' ? 'World imagery draped over Copernicus GLO-90 samples' : 'Elevation-colored, hill-shaded terrain'}</span>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 xl:col-span-2">
-          <div className="min-w-0 text-[9px] text-slate-500">{datasetInfo} <span className="mx-1">·</span> <a className="text-sky-300 underline" href="https://registry.opendata.aws/copernicus-dem/" target="_blank" rel="noreferrer">Copernicus DEM GLO-90</a><span className="mx-1">via</span><a className="text-sky-300 underline" href="https://open-meteo.com/en/docs/elevation-api" target="_blank" rel="noreferrer">Open-Meteo elevation API</a><span className="mx-1">·</span> <span>Imagery © Esri and its data providers</span></div>
+          <div className="min-w-0 text-[9px] text-slate-500">{datasetInfo} <span className="mx-1">·</span> <a className="text-sky-300 underline" href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">AWS Terrain Tiles</a><span className="mx-1">·</span><a className="text-sky-300 underline" href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noreferrer">Terrain data sources & attribution</a><span className="mx-1">·</span> <span>Imagery © Esri and its data providers</span></div>
           <label className="flex items-center gap-2 text-[9px] font-mono text-slate-400">TERRAIN RELIEF <input type="range" min="0.6" max="1.8" step="0.1" value={terrainScale} onChange={event => setTerrainScale(Number(event.target.value))} className="w-20 accent-emerald-400" /></label>
           <label className="flex items-center gap-2 text-[9px] font-mono text-slate-400">ZOOM <input type="range" min="0.7" max="2.2" step="0.1" value={zoom} onChange={event => setZoom(Number(event.target.value))} className="w-20 accent-sky-400" /></label>
         </div>
