@@ -105,8 +105,10 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           if (raster.length !== count) throw new Error(`Incomplete elevation raster: ${filename}`);
 
           const positions = new Float64Array(count * 3);
-          const indices = new Uint32Array((PREVIEW_GRID_SIZE - 1) * (PREVIEW_GRID_SIZE - 1) * 6);
-          const noData = typeof image.getGDALNoData === 'function' ? Number(image.getGDALNoData()) : NaN;
+          const indexValues: number[] = [];
+          const rawNoData = typeof image.getGDALNoData === 'function' ? image.getGDALNoData() : undefined;
+          const noData = rawNoData === null || rawNoData === undefined || rawNoData === '' ? NaN : Number(rawNoData);
+          const validMask = new Uint8Array(count);
           let validVertices = 0;
           for (let y = 0; y < PREVIEW_GRID_SIZE; y++) {
             const latitude = north - (y / (PREVIEW_GRID_SIZE - 1)) * (north - south);
@@ -115,26 +117,25 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               const longitude = west + (x / (PREVIEW_GRID_SIZE - 1)) * (east - west);
               const elevation = Number(raster[index]);
               const valid = Number.isFinite(elevation) && (!Number.isFinite(noData) || elevation !== noData);
+              if (valid) { validMask[index] = 1; validVertices++; }
               const point = Cartesian3.fromDegrees(longitude, latitude, valid ? elevation : 0);
               positions[index * 3] = point.x;
               positions[index * 3 + 1] = point.y;
               positions[index * 3 + 2] = point.z;
-              if (valid) validVertices++;
             }
           }
           if (validVertices < count * 0.9) {
             throw new Error(`Too many invalid elevation samples in ${filename}; tile not rendered.`);
           }
 
-          let cursor = 0;
           for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y++) {
             for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x++) {
               const a = y * PREVIEW_GRID_SIZE + x;
               const b = a + 1;
               const c = a + PREVIEW_GRID_SIZE;
               const d = c + 1;
-              indices[cursor++] = a; indices[cursor++] = c; indices[cursor++] = b;
-              indices[cursor++] = b; indices[cursor++] = c; indices[cursor++] = d;
+              if (!validMask[a] || !validMask[b] || !validMask[c] || !validMask[d]) continue;
+              indexValues.push(a, c, b, b, c, d);
             }
           }
           const geometry = new Geometry({
@@ -144,7 +145,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               componentsPerAttribute: 3,
               values: positions,
             }) } as never,
-            indices,
+            indices: Uint32Array.from(indexValues),
             primitiveType: PrimitiveType.TRIANGLES,
             boundingSphere: BoundingSphere.fromVertices(positions),
           });
