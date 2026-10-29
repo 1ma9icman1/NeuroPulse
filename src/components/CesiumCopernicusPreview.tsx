@@ -114,6 +114,7 @@ function buildElevationPrimitive(tile: CachedDemTile): Primitive {
       attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
       indices: Uint32Array.from(indices),
       primitiveType: PrimitiveType.TRIANGLES,
+      vertexFormat: PerInstanceColorAppearance.FLAT_VERTEX_FORMAT,
       boundingSphere: BoundingSphere.fromVertices(positions),
     });
     return [new GeometryInstance({
@@ -125,7 +126,7 @@ function buildElevationPrimitive(tile: CachedDemTile): Primitive {
   if (!instances.length) throw new Error('The DEM tile contains no valid terrain triangles.');
   return new Primitive({
     geometryInstances: instances,
-    appearance: new PerInstanceColorAppearance({ flat: false, translucent: false, closed: false, faceForward: true }),
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: $1, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
   });
@@ -160,6 +161,7 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
     attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
     indices: Uint32Array.from(indexValues),
     primitiveType: PrimitiveType.TRIANGLES,
+    vertexFormat: PerInstanceColorAppearance.FLAT_VERTEX_FORMAT,
     boundingSphere: BoundingSphere.fromVertices(positions),
   });
   return new Primitive({
@@ -167,7 +169,7 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
       geometry,
       attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d9ad68').withAlpha(0.24)) },
     }),
-    appearance: new PerInstanceColorAppearance({ flat: false, translucent: true, closed: false, faceForward: true }),
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: $1, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
   });
