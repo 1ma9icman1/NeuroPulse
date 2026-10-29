@@ -134,7 +134,9 @@ function buildElevationPrimitive(tile: CachedDemTile): Primitive {
 
 function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
   const count = PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE;
-  const positions = new Float64Array(count * 3);
+  // Store a top surface and matching ground-level vertices. The perimeter walls make the
+  // selected cover depth readable in oblique view instead of relying on a subtle color shift.
+  const positions = new Float64Array(count * 6);
   const indexValues: number[] = [];
   const validMask = new Uint8Array(count);
   let validVertices = 0;
@@ -143,19 +145,38 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
     for (let x = 0; x < PREVIEW_GRID_SIZE; x++) {
       const index = y * PREVIEW_GRID_SIZE + x;
       const longitude = tile.west + (x / (PREVIEW_GRID_SIZE - 1)) * (tile.east - tile.west);
-      const elevation = Number(tile.raster[index]);
-      const valid = Number.isFinite(elevation) && (!Number.isFinite(tile.noData) || elevation !== tile.noData);
+      const rawElevation = Number(tile.raster[index]);
+      const valid = Number.isFinite(rawElevation) && (!Number.isFinite(tile.noData) || rawElevation !== tile.noData);
+      const elevation = valid ? rawElevation : 0;
       if (valid) { validMask[index] = 1; validVertices++; }
-      const point = Cartesian3.fromDegrees(longitude, latitude, valid ? elevation + soilDepth : 0);
-      positions[index * 3] = point.x;
-      positions[index * 3 + 1] = point.y;
-      positions[index * 3 + 2] = point.z;
+      const top = Cartesian3.fromDegrees(longitude, latitude, valid ? elevation + soilDepth : 0);
+      const bottom = Cartesian3.fromDegrees(longitude, latitude, elevation);
+      positions[index * 3] = top.x;
+      positions[index * 3 + 1] = top.y;
+      positions[index * 3 + 2] = top.z;
+      const bottomOffset = (count + index) * 3;
+      positions[bottomOffset] = bottom.x;
+      positions[bottomOffset + 1] = bottom.y;
+      positions[bottomOffset + 2] = bottom.z;
     }
   }
   if (validVertices < count * 0.9) throw new Error('Too many invalid elevation samples in a cached DEM tile.');
   for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y++) for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x++) {
     const a = y * PREVIEW_GRID_SIZE + x, b = a + 1, c = a + PREVIEW_GRID_SIZE, d = c + 1;
     if (validMask[a] && validMask[b] && validMask[c] && validMask[d]) indexValues.push(a, c, b, b, c, d);
+  }
+  // Four perimeter skirts connect the cover surface down to the DEM ground surface.
+  const addWall = (topA: number, topB: number) => {
+    const bottomA = count + topA, bottomB = count + topB;
+    indexValues.push(topA, bottomA, topB, topB, bottomA, bottomB);
+  };
+  for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x++) {
+    addWall(x, x + 1);
+    addWall((PREVIEW_GRID_SIZE - 1) * PREVIEW_GRID_SIZE + x + 1, (PREVIEW_GRID_SIZE - 1) * PREVIEW_GRID_SIZE + x);
+  }
+  for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y++) {
+    addWall((y + 1) * PREVIEW_GRID_SIZE, y * PREVIEW_GRID_SIZE);
+    addWall(y * PREVIEW_GRID_SIZE + PREVIEW_GRID_SIZE - 1, (y + 1) * PREVIEW_GRID_SIZE + PREVIEW_GRID_SIZE - 1);
   }
   const geometry = new Geometry({
     attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
@@ -167,9 +188,9 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
   return new Primitive({
     geometryInstances: new GeometryInstance({
       geometry,
-      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d9ad68').withAlpha(0.24)) },
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d7a04a')) },
     }),
-    appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false, faceForward: true }),
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: false, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
   });
@@ -565,7 +586,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
 
   useEffect(() => {
     if (soilDepth > -1) rebuildSoilRef.current?.(soilDepth);
-  }, [soilDepth]);
+  }, [soilDepth, showSoilLayer]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
