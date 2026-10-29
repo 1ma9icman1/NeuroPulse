@@ -64,6 +64,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const [terrainScale, setTerrainScale] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [datasetInfo, setDatasetInfo] = useState('Connecting to Copernicus DEM GLO-90…');
+  const [loadProgress, setLoadProgress] = useState({ completed: 0, total: 64800, fromCache: false });
   const [surfaceMode, setSurfaceMode] = useState<'satellite' | 'relief'>('relief');
   const [surfaceTextureLoaded, setSurfaceTextureLoaded] = useState(false);
   const [surfaceTextureError, setSurfaceTextureError] = useState(false);
@@ -241,15 +242,15 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         if (cancelled) return;
         setLoading(true);
         setLoadError('');
+        setLoadProgress({ completed: 0, total: 64800, fromCache: false });
         setDatasetInfo(`Loading measured elevations from ${COPERNICUS_DATASET}…`);
         const sampled = await loadCopernicusGlobalSamples(demAbortController.signal, (completed, total, fromCache) => {
           if (cancelled) return;
-          if (fromCache || completed === total || completed % 1200 < 100) {
-            const percent = Math.round((completed / total) * 100);
-            setDatasetInfo(fromCache
-              ? `Loaded cached Copernicus GLO-90 raster samples (${total.toLocaleString()} values).`
-              : `Sampling Copernicus GLO-90: ${completed.toLocaleString()} / ${total.toLocaleString()} values (${percent}%).`);
-          }
+          const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+          setLoadProgress({ completed, total, fromCache });
+          setDatasetInfo(fromCache
+            ? `Loaded cached Copernicus GLO-90 raster: ${total.toLocaleString()} / ${total.toLocaleString()} samples (100%).`
+            : `Downloading Copernicus GLO-90: ${completed.toLocaleString()} / ${total.toLocaleString()} samples (${percent}%).`);
         });
         if (cancelled) return;
         setDatasetInfo('Resampling measured Copernicus elevations to the existing globe mesh…');
@@ -804,7 +805,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
           onSelectSite={site => onSelectSite?.({ name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color })}
         />
-        {loading && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/80 p-6 text-center"><div><LoaderCircle className="mx-auto mb-3 h-7 w-7 animate-spin text-sky-300" /><div className="text-sm font-mono text-sky-100">LOADING COPERNICUS GLO-90 ELEVATION</div><div className="mt-2 text-xs text-slate-400">{datasetInfo}</div></div></div>}
+        {loading && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/85 p-6 text-center"><div className="w-full max-w-md"><LoaderCircle className="mx-auto mb-3 h-7 w-7 animate-spin text-sky-300" /><div className="text-sm font-mono text-sky-100">LOADING COPERNICUS GLO-90 ELEVATION</div><div className="mt-3 flex items-center justify-between gap-3 text-xs font-mono text-sky-100"><span>{loadProgress.completed.toLocaleString()} / {loadProgress.total.toLocaleString()} samples</span><span>{loadProgress.total ? Math.round(loadProgress.completed / loadProgress.total * 100) : 0}%</span></div><div className="mt-2 h-3 w-full overflow-hidden rounded-full border border-sky-700 bg-slate-900" role="progressbar" aria-label="Copernicus elevation download progress" aria-valuemin={0} aria-valuemax={loadProgress.total} aria-valuenow={loadProgress.completed}><div className="h-full rounded-full bg-sky-400 transition-[width] duration-200" style={{ width: `${loadProgress.total ? Math.min(100, loadProgress.completed / loadProgress.total * 100) : 0}%` }} /></div><div className="mt-2 text-xs text-slate-400">{datasetInfo}</div><div className="mt-1 text-[10px] text-slate-500">Small requests: 25 coordinates per API call · local checkpoint every 4,000 samples</div></div></div>}
         {loadError && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/95 p-6"><div className="max-w-lg text-center"><Database className="mx-auto mb-3 h-8 w-8 text-rose-300" /><div className="text-sm font-mono font-bold text-rose-200">COPERNICUS DEM COULD NOT BE LOADED</div><p className="mt-2 text-xs text-slate-300">{loadError}</p><p className="mt-2 text-[10px] text-slate-500">This view requires measured Copernicus GLO-90 elevation samples; it will not substitute a fake terrain model.</p><a className="mt-3 inline-block text-xs text-sky-300 underline" href="https://registry.opendata.aws/copernicus-dem/" target="_blank" rel="noreferrer">Open Copernicus DEM data source ↗</a></div></div>}
         <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-slate-700/80 bg-slate-950/80 px-3 py-2 backdrop-blur">
           <div className="text-[9px] font-mono text-slate-400">GLOBAL SEA LEVEL</div>
