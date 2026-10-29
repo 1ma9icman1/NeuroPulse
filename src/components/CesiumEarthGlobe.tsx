@@ -57,12 +57,17 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
     pointOfView: (pov?: { lat?: number; lng?: number; altitude?: number }, duration = 0) => {
       const viewer = viewerRef.current;
       if (!viewer || viewer.isDestroyed()) return pov ? undefined : {};
+      const p = viewer.camera.positionCartographic;
       if (pov && Number.isFinite(pov.lat) && Number.isFinite(pov.lng)) {
         const altitude = Math.max(100, Number(pov.altitude ?? 2) * 6371000);
         viewer.camera.flyTo({ destination: Cartesian3.fromDegrees(Number(pov.lng), Number(pov.lat), altitude), orientation: { heading: 0, pitch: CesiumMath.toRadians(-55), roll: 0 }, duration: Math.max(0, duration / 1000) });
         return;
       }
-      const p = viewer.camera.positionCartographic;
+      if (pov && Number.isFinite(pov.altitude)) {
+        const altitude = Math.max(100, Number(pov.altitude) * 6371000);
+        viewer.camera.flyTo({ destination: Cartesian3.fromRadians(p.longitude, p.latitude, altitude), orientation: { heading: viewer.camera.heading, pitch: viewer.camera.pitch, roll: viewer.camera.roll }, duration: Math.max(0, duration / 1000) });
+        return;
+      }
       return { lat: CesiumMath.toDegrees(p.latitude), lng: CesiumMath.toDegrees(p.longitude), altitude: p.height / 6371000 };
     },
     controls: () => ({ get autoRotate() { return autoRotateRef.current; }, set autoRotate(value: boolean) { autoRotateRef.current = Boolean(value); } }),
