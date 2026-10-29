@@ -131,7 +131,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
             { rectangle: Rectangle.MAX_VALUE }
           );
           if (disposed || !viewer || viewer.isDestroyed()) return;
-          imageryLayer = viewer.imageryLayers.addImageryProvider(provider);
+          viewer.imageryLayers.addImageryProvider(provider);
         } else {
           const provider = new UrlTemplateImageryProvider({
             url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/2020-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
@@ -222,15 +222,39 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
       pickHandler = new ScreenSpaceEventHandler(viewer.canvas);
       pickHandler.setInputAction((movement: { position: Cartesian2 }) => {
         if (!viewer || viewer.isDestroyed()) return;
-        const picked = viewer.scene.drillPick(movement.position, 12);
-        for (const item of picked as any[]) {
-          const pickedId = item?.id instanceof Entity ? item.id.id : typeof item?.id === 'string' ? item.id : item?.primitive?.id instanceof Entity ? item.primitive.id.id : typeof item?.primitive?.id === 'string' ? item.primitive.id : '';
-          const id = pickedId || (item?.id?.properties?.neuroPulseSite?.getValue?.() ? item.id.id : '');
-          if (typeof id !== 'string' || !id.startsWith('np-earth-site:')) continue;
-          const site = sitesRef.current.find(candidate => siteId(candidate) === id);
-          if (site) {
-            callbacksRef.current.onSiteClick(site);
-            return;
+        // Cesium can return an Entity, a primitive wrapper, or a string id
+        // depending on which part of a point/label was hit. Inspect both the
+        // direct pick and the drill-pick stack, and use the entity property as
+        // a fallback instead of silently treating a valid site as empty space.
+        const picks = [
+          viewer.scene.pick(movement.position),
+          ...viewer.scene.drillPick(movement.position, 24),
+        ] as any[];
+        const seen = new Set<string>();
+        for (const item of picks) {
+          const candidates = [item?.id, item?.primitive?.id, item?.collection?.get?.(item?.id)];
+          for (const candidate of candidates) {
+            const id = candidate instanceof Entity
+              ? candidate.id
+              : typeof candidate === 'string'
+                ? candidate
+                : typeof candidate?.id === 'string'
+                  ? candidate.id
+                  : '';
+            if (id && seen.has(id)) continue;
+            if (id) seen.add(id);
+            let site: EarthSite | undefined;
+            if (id.startsWith('np-earth-site:')) {
+              site = sitesRef.current.find(candidateSite => siteId(candidateSite) === id);
+            }
+            if (!site && candidate?.properties?.neuroPulseSite) {
+              const markerValue = candidate.properties.siteId?.getValue?.() ?? candidate.properties.siteId;
+              site = sitesRef.current.find(candidateSite => String(candidateSite.id ?? candidateSite.name) === String(markerValue));
+            }
+            if (site) {
+              callbacksRef.current.onSiteClick(site);
+              return;
+            }
           }
         }
         const ray = viewer.camera.getPickRay(movement.position);
