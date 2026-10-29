@@ -3,8 +3,8 @@
  * Tile values are decoded from the published RGB elevation encoding; no elevation
  * values are synthesized. The 1-degree working grid is cached in IndexedDB.
  */
-export const COPERNICUS_GRID_WIDTH = 360;
-export const COPERNICUS_GRID_HEIGHT = 180;
+export const ELEVATION_GRID_WIDTH = 360;
+export const ELEVATION_GRID_HEIGHT = 180;
 export const ELEVATION_DATASET = 'AWS Terrain-RGB tiles (multi-source public elevation data)';
 
 const CACHE_DB = 'neuropulse-copernicus-dem';
@@ -41,7 +41,7 @@ async function readCachedRaster(): Promise<{ values: Float32Array; completedSamp
     const request = db.transaction(CACHE_STORE, 'readonly').objectStore(CACHE_STORE).get(CACHE_KEY);
     request.onsuccess = () => {
       const value = request.result as CachedRaster | undefined;
-      if (!value || value.width !== COPERNICUS_GRID_WIDTH || value.height !== COPERNICUS_GRID_HEIGHT || value.values.byteLength !== COPERNICUS_GRID_WIDTH * COPERNICUS_GRID_HEIGHT * Float32Array.BYTES_PER_ELEMENT) {
+      if (!value || value.width !== ELEVATION_GRID_WIDTH || value.height !== ELEVATION_GRID_HEIGHT || value.values.byteLength !== ELEVATION_GRID_WIDTH * ELEVATION_GRID_HEIGHT * Float32Array.BYTES_PER_ELEMENT) {
         db.close();
         resolve(null);
         return;
@@ -61,8 +61,8 @@ async function writeCache(values: Float32Array, completedSamples = values.length
   await new Promise<void>(resolve => {
     const record: CachedRaster = {
       key: CACHE_KEY,
-      width: COPERNICUS_GRID_WIDTH,
-      height: COPERNICUS_GRID_HEIGHT,
+      width: ELEVATION_GRID_WIDTH,
+      height: ELEVATION_GRID_HEIGHT,
       values: values.slice().buffer,
       savedAt: Date.now(),
       completedSamples,
@@ -86,17 +86,17 @@ const TERRAIN_TILE_URL = (x: number, y: number) => `https://s3.amazonaws.com/ele
 function createPoints(): SamplePoint[] {
   const points: SamplePoint[] = [];
   const maxMercatorLat = 85.0511287798066;
-  for (let y = 0; y < COPERNICUS_GRID_HEIGHT; y++) {
+  for (let y = 0; y < ELEVATION_GRID_HEIGHT; y++) {
     const latitude = 89.5 - y;
     const clampedLatitude = Math.max(-maxMercatorLat, Math.min(maxMercatorLat, latitude));
     const latRad = clampedLatitude * Math.PI / 180;
     const pixelY = Math.max(0, Math.min(WORLD_PIXELS - 1, Math.floor((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2 * WORLD_PIXELS)));
     const tileY = Math.floor(pixelY / TILE_SIZE);
-    for (let x = 0; x < COPERNICUS_GRID_WIDTH; x++) {
+    for (let x = 0; x < ELEVATION_GRID_WIDTH; x++) {
       const longitude = -179.5 + x;
       const pixelX = ((Math.floor((longitude + 180) / 360 * WORLD_PIXELS) % WORLD_PIXELS) + WORLD_PIXELS) % WORLD_PIXELS;
       points.push({
-        index: y * COPERNICUS_GRID_WIDTH + x,
+        index: y * ELEVATION_GRID_WIDTH + x,
         latitude,
         longitude,
         tileX: Math.floor(pixelX / TILE_SIZE),
@@ -158,13 +158,13 @@ async function fetchTerrainTile(x: number, y: number, signal: AbortSignal): Prom
  * tiles. This avoids thousands of per-coordinate API calls. Tiles are fetched once,
  * decoded locally, and the resulting measured raster is cached in IndexedDB.
  */
-export async function loadCopernicusGlobalSamples(
+export async function loadGlobalTerrainSamples(
   signal: AbortSignal,
   onProgress?: (completed: number, total: number, fromCache: boolean) => void,
 ): Promise<{ values: Float32Array; fromCache: boolean }> {
   const cached = await readCachedRaster();
   if (signal.aborted) throw new DOMException('Elevation tile load cancelled', 'AbortError');
-  if (cached?.complete && cached.values.length === COPERNICUS_GRID_WIDTH * COPERNICUS_GRID_HEIGHT) {
+  if (cached?.complete && cached.values.length === ELEVATION_GRID_WIDTH * ELEVATION_GRID_HEIGHT) {
     onProgress?.(cached.values.length, cached.values.length, true);
     return { values: cached.values, fromCache: true };
   }
@@ -226,25 +226,25 @@ export async function loadCopernicusGlobalSamples(
 
 /** Bilinear resampling from measured global samples to the existing Three.js mesh grid. */
 export function resampleCopernicusGrid(source: Float32Array, targetWidth: number, targetHeight: number): Float32Array {
-  if (source.length !== COPERNICUS_GRID_WIDTH * COPERNICUS_GRID_HEIGHT) {
+  if (source.length !== ELEVATION_GRID_WIDTH * ELEVATION_GRID_HEIGHT) {
     throw new Error('Copernicus global sample grid has an unexpected size.');
   }
   const target = new Float32Array(targetWidth * targetHeight);
   for (let y = 0; y < targetHeight; y++) {
-    const sourceY = Math.max(0, Math.min(COPERNICUS_GRID_HEIGHT - 1, ((y / (targetHeight - 1)) * 180 - 0.5)));
+    const sourceY = Math.max(0, Math.min(ELEVATION_GRID_HEIGHT - 1, ((y / (targetHeight - 1)) * 180 - 0.5)));
     const y0 = Math.floor(sourceY);
-    const y1 = Math.min(COPERNICUS_GRID_HEIGHT - 1, y0 + 1);
+    const y1 = Math.min(ELEVATION_GRID_HEIGHT - 1, y0 + 1);
     const fy = sourceY - y0;
     for (let x = 0; x < targetWidth; x++) {
       // The longitude sample grid is periodic across the antimeridian.
-      const sourceX = ((((x / (targetWidth - 1)) * 360 - 0.5) % COPERNICUS_GRID_WIDTH) + COPERNICUS_GRID_WIDTH) % COPERNICUS_GRID_WIDTH;
+      const sourceX = ((((x / (targetWidth - 1)) * 360 - 0.5) % ELEVATION_GRID_WIDTH) + ELEVATION_GRID_WIDTH) % ELEVATION_GRID_WIDTH;
       const x0 = Math.floor(sourceX);
-      const x1 = (x0 + 1) % COPERNICUS_GRID_WIDTH;
+      const x1 = (x0 + 1) % ELEVATION_GRID_WIDTH;
       const fx = sourceX - x0;
-      const a = source[y0 * COPERNICUS_GRID_WIDTH + x0];
-      const b = source[y0 * COPERNICUS_GRID_WIDTH + x1];
-      const c = source[y1 * COPERNICUS_GRID_WIDTH + x0];
-      const d = source[y1 * COPERNICUS_GRID_WIDTH + x1];
+      const a = source[y0 * ELEVATION_GRID_WIDTH + x0];
+      const b = source[y0 * ELEVATION_GRID_WIDTH + x1];
+      const c = source[y1 * ELEVATION_GRID_WIDTH + x0];
+      const d = source[y1 * ELEVATION_GRID_WIDTH + x1];
       const top = a + (b - a) * fx;
       const bottom = c + (d - c) * fx;
       target[y * targetWidth + x] = top + (bottom - top) * fy;
