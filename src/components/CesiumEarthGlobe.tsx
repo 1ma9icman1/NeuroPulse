@@ -84,8 +84,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
     let disposed = false;
     let viewer: Viewer | null = null;
     let pickHandler: ScreenSpaceEventHandler | null = null;
-    const siteEntities = new Map<string, Entity>();
-    const borderEntities: Entity[] = [];
+      const borderEntities: Entity[] = [];
     let imageryLayer: any = null;
 
     const start = async () => {
@@ -150,7 +149,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
           const id = siteId(site);
           nextIds.add(id);
           const selected = selectedRef.current && siteId(selectedRef.current) === id;
-          const old = siteEntities.get(id);
+          const old = viewer.entities.getById(id);
           if (old) viewer.entities.remove(old);
           const entity = viewer.entities.add({
             id,
@@ -162,27 +161,21 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
               color: Color.fromCssColorString(selected ? '#ffffff' : site.color || (site.isCity ? '#7dd3fc' : '#fbbf24')),
               outlineColor: Color.fromCssColorString(selected ? '#22d3ee' : '#07111f'),
               outlineWidth: selected ? 3 : 2,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
             },
             label: {
               text: site.name,
-              show: selected || site.isCity,
+              show: true,
               font: selected ? 'bold 14px sans-serif' : '12px sans-serif',
               fillColor: Color.WHITE,
               outlineColor: Color.BLACK,
               outlineWidth: 3,
               style: 2,
               pixelOffset: new Cartesian2(0, -14),
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
             },
           });
-          siteEntities.set(id, entity);
         }
-        for (const [id, entity] of siteEntities) {
-          if (!nextIds.has(id)) {
-            viewer.entities.remove(entity);
-            siteEntities.delete(id);
-          }
+        for (const entity of [...viewer.entities.values]) {
+          if (entity.id.startsWith('np-earth-site:') && !nextIds.has(entity.id)) viewer.entities.remove(entity);
         }
         viewer.scene.requestRender();
       };
@@ -227,8 +220,8 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
         if (!viewer || viewer.isDestroyed()) return;
         const picked = viewer.scene.drillPick(movement.position, 12);
         for (const item of picked as any[]) {
-          const entity = item?.id instanceof Entity ? item.id : item?.primitive?.id instanceof Entity ? item.primitive.id : null;
-          const id = entity?.id;
+          const pickedId = item?.id instanceof Entity ? item.id.id : typeof item?.id === 'string' ? item.id : item?.primitive?.id instanceof Entity ? item.primitive.id.id : typeof item?.primitive?.id === 'string' ? item.primitive.id : '';
+          const id = pickedId || (item?.id?.properties?.neuroPulseSite?.getValue?.() ? item.id.id : '');
           if (typeof id !== 'string' || !id.startsWith('np-earth-site:')) continue;
           const site = sitesRef.current.find(candidate => siteId(candidate) === id);
           if (site) {
@@ -281,8 +274,8 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
     const viewer = viewerRef.current;
     if (!viewer || viewer.isDestroyed()) return;
     const existing = new Set(sites.map(siteId));
-    for (const [id, entity] of [...(viewer.entities.values.map(entity => [entity.id, entity]) as Array<[string, Entity]>)] ) {
-      if (id.startsWith('np-earth-site:') && !existing.has(id)) viewer.entities.remove(entity);
+    for (const entity of [...viewer.entities.values]) {
+      if (entity.id.startsWith('np-earth-site:') && !existing.has(entity.id)) viewer.entities.remove(entity);
     }
     for (const site of sites) {
       if (!site || !site.name || !Number.isFinite(site.lat) || !Number.isFinite(site.lon) || Math.abs(site.lat) > 90 || Math.abs(site.lon) > 180) continue;
