@@ -265,6 +265,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             for (const tile of terrainTilesRef.current) {
               const next = buildElevationPrimitive(tile, showSoilLayerRef.current ? depth : 0);
               activeViewer.scene.primitives.add(next);
+              primitives.push(next);
               nextPrimitives.push(next);
             }
             for (const oldPrimitive of topographyPrimitivesRef.current) {
