@@ -298,7 +298,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           <div className="mt-1 text-xs text-slate-300">{status}</div>
           {error && <div className="mt-2 max-w-4xl text-xs text-rose-300">{error}</div>}
         </div>
-        {onClose && <button onClick={onClose} className="shrink-0 rounded border border-slate-600 px-3 py-2 text-xs font-mono text-slate-100 hover:bg-slate-800">CLOSE</button>}
+        {onClose && <button onClick={onClose} className="shrink-0 rounded border border-slate-600 px-3 py-2 text-xs font-mono text-slate-100 hover:bg-slate-800">BACK TO EARTH</button>}
       </div>
       <div className="mb-2 grid shrink-0 gap-2 rounded border border-slate-700 bg-slate-900/90 p-2 lg:grid-cols-[minmax(240px,1fr)_auto]">
         <div className="min-w-0">
