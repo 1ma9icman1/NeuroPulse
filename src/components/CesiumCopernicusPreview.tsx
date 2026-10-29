@@ -373,7 +373,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           else if (detail.action === 'water-level' || detail.action === 'water-opacity' || detail.action === 'screenshot') return;
           drawGeometryOverlays();
         };
-        window.addEventListener('neuro-pulse-elevation-tool', elevationToolHandler);
+        if (elevationToolHandler) window.addEventListener('neuro-pulse-elevation-tool', elevationToolHandler);
         const clickHandler = viewer.screenSpaceEventHandler;
         const siteEntityFromPick = (position: { x: number; y: number }) => {
           const pickedItems = viewer?.scene.drillPick(position, 12) ?? [];
