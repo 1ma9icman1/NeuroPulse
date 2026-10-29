@@ -70,8 +70,8 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
     boundingSphere: BoundingSphere.fromVertices(positions),
   });
   return new Primitive({
-    geometryInstances: new GeometryInstance({ geometry, attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#c9a66b').withAlpha(0.48)) } }),
-    appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false }),
+    geometryInstances: new GeometryInstance({ geometry, attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d9ad68').withAlpha(0.82)) } }),
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false, faceForward: true }),
     asynchronous: false, allowPicking: false,
   });
 }
@@ -196,18 +196,25 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         rebuildSoilRef.current = (depth: number) => {
           const activeViewer = viewerRef.current;
           if (!activeViewer || activeViewer.isDestroyed()) return;
-          for (const oldPrimitive of soilPrimitivesRef.current) {
-            if (!oldPrimitive.isDestroyed()) activeViewer.scene.primitives.remove(oldPrimitive);
+          try {
+            for (const oldPrimitive of soilPrimitivesRef.current) {
+              if (!oldPrimitive.isDestroyed()) activeViewer.scene.primitives.remove(oldPrimitive);
+            }
+            const nextPrimitives: Primitive[] = [];
+            for (const tile of terrainTilesRef.current) {
+              const next = buildSoilPrimitive(tile, depth);
+              next.show = showSoilLayerRef.current;
+              activeViewer.scene.primitives.add(next);
+              nextPrimitives.push(next);
+            }
+            soilPrimitivesRef.current = nextPrimitives;
+            activeViewer.scene.requestRender();
+            setStatus(`Visible sand/soil cover surface applied: +${depth} m across ${nextPrimitives.length} local GLO-90 tile(s). This is an offset surface scenario, not measured soil thickness.`);
+          } catch (cause) {
+            const message = cause instanceof Error ? cause.message : 'Unknown terrain mesh error.';
+            setError(`Could not rebuild the soil/sand surface: ${message}`);
+            setStatus('Soil/sand update failed; the existing globe remains available.');
           }
-          const nextPrimitives: Primitive[] = [];
-          for (const tile of terrainTilesRef.current) {
-            const next = buildSoilPrimitive(tile, depth);
-            next.show = showSoilLayerRef.current;
-            activeViewer.scene.primitives.add(next);
-            nextPrimitives.push(next);
-          }
-          soilPrimitivesRef.current = nextPrimitives;
-          setStatus(`Soil/sand surface updated to ${depth} m over ${nextPrimitives.length} local GLO-90 GeoTIFF tile(s).`);
         };
 
         if (cancelled) return;
@@ -223,7 +230,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             name: site.name,
             properties: { siteId: site.id ?? site.name, latitude: site.lat, longitude: site.lon, category: site.category ?? 'Research site' },
             position: Cartesian3.fromDegrees(site.lon, site.lat, 120),
-            point: { pixelSize: 9, color: Color.fromCssColorString(site.color || '#57d7ff'), outlineColor: Color.WHITE.withAlpha(0.95), outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+            point: { pixelSize: 9, color: Color.fromCssColorString(site.color || '#57d7ff'), outlineColor: Color.WHITE.withAlpha(0.95), outlineWidth: 2 },
           });
         }
         const clickHandler = viewer.screenSpaceEventHandler;
@@ -245,7 +252,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           // Fly to a real camera height over the exact catalogue coordinate instead of
           // fitting a geographic rectangle (whose apparent zoom varies by latitude).
           viewer?.camera.flyTo({
-            destination: Cartesian3.fromDegrees(match.lon, match.lat, 12000),
+            destination: Cartesian3.fromDegrees(match.lon, match.lat, 9000),
             orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
             duration: 1,
           });
@@ -256,11 +263,11 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             id: 'neuropulse-selected-site',
             name: focus.name,
             position: Cartesian3.fromDegrees(focus.lon, focus.lat, 180),
-            point: { pixelSize: 11, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
-            label: { text: focus.name, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+            point: { pixelSize: 12, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2 },
+            label: { text: focus.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2 },
           });
           viewer.camera.flyTo({
-            destination: Cartesian3.fromDegrees(focus.lon, focus.lat, 12000),
+            destination: Cartesian3.fromDegrees(focus.lon, focus.lat, 9000),
             orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
             duration: 1,
           });
@@ -299,14 +306,14 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer || viewer.isDestroyed() || !selectedSite) return;
-    const destination = Cartesian3.fromDegrees(selectedSite.lon, selectedSite.lat, 12000);
+    const destination = Cartesian3.fromDegrees(selectedSite.lon, selectedSite.lat, 9000);
     const existing = viewer.entities.getById('neuropulse-selected-site');
     if (existing) viewer.entities.remove(existing);
     viewer.entities.add({
       id: 'neuropulse-selected-site', name: selectedSite.name,
       position: Cartesian3.fromDegrees(selectedSite.lon, selectedSite.lat, 180),
-      point: { pixelSize: 11, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
-      label: { text: selectedSite.name, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+      point: { pixelSize: 12, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2 },
+      label: { text: selectedSite.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2 },
     });
     viewer.camera.flyTo({ destination, orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 }, duration: 1 });
   }, [selectedSite?.id, selectedSite?.name, selectedSite?.lat, selectedSite?.lon]);
