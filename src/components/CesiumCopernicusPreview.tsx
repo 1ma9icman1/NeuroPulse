@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ArcGisMapServerImageryProvider,
   ArcType,
+  ScreenSpaceEventHandler,
   ScreenSpaceEventType,
   BoundingSphere,
   Cartesian2,
@@ -122,13 +123,13 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0): Primitive 
     return [new GeometryInstance({
       id: `copernicus-elevation-band-${band}-${tile.west}-${tile.south}`,
       geometry,
-      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band]).withAlpha(0.62)) },
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band]).withAlpha(1.0)) },
     })];
   });
   if (!instances.length) throw new Error('The DEM tile contains no valid terrain triangles.');
   return new Primitive({
     geometryInstances: instances,
-    appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false, faceForward: true }),
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: false, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
   });
@@ -170,6 +171,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
     let viewer: Viewer | null = null;
     const primitives: Primitive[] = [];
     let elevationToolHandler: ((event: Event) => void) | null = null;
+    let sitePickHandler: ScreenSpaceEventHandler | null = null;
 
     const start = async () => {
       try {
@@ -431,7 +433,9 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           drawGeometryOverlays();
         };
         if (elevationToolHandler) window.addEventListener('neuro-pulse-elevation-tool', elevationToolHandler);
-        const clickHandler = viewer.screenSpaceEventHandler;
+        // Keep site picking separate from Cesium's built-in handler. Overwriting its MOUSE_MOVE
+        // action prevents Cesium from updating the camera during mouse-drag rotation.
+        sitePickHandler = new ScreenSpaceEventHandler(viewer.canvas);
         const siteEntityFromPick = (position: Cartesian2) => {
           // Soil/DEM primitives can be returned ahead of an entity by Cesium's depth pick.
           // Inspect every drilled result and resolve both Entity objects and primitive IDs.
@@ -473,11 +477,11 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           return nearest ? { match: nearest.match, entity: null } : null;
         };
         // Site names remain visible at all times; hover only changes the cursor.
-        clickHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
+        sitePickHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
           const result = siteEntityFromPick(movement.endPosition);
           if (viewer?.canvas) viewer.canvas.style.cursor = result ? 'pointer' : 'default';
         }, ScreenSpaceEventType.MOUSE_MOVE);
-        clickHandler.setInputAction((movement: { position: { x: number; y: number } }) => {
+        sitePickHandler.setInputAction((movement: { position: { x: number; y: number } }) => {
           const result = siteEntityFromPick(movement.position);
           if (!result) return;
           const { match } = result;
@@ -537,6 +541,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         try { primitive.destroy(); } catch { /* Cesium may already have destroyed it with the viewer. */ }
       }
       if (elevationToolHandler) window.removeEventListener('neuro-pulse-elevation-tool', elevationToolHandler);
+      if (sitePickHandler && !sitePickHandler.isDestroyed()) sitePickHandler.destroy();
       overlayFlagsRef.current = { triangulation: false, constellations: false, angles: false };
       viewer?.destroy();
       topographyPrimitivesRef.current = [];
