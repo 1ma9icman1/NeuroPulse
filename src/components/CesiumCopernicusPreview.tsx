@@ -471,7 +471,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         };
         if (elevationToolHandler) window.addEventListener('neuro-pulse-elevation-tool', elevationToolHandler);
         const clickHandler = viewer.screenSpaceEventHandler;
-        const siteEntityFromPick = (position: { x: number; y: number }) => {
+        const siteEntityFromPick = (position: Cartesian2) => {
           const pickedItems = viewer?.scene.drillPick(position, 12) ?? [];
           const picked = pickedItems.find((item: any) => {
             const id = item?.id?.id ?? item?.id;
@@ -487,7 +487,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           return match ? { match, entity } : null;
         };
         // Site names remain visible at all times; hover only changes the cursor.
-        clickHandler.setInputAction((movement: { endPosition: { x: number; y: number } }) => {
+        clickHandler.setInputAction((movement: { endPosition: Cartesian2 }) => {
           const result = siteEntityFromPick(movement.endPosition);
           if (viewer?.canvas) viewer.canvas.style.cursor = result ? 'pointer' : 'default';
         }, ScreenSpaceEventType.MOUSE_MOVE);
