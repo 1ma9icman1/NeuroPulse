@@ -237,7 +237,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           if (match) {
             onSelectSiteRef.current?.(match);
             viewer?.camera.flyTo({
-              destination: Rectangle.fromDegrees(match.lon - 0.8, Math.max(-89, match.lat - 0.6), match.lon + 0.8, Math.min(89, match.lat + 0.6)),
+              destination: Rectangle.fromDegrees(Math.max(-180, match.lon - 0.08), Math.max(-89, match.lat - 0.06), Math.min(180, match.lon + 0.08), Math.min(89, match.lat + 0.06)),
               duration: 0.7,
             });
           }
@@ -252,7 +252,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             label: { text: focus.name, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
           });
           viewer.camera.flyTo({
-            destination: Rectangle.fromDegrees(focus.lon - 0.8, Math.max(-89, focus.lat - 0.6), focus.lon + 0.8, Math.min(89, focus.lat + 0.6)),
+            destination: Rectangle.fromDegrees(Math.max(-180, focus.lon - 0.08), Math.max(-89, focus.lat - 0.06), Math.min(180, focus.lon + 0.08), Math.min(89, focus.lat + 0.06)),
             duration: 0.8,
           });
         } else {
