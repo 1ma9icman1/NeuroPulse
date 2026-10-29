@@ -2,7 +2,7 @@ name: Build verification
 
 on:
   push:
-    branches: [main, feature/knowledge-graph-interface]
+    branches: [main, feature/knowledge-graph-interface, feature/copernicus-dem-windows]
   pull_request:
     branches: [main]
 
