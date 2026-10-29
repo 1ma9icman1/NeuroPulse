@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { fromBlob } from 'geotiff';
+import { COPERNICUS_DATASET, loadCopernicusGlobalSamples, resampleCopernicusGrid } from '../lib/copernicusDem';
 import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle, Stars, Ruler, Camera, Eye, EyeOff, Map as MapIcon } from 'lucide-react';
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 import { FreeStreetImageryPanel } from './FreeStreetImageryPanel';
@@ -18,9 +18,7 @@ type Props = {
 
 const DEM_WIDTH = 1080;
 const DEM_HEIGHT = 540;
-const NOAA_DEM_URL = `https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic/ImageServer/exportImage?bbox=-180,-90,180,90&bboxSR=4326&size=${DEM_WIDTH},${DEM_HEIGHT}&imageSR=4326&format=tiff&pixelType=F32&interpolation=RSP_BilinearInterpolation&f=image`;
 const NOAA_SATELLITE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-180,-85,180,85&bboxSR=4326&imageSR=4326&size=2048,1024&format=jpg&transparent=false&f=image';
-const NOAA_SOURCE = 'https://www.ncei.noaa.gov/products/etopo-global-relief-model';
 const BASE_RADIUS = 100;
 const HEIGHT_SCALE = 0.0015;
 const HISTORY: Array<[number, number]> = [
@@ -63,7 +61,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const [levelMode, setLevelMode] = useState<'historical' | 'custom'>('historical');
   const [terrainScale, setTerrainScale] = useState(1);
   const [zoom, setZoom] = useState(1);
-  const [datasetInfo, setDatasetInfo] = useState('Connecting to NOAA elevation service…');
+  const [datasetInfo, setDatasetInfo] = useState('Connecting to Copernicus DEM GLO-90…');
   const [surfaceMode, setSurfaceMode] = useState<'satellite' | 'relief'>('relief');
   const [surfaceTextureLoaded, setSurfaceTextureLoaded] = useState(false);
   const [surfaceTextureError, setSurfaceTextureError] = useState(false);
@@ -75,7 +73,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
   const surfaceTextureRef = useRef<THREE.Texture | null>(null);
   const surfaceModeRef = useRef(surfaceMode);
   surfaceModeRef.current = surfaceMode;
-  // Keep the latest slider values available to the asynchronous NOAA scene initializer.
+  // Keep the latest slider values available to the asynchronous Copernicus scene initializer.
   // Otherwise a slider move during loading can be overwritten by stale initial values.
   const seaLevelRef = useRef(seaLevel);
   const terrainScaleRef = useRef(terrainScale);
@@ -240,34 +238,25 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         if (cancelled) return;
         setLoading(true);
         setLoadError('');
-        setDatasetInfo('Requesting real elevation values from NOAA NCEI…');
-        // Read the export as a complete response. Some ArcGIS configurations do not
-        // support the byte-range requests used by GeoTIFF's URL reader.
-        const response = await fetch(NOAA_DEM_URL, { mode: 'cors', credentials: 'omit' });
-        if (!response.ok) throw new Error(`NOAA elevation request failed (HTTP ${response.status}). Check NOAA service/network access and retry.`);
-        const contentType = response.headers.get('content-type') || '';
-        if (/json|html|xml/i.test(contentType)) {
-          const detail = (await response.text()).slice(0, 240).replace(/\\s+/g, ' ');
-          throw new Error(`NOAA returned a service message instead of a GeoTIFF: ${detail || contentType}`);
-        }
-        const rasterBlob = await response.blob();
-        if (rasterBlob.size < 1024) throw new Error('NOAA returned an empty or incomplete elevation raster.');
-        const tiff = await fromBlob(rasterBlob);
+        setDatasetInfo(`Loading measured elevations from ${COPERNICUS_DATASET}…`);
+        const demAbortController = new AbortController();
+        const sampled = await loadCopernicusGlobalSamples(demAbortController.signal, (completed, total, fromCache) => {
+          if (cancelled) return;
+          if (fromCache || completed === total || completed % 1200 < 100) {
+            const percent = Math.round((completed / total) * 100);
+            setDatasetInfo(fromCache
+              ? `Loaded cached Copernicus GLO-90 raster samples (${total.toLocaleString()} values).`
+              : `Sampling Copernicus GLO-90: ${completed.toLocaleString()} / ${total.toLocaleString()} values (${percent}%).`);
+          }
+        });
         if (cancelled) return;
-        const image = await tiff.getImage();
-        const raster = await image.readRasters({ width: DEM_WIDTH, height: DEM_HEIGHT, interleave: true });
-        if (cancelled) return;
-        const values = raster as unknown as Float32Array;
+        setDatasetInfo('Resampling measured Copernicus elevations to the existing globe mesh…');
         gridWidth = DEM_WIDTH;
         gridHeight = DEM_HEIGHT;
-        heights = new Float32Array(gridWidth * gridHeight);
-        let validCount = 0;
-        for (let i = 0; i < heights.length; i++) {
-          const value = Number(values[i]);
-          heights[i] = Number.isFinite(value) ? value : 0;
-          if (Number.isFinite(value)) validCount++;
+        heights = resampleCopernicusGrid(sampled.values, gridWidth, gridHeight);
+        if (!heights.length || heights.some(value => !Number.isFinite(value))) {
+          throw new Error('Copernicus DEM returned missing or invalid elevation samples.');
         }
-        if (validCount < heights.length * 0.5) throw new Error('NOAA returned too few valid elevation samples.');
 
         const host = hostRef.current;
         if (!host) return;
@@ -390,7 +379,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           };
           markerBuildFrame = window.requestAnimationFrame(buildBatch);
         };
-        // If the atlas loaded while NOAA was still downloading, start markers now.
+        // If the atlas loaded while Copernicus elevation data was loading, start markers now.
         buildMarkers();
         let pointerStartX = 0;
         let pointerStartY = 0;
@@ -444,13 +433,13 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           animationFrame = window.requestAnimationFrame(animate);
         };
         animate();
-        setDatasetInfo('NOAA global elevation samples loaded · land and ocean floor are both height-mapped.');
+        setDatasetInfo('Copernicus GLO-90 land elevations loaded; ocean cells use the dataset’s documented zero-height convention.');
         setLoading(false);
       } catch (error) {
         if (cancelled) return;
-        console.error('NOAA Earth elevation load failed:', error);
+        console.error('Copernicus Earth elevation load failed:', error);
         setLoadError(error instanceof Error ? error.message : 'Unable to load NOAA elevation data.');
-        setDatasetInfo('NOAA elevation service did not return a usable height raster.');
+        setDatasetInfo('Copernicus elevation sampling did not return a usable global raster.');
         setLoading(false);
       }
     };
@@ -794,7 +783,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <Mountain className="h-4 w-4 text-emerald-300" />
           <div>
             <div className="text-xs font-mono font-bold tracking-wider text-emerald-200">EARTH · ELEVATION</div>
-            <div className="text-[9px] font-mono text-slate-500">NOAA DEM · true terrain + bathymetry</div>
+            <div className="text-[9px] font-mono text-slate-500">COPERNICUS GLO-90 · REAL LAND ELEVATION</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -803,14 +792,14 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         </div>
       </div>
       <div className="relative min-h-0 flex-1">
-        <div ref={hostRef} className="absolute inset-0" aria-label="Interactive three-dimensional NOAA terrain globe" />
+        <div ref={hostRef} className="absolute inset-0" aria-label="Interactive three-dimensional Copernicus DEM globe" />
         <FreeStreetImageryPanel
           sites={siteCatalogue}
           selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
           onSelectSite={site => onSelectSite?.({ name: site.name, lat: site.lat, lon: site.lon, category: site.category, color: site.color })}
         />
-        {loading && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/80 p-6 text-center"><div><LoaderCircle className="mx-auto mb-3 h-7 w-7 animate-spin text-sky-300" /><div className="text-sm font-mono text-sky-100">LOADING NOAA ELEVATION DATA</div><div className="mt-2 text-xs text-slate-400">{datasetInfo}</div></div></div>}
-        {loadError && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/95 p-6"><div className="max-w-lg text-center"><Database className="mx-auto mb-3 h-8 w-8 text-rose-300" /><div className="text-sm font-mono font-bold text-rose-200">NOAA DATA COULD NOT BE LOADED</div><p className="mt-2 text-xs text-slate-300">{loadError}</p><p className="mt-2 text-[10px] text-slate-500">This view requires the live NOAA elevation service; it will not substitute a fake terrain model.</p><a className="mt-3 inline-block text-xs text-sky-300 underline" href={NOAA_SOURCE} target="_blank" rel="noreferrer">Open NOAA ETOPO data source ↗</a></div></div>}
+        {loading && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/80 p-6 text-center"><div><LoaderCircle className="mx-auto mb-3 h-7 w-7 animate-spin text-sky-300" /><div className="text-sm font-mono text-sky-100">LOADING COPERNICUS GLO-90 ELEVATION</div><div className="mt-2 text-xs text-slate-400">{datasetInfo}</div></div></div>}
+        {loadError && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/95 p-6"><div className="max-w-lg text-center"><Database className="mx-auto mb-3 h-8 w-8 text-rose-300" /><div className="text-sm font-mono font-bold text-rose-200">COPERNICUS DEM COULD NOT BE LOADED</div><p className="mt-2 text-xs text-slate-300">{loadError}</p><p className="mt-2 text-[10px] text-slate-500">This view requires measured Copernicus GLO-90 elevation samples; it will not substitute a fake terrain model.</p><a className="mt-3 inline-block text-xs text-sky-300 underline" href="https://registry.opendata.aws/copernicus-dem/" target="_blank" rel="noreferrer">Open Copernicus DEM data source ↗</a></div></div>}
         <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-slate-700/80 bg-slate-950/80 px-3 py-2 backdrop-blur">
           <div className="text-[9px] font-mono text-slate-400">GLOBAL SEA LEVEL</div>
           <div className="mt-1 text-lg font-mono font-bold text-sky-200">{seaLevel > 0 ? '+' : ''}{seaLevel.toFixed(1)} m</div>
