@@ -518,12 +518,14 @@ export default function App() {
               siteCatalogue={researchSites}
               onBack={() => setEarthAreaView('globe')}
               onSelectSite={(site) => {
-                // Keep the user inside Water / Dirt Elevation while selecting a marker.
-                // This updates the existing right-hand site-information panel; map buttons
-                // there can then open the same coordinates in satellite or Street View.
+                // Reuse the same in-app location workflow as the other Earth view:
+                // selecting an elevation marker loads its embedded Google Street View.
                 setSelectedGlobeSite(site);
                 setSelectedSiteId(site.id ?? site.name);
                 setShowSiteList(false);
+                setStreetFallbackNotice(false);
+                setStreetFrameLoaded(false);
+                setEarthAreaView('street');
               }}
               onAssignChannel={(channel, latitude, longitude) => {
                 const lat = latitude * Math.PI / 180;
