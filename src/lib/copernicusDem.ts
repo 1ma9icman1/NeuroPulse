@@ -15,11 +15,11 @@ const CACHE_STORE = 'rasters';
 const CACHE_KEY = 'copernicus-glo90-global-1deg-v1';
 // Open-Meteo's public endpoint has per-request coordinate limits. Keep HTTP requests
 // at 100 coordinates; checkpoint progress every 4,000 samples so interrupted loads resume.
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 25;
 const CHECKPOINT_SIZE = 4_000;
 // The public elevation endpoint rate-limits burst traffic. Keep global sampling serialized.
 const CONCURRENCY = 1;
-const REQUEST_SPACING_MS = 300;
+const REQUEST_SPACING_MS = 750;
 
 type CachedRaster = { key: string; width: number; height: number; values: ArrayBuffer; savedAt: number; completedSamples?: number; complete?: boolean };
 
