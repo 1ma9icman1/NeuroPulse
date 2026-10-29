@@ -253,7 +253,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         setDatasetInfo('Resampling measured Copernicus elevations to the existing globe mesh…');
         gridWidth = DEM_WIDTH;
         gridHeight = DEM_HEIGHT;
-        heights = resampleCopernicusGrid(sampled.values, gridWidth, gridHeight);
+        heights = new Float32Array(resampleCopernicusGrid(sampled.values, gridWidth, gridHeight));
         if (!heights.length || heights.some(value => !Number.isFinite(value))) {
           throw new Error('Copernicus DEM returned missing or invalid elevation samples.');
         }
