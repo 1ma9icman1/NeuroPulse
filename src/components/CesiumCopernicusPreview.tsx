@@ -518,7 +518,21 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             duration: 1,
           });
         } else {
-          viewer.camera.setView({ destination: Cartesian3.fromDegrees(0, 20, 22000000) });
+          // The DEM is an area-of-interest dataset, not a global raster. Start at its
+          // actual footprint so the colored relief is immediately visible instead of
+          // leaving a small local tile hidden on a planet-scale camera view.
+          const firstTile = terrainTilesRef.current[0];
+          if (firstTile) {
+            const centerLon = (firstTile.west + firstTile.east) / 2;
+            const centerLat = (firstTile.south + firstTile.north) / 2;
+            const spanMeters = Math.max(firstTile.east - firstTile.west, firstTile.north - firstTile.south) * 111000;
+            viewer.camera.setView({
+              destination: Cartesian3.fromDegrees(centerLon, centerLat, Math.max(18000, spanMeters * 1.55)),
+              orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+            });
+          } else {
+            viewer.camera.setView({ destination: Cartesian3.fromDegrees(0, 20, 22000000) });
+          }
         }
         setStatus(`Rendered ${loaded} real ${manifest.dataset} GeoTIFF tile(s) at ${manifest.resolutionMeters} m source resolution: elevation-colored 3D ground mesh plus a separate translucent adjustable soil/sand cover. Display mesh is resampled to ${PREVIEW_GRID_SIZE}×${PREVIEW_GRID_SIZE} vertices per tile.`);
       } catch (cause) {
