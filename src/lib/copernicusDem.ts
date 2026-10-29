@@ -10,13 +10,6 @@ export const ELEVATION_DATASET = 'AWS Terrain-RGB tiles (multi-source public ele
 const CACHE_DB = 'neuropulse-copernicus-dem';
 const CACHE_STORE = 'rasters';
 const CACHE_KEY = 'terrain-rgb-global-1deg-v2';
-// Open-Meteo accepts up to 100 coordinates per request. Use the full batch to reduce
-// the global grid to 648 calls, checkpoint every 500 samples, and resume safely.
-const BATCH_SIZE = 100;
-const CHECKPOINT_SIZE = 500;
-// Serialized calls at 30 requests/minute: deliberately conservative versus published limits.
-const CONCURRENCY = 1;
-const REQUEST_SPACING_MS = 2_000;
 
 type CachedRaster = { key: string; width: number; height: number; values: ArrayBuffer; savedAt: number; completedSamples?: number; complete?: boolean };
 
@@ -186,7 +179,6 @@ export async function loadGlobalTerrainSamples(
   const queue = [...tiles.values()];
   let next = 0;
   let completed = 0;
-  let lastCheckpoint = 0;
   let firstError: unknown = null;
   const worker = async () => {
     while (!firstError) {
@@ -205,8 +197,6 @@ export async function loadGlobalTerrainSamples(
         }
         completed += tile.points.length;
         onProgress?.(completed, total, false);
-        // The complete global raster is cached only after all tile-derived samples are ready.
-        if (completed - lastCheckpoint >= 4_000) lastCheckpoint = completed;
       } catch (error) {
         firstError = error;
         throw error;
@@ -225,7 +215,7 @@ export async function loadGlobalTerrainSamples(
 }
 
 /** Bilinear resampling from measured global samples to the existing Three.js mesh grid. */
-export function resampleCopernicusGrid(source: Float32Array, targetWidth: number, targetHeight: number): Float32Array {
+export function resampleElevationGrid(source: Float32Array, targetWidth: number, targetHeight: number): Float32Array {
   if (source.length !== ELEVATION_GRID_WIDTH * ELEVATION_GRID_HEIGHT) {
     throw new Error('Copernicus global sample grid has an unexpected size.');
   }
