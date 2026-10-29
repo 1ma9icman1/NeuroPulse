@@ -54,6 +54,83 @@ function sampleTileElevation(site: MapSite, tiles: CachedDemTile[]): number {
   return Number.isFinite(value) && (!Number.isFinite(tile.noData) || value !== tile.noData) ? value : 0;
 }
 
+function buildElevationPrimitive(tile: CachedDemTile): Primitive {
+  const count = PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE;
+  const positions = new Float64Array(count * 3);
+  const elevations = new Float32Array(count);
+  const validMask = new Uint8Array(count);
+  let validVertices = 0;
+  let minElevation = Infinity;
+  let maxElevation = -Infinity;
+
+  for (let y = 0; y < PREVIEW_GRID_SIZE; y++) {
+    const latitude = tile.north - (y / (PREVIEW_GRID_SIZE - 1)) * (tile.north - tile.south);
+    for (let x = 0; x < PREVIEW_GRID_SIZE; x++) {
+      const index = y * PREVIEW_GRID_SIZE + x;
+      const longitude = tile.west + (x / (PREVIEW_GRID_SIZE - 1)) * (tile.east - tile.west);
+      const elevation = Number(tile.raster[index]);
+      const valid = Number.isFinite(elevation) && (!Number.isFinite(tile.noData) || elevation !== tile.noData);
+      if (valid) {
+        validMask[index] = 1;
+        elevations[index] = elevation;
+        validVertices++;
+        minElevation = Math.min(minElevation, elevation);
+        maxElevation = Math.max(maxElevation, elevation);
+      }
+      const point = Cartesian3.fromDegrees(longitude, latitude, valid ? elevation : 0);
+      positions[index * 3] = point.x;
+      positions[index * 3 + 1] = point.y;
+      positions[index * 3 + 2] = point.z;
+    }
+  }
+  if (validVertices < count * 0.9) throw new Error('Too many invalid elevation samples in a cached DEM tile.');
+
+  // Separate triangles into elevation bands so the measured DEM is both a real-height
+  // 3D surface and a readable hypsometric map, rather than one flat tan-colored sheet.
+  const bands: number[][] = Array.from({ length: 7 }, () => []);
+  const bandFor = (elevation: number) => elevation < 0 ? 0 : elevation < 100 ? 1 : elevation < 500 ? 2 : elevation < 1200 ? 3 : elevation < 2500 ? 4 : elevation < 4000 ? 5 : 6;
+  for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y++) {
+    for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x++) {
+      const a = y * PREVIEW_GRID_SIZE + x, b = a + 1, c = a + PREVIEW_GRID_SIZE, d = c + 1;
+      if (!(validMask[a] && validMask[b] && validMask[c] && validMask[d])) continue;
+      const mean1 = (elevations[a] + elevations[b] + elevations[c]) / 3;
+      const mean2 = (elevations[b] + elevations[c] + elevations[d]) / 3;
+      bands[bandFor(mean1)].push(a, c, b);
+      bands[bandFor(mean2)].push(b, c, d);
+    }
+  }
+  const bandColors = [
+    '#174d91', // below sea level
+    '#32875b', // lowlands
+    '#9aaf55', // hills
+    '#c2a15c', // uplands
+    '#a87345', // mountains
+    '#c4b6a0', // high mountains
+    '#f1eee7', // highest terrain
+  ];
+  const instances = bands.flatMap((indices, band) => {
+    if (!indices.length) return [];
+    const geometry = new Geometry({
+      attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
+      indices: Uint32Array.from(indices),
+      primitiveType: PrimitiveType.TRIANGLES,
+      boundingSphere: BoundingSphere.fromVertices(positions),
+    });
+    return [new GeometryInstance({
+      id: `copernicus-elevation-band-${band}-${tile.west}-${tile.south}`,
+      geometry,
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band])) },
+    })];
+  });
+  if (!instances.length) throw new Error('The DEM tile contains no valid terrain triangles.');
+  return new Primitive({
+    geometryInstances: instances,
+    appearance: new PerInstanceColorAppearance({ flat: false, translucent: false, closed: false, faceForward: true }),
+    asynchronous: false,
+    allowPicking: false,
+  });
+}
+
 function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
   const count = PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE;
   const positions = new Float64Array(count * 3);
@@ -69,7 +146,9 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
       const valid = Number.isFinite(elevation) && (!Number.isFinite(tile.noData) || elevation !== tile.noData);
       if (valid) { validMask[index] = 1; validVertices++; }
       const point = Cartesian3.fromDegrees(longitude, latitude, valid ? elevation + soilDepth : 0);
-      positions[index * 3] = point.x; positions[index * 3 + 1] = point.y; positions[index * 3 + 2] = point.z;
+      positions[index * 3] = point.x;
+      positions[index * 3 + 1] = point.y;
+      positions[index * 3 + 2] = point.z;
     }
   }
   if (validVertices < count * 0.9) throw new Error('Too many invalid elevation samples in a cached DEM tile.');
@@ -79,16 +158,20 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
   }
   const geometry = new Geometry({
     attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
-    indices: Uint32Array.from(indexValues), primitiveType: PrimitiveType.TRIANGLES,
+    indices: Uint32Array.from(indexValues),
+    primitiveType: PrimitiveType.TRIANGLES,
     boundingSphere: BoundingSphere.fromVertices(positions),
   });
   return new Primitive({
-    geometryInstances: new GeometryInstance({ geometry, attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d9ad68').withAlpha(0.82)) } }),
-    appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false, faceForward: true }),
-    asynchronous: false, allowPicking: false,
+    geometryInstances: new GeometryInstance({
+      geometry,
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d9ad68').withAlpha(0.24)) },
+    }),
+    appearance: new PerInstanceColorAppearance({ flat: false, translucent: true, closed: false, faceForward: true }),
+    asynchronous: false,
+    allowPicking: false,
   });
 }
-
 
 function safeTileUrl(filename: string): string {
   const normalized = filename.replace(/\\\\/g, '/').replace(/^\/+/, '');
@@ -205,26 +288,30 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           const noData = rawNoData === null || rawNoData === undefined ? NaN : Number(rawNoData);
           const cachedTile: CachedDemTile = { west, south, east, north, raster, noData };
           terrainTilesRef.current.push(cachedTile);
-          const primitive = buildSoilPrimitive(cachedTile, soilDepth);
-          primitive.show = showSoilLayerRef.current;
-          viewer.scene.primitives.add(primitive);
-          primitives.push(primitive);
-          soilPrimitivesRef.current = primitives;
+          const elevationPrimitive = buildElevationPrimitive(cachedTile);
+          viewer.scene.primitives.add(elevationPrimitive);
+          primitives.push(elevationPrimitive);
+          const soilPrimitive = buildSoilPrimitive(cachedTile, soilDepth);
+          soilPrimitive.show = showSoilLayerRef.current && soilDepth > 0;
+          viewer.scene.primitives.add(soilPrimitive);
+          primitives.push(soilPrimitive);
+          soilPrimitivesRef.current = [...soilPrimitivesRef.current, soilPrimitive];
           loaded++;
         }
         rebuildSoilRef.current = (depth: number) => {
           const activeViewer = viewerRef.current;
           if (!activeViewer || activeViewer.isDestroyed()) return;
           try {
-            for (const oldPrimitive of soilPrimitivesRef.current) {
-              if (!oldPrimitive.isDestroyed()) activeViewer.scene.primitives.remove(oldPrimitive);
-            }
             const nextPrimitives: Primitive[] = [];
+            // Build the replacement first. If construction fails, keep the currently visible layer.
             for (const tile of terrainTilesRef.current) {
               const next = buildSoilPrimitive(tile, depth);
-              next.show = showSoilLayerRef.current;
+              next.show = showSoilLayerRef.current && depth > 0;
               activeViewer.scene.primitives.add(next);
               nextPrimitives.push(next);
+            }
+            for (const oldPrimitive of soilPrimitivesRef.current) {
+              if (!oldPrimitive.isDestroyed()) activeViewer.scene.primitives.remove(oldPrimitive);
             }
             soilPrimitivesRef.current = nextPrimitives;
             for (const site of siteCatalogueRef.current) {
@@ -328,11 +415,20 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
                   return den ? Math.acos(Math.max(-1,Math.min(1,(u.x*v.x+u.y*v.y)/den)))*180/Math.PI : 0;
                 };
                 const angles = [angleAt(xy[0],xy[1],xy[2]),angleAt(xy[1],xy[0],xy[2]),angleAt(xy[2],xy[0],xy[1])];
-                tri.forEach((site, vi) => addOverlayEntity({
-                  id: `neuro-angle-${ti}-${vi}`,
-                  position: Cartesian3.fromDegrees(site.lon,site.lat,sampleTileElevation(site,terrainTilesRef.current)+(showSoilLayerRef.current?soilDepth:0)+500),
-                  label: { text: `${angles[vi].toFixed(1)}°`, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: 0, showBackground: true, backgroundColor: Color.fromCssColorString('#061421').withAlpha(0.85) }
-                }));
+                const centroidLat = (tri[0].lat + tri[1].lat + tri[2].lat) / 3;
+                const centroidLon = (tri[0].lon + tri[1].lon + tri[2].lon) / 3;
+                tri.forEach((site, vi) => {
+                  // Pull labels 32% of the way from each vertex toward the triangle centre,
+                  // so each angle sits inside its triangle instead of outside the corner.
+                  const labelLat = site.lat * 0.68 + centroidLat * 0.32;
+                  const labelLon = site.lon * 0.68 + centroidLon * 0.32;
+                  const labelSite = { ...site, lat: labelLat, lon: labelLon };
+                  addOverlayEntity({
+                    id: `neuro-angle-${ti}-${vi}`,
+                    position: Cartesian3.fromDegrees(labelLon, labelLat, sampleTileElevation(labelSite, terrainTilesRef.current) + (showSoilLayerRef.current ? soilDepth : 0) + 420),
+                    label: { text: `${angles[vi].toFixed(1)}°`, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: 0, showBackground: true, backgroundColor: Color.fromCssColorString('#061421').withAlpha(0.92) }
+                  });
+                });
               }
             });
           }
@@ -424,7 +520,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         } else {
           viewer.camera.setView({ destination: Cartesian3.fromDegrees(0, 20, 22000000) });
         }
-        setStatus(`Rendered ${loaded} real GeoTIFF tile(s) from ${manifest.dataset} at ${manifest.resolutionMeters} m source resolution. Mesh is resampled to ${PREVIEW_GRID_SIZE}×${PREVIEW_GRID_SIZE} vertices per tile for interactive display.`);
+        setStatus(`Rendered ${loaded} real ${manifest.dataset} GeoTIFF tile(s) at ${manifest.resolutionMeters} m source resolution: elevation-colored 3D ground mesh plus a separate translucent adjustable soil/sand cover. Display mesh is resampled to ${PREVIEW_GRID_SIZE}×${PREVIEW_GRID_SIZE} vertices per tile.`);
       } catch (cause) {
         if (!cancelled) {
           const message = cause instanceof Error ? cause.message : 'Unable to initialize Cesium Copernicus terrain preview.';
@@ -479,9 +575,9 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
 
   useEffect(() => {
     for (const primitive of soilPrimitivesRef.current) {
-      if (!primitive.isDestroyed()) primitive.show = showSoilLayer;
+      if (!primitive.isDestroyed()) primitive.show = showSoilLayer && soilDepth > 0;
     }
-  }, [showSoilLayer]);
+  }, [showSoilLayer, soilDepth]);
 
   if (!open) return null;
   return (
@@ -509,7 +605,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         </div>
       </div>
       <div ref={hostRef} className="min-h-[220px] flex-1 overflow-hidden rounded border border-slate-700" />
-      <div className="shrink-0 pt-1 text-[9px] text-slate-500">GLO-90 source elevations are retained as the ground reference; the displayed mesh is resampled to 129×129 vertices per tile. Satellite imagery is from Esri and its providers. Soil/sand thickness is an adjustable scenario, not a measured global dataset.</div>
+      <div className="shrink-0 pt-1 text-[9px] text-slate-500">Copernicus GLO-90 source elevations drive the 3D ground height and elevation color bands (blue below sea level, green lowlands, ochre uplands, pale high terrain). The translucent soil/sand surface is a separate adjustable offset scenario, not a measured global soil-thickness dataset. Satellite imagery is from Esri and its providers.</div>
     </div>
   );
 };
