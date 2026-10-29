@@ -1,14 +1,11 @@
 /**
- * Global elevation samples from the Copernicus DEM GLO-90 dataset.
- *
- * Open-Meteo documents its elevation endpoint as based on Copernicus DEM 2021
- * GLO-90. We request measured samples in batches, never generate synthetic relief.
- * The coarse global sample grid is cached in IndexedDB; the globe mesh may
- * interpolate between samples for display, but no elevation values are invented.
+ * Global elevation samples from public Terrain-RGB (Terrarium) tiles.
+ * Tile values are decoded from the published RGB elevation encoding; no elevation
+ * values are synthesized. The 1-degree working grid is cached in IndexedDB.
  */
 export const COPERNICUS_GRID_WIDTH = 360;
 export const COPERNICUS_GRID_HEIGHT = 180;
-export const COPERNICUS_DATASET = 'Global Terrain-RGB elevation tiles (SRTM/ASTER-derived)';
+export const ELEVATION_DATASET = 'AWS Terrain-RGB tiles (multi-source public elevation data)';
 
 const CACHE_DB = 'neuropulse-copernicus-dem';
 const CACHE_STORE = 'rasters';
