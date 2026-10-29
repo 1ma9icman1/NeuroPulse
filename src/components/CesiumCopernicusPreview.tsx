@@ -125,6 +125,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
     let cancelled = false;
     let viewer: Viewer | null = null;
     const primitives: Primitive[] = [];
+    let elevationToolHandler: ((event: Event) => void) | null = null;
 
     const start = async () => {
       try {
@@ -282,7 +283,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           }
           overlayEntities.clear();
         };
-        const addOverlayEntity = (entity: Parameters<typeof viewer.entities.add>[0]) => {
+        const addOverlayEntity = (entity: any) => {
           const added = viewer!.entities.add(entity);
           overlayEntities.add(added.id);
           return added;
@@ -362,7 +363,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           }
           viewer.scene.requestRender();
         };
-        const elevationToolHandler = (event: Event) => {
+        elevationToolHandler = (event: Event) => {
           const detail = (event as CustomEvent<{action?: string}>).detail;
           if (!detail?.action) return;
           if (detail.action === 'clear') overlayFlagsRef.current = { triangulation: false, constellations: false, angles: false };
@@ -439,7 +440,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
       for (const primitive of primitives) {
         try { primitive.destroy(); } catch { /* Cesium may already have destroyed it with the viewer. */ }
       }
-      window.removeEventListener('neuro-pulse-elevation-tool', elevationToolHandler);
+      if (elevationToolHandler) window.removeEventListener('neuro-pulse-elevation-tool', elevationToolHandler);
+      overlayFlagsRef.current = { triangulation: false, constellations: false, angles: false };
       viewer?.destroy();
       soilPrimitivesRef.current = [];
       terrainTilesRef.current = [];
