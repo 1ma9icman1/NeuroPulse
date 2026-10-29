@@ -690,9 +690,21 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   })();
   const parsedTriangleAngle = triangleAngleSearch.trim() === '' ? null : Number(triangleAngleSearch);
   const validTriangleAngleSearch = parsedTriangleAngle !== null && Number.isFinite(parsedTriangleAngle) && parsedTriangleAngle >= 0 && parsedTriangleAngle <= 180;
-  const filteredTrianglePolygons = !validTriangleAngleSearch ? triangulationOverlay.polygons : triangulationOverlay.polygons.filter((triangle) => triangle.angles.some((angle) => Math.round(angle) === Math.round(parsedTriangleAngle as number)));
-  const visibleTriangleNames = new Set(filteredTrianglePolygons.map((triangle) => triangle.name));
-  const triangleEdges = showAlignmentTriangles ? (validTriangleAngleSearch ? triangulationOverlay.edges.filter((edge) => edge.triangleNames.some((name) => visibleTriangleNames.has(name))) : triangulationOverlay.edges) : [];
+  const filteredTrianglePolygons = useMemo(
+    () => !validTriangleAngleSearch
+      ? triangulationOverlay.polygons
+      : triangulationOverlay.polygons.filter((triangle) => triangle.angles.some((angle) => Math.round(angle) === Math.round(parsedTriangleAngle as number))),
+    [validTriangleAngleSearch, parsedTriangleAngle, triangulationOverlay.polygons],
+  );
+  const visibleTriangleNames = useMemo(() => new Set(filteredTrianglePolygons.map((triangle) => triangle.name)), [filteredTrianglePolygons]);
+  const triangleEdges = useMemo(
+    () => !showAlignmentTriangles
+      ? []
+      : validTriangleAngleSearch
+        ? triangulationOverlay.edges.filter((edge) => edge.triangleNames.some((name) => visibleTriangleNames.has(name)))
+        : triangulationOverlay.edges,
+    [showAlignmentTriangles, validTriangleAngleSearch, triangulationOverlay.edges, visibleTriangleNames],
+  );
   const trianglePolygons = showAlignmentTriangles ? filteredTrianglePolygons : [];
   const repeatedTriangleAngles: Array<[string, number]> = [];
 
