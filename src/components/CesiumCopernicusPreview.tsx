@@ -126,7 +126,7 @@ function buildElevationPrimitive(tile: CachedDemTile): Primitive {
   if (!instances.length) throw new Error('The DEM tile contains no valid terrain triangles.');
   return new Primitive({
     geometryInstances: instances,
-    appearance: new PerInstanceColorAppearance({ flat: true, translucent: $1, closed: false, faceForward: true }),
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: false, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
   });
@@ -169,7 +169,7 @@ function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
       geometry,
       attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d9ad68').withAlpha(0.24)) },
     }),
-    appearance: new PerInstanceColorAppearance({ flat: true, translucent: $1, closed: false, faceForward: true }),
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
   });
