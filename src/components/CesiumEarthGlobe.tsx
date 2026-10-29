@@ -315,4 +315,6 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
   }, [showCountryBorders, countryBorderPaths]);
 
   return <div ref={hostRef} className="absolute inset-0 h-full w-full" aria-label="Cesium interactive Earth globe" />;
-};
+});
+
+CesiumEarthGlobe.displayName = 'CesiumEarthGlobe';
