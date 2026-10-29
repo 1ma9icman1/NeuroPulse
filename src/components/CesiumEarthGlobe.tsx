@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import {
   ArcGisMapServerImageryProvider,
+  ArcType,
   Cartesian2,
   Cartesian3,
   Color,
@@ -36,6 +37,8 @@ type Props = {
   onSiteClick: (site: EarthSite) => void;
   onGlobeClick?: (coords: { lat: number; lng: number }) => void;
   onZoom?: (altitude: number) => void;
+  triangleEdges?: Array<{ startLat: number; startLng: number; endLat: number; endLng: number; triangleNames: string[] }>;
+  showAlignmentTriangles?: boolean;
 };
 
 const siteId = (site: EarthSite) => `np-earth-site:${site.id ?? site.name}:${site.lat}:${site.lon}`;
@@ -49,6 +52,8 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
   onSiteClick,
   onGlobeClick,
   onZoom,
+  triangleEdges = [],
+  showAlignmentTriangles = false,
 }, forwardedRef) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -83,6 +88,10 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
   borderPathsRef.current = countryBorderPaths;
   const showBordersRef = useRef(showCountryBorders);
   showBordersRef.current = showCountryBorders;
+  const triangleEdgesRef = useRef(triangleEdges);
+  triangleEdgesRef.current = triangleEdges;
+  const showTrianglesRef = useRef(showAlignmentTriangles);
+  showTrianglesRef.current = showAlignmentTriangles;
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -334,6 +343,32 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
     }
     viewer.scene.requestRender();
   }, [showCountryBorders, countryBorderPaths]);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+    for (const entity of [...viewer.entities.values]) {
+      if (entity.id.startsWith('np-triangulation-edge:')) viewer.entities.remove(entity);
+    }
+    if (showAlignmentTriangles) {
+      triangleEdges.forEach((edge, index) => {
+        if (![edge.startLat, edge.startLng, edge.endLat, edge.endLng].every(Number.isFinite)) return;
+        viewer.entities.add({
+          id: `np-triangulation-edge:${index}`,
+          polyline: {
+            positions: [
+              Cartesian3.fromDegrees(edge.startLng, edge.startLat, 5000),
+              Cartesian3.fromDegrees(edge.endLng, edge.endLat, 5000),
+            ],
+            width: 2,
+            material: Color.fromCssColorString('#22d3ee').withAlpha(0.92),
+            arcType: ArcType.GEODESIC,
+          },
+        });
+      });
+    }
+    viewer.scene.requestRender();
+  }, [triangleEdges, showAlignmentTriangles]);
 
   return <div ref={hostRef} className="absolute inset-0 h-full w-full" aria-label="Cesium interactive Earth globe" />;
 });
