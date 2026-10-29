@@ -184,7 +184,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#c9a66b').withAlpha(0.28)) },
             }),
             appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false }),
-            asynchronous: true,
+            // This is a custom Geometry without a Cesium worker factory. Build synchronously to avoid Cesium's _workerName/_workerPath runtime error.
+            asynchronous: false,
             allowPicking: false,
             show: showSoilLayer,
           });
