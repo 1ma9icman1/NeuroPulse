@@ -47,6 +47,11 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   const viewerRef = useRef<Viewer | null>(null);
   const [status, setStatus] = useState('Waiting for local Copernicus DEM tiles…');
   const [error, setError] = useState('');
+  const [soilDepth, setSoilDepth] = useState(39);
+  const [soilDepthDraft, setSoilDepthDraft] = useState(39);
+  const [showSoilLayer, setShowSoilLayer] = useState(true);
+  const [showSatellite, setShowSatellite] = useState(true);
+  const soilPrimitivesRef = useRef<Primitive[]>([]);
 
   useEffect(() => {
     if (!open || !hostRef.current) return;
@@ -96,7 +101,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
         );
         if (cancelled) return;
-        viewer.imageryLayers.addImageryProvider(imagery);
+        const imageryLayer = viewer.imageryLayers.addImageryProvider(imagery);
+        imageryLayer.show = showSatellite;
 
         const manifestResponse = await fetch('/copernicus-dem/manifest.json', { cache: 'no-store' });
         if (!manifestResponse.ok) {
@@ -140,7 +146,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               const elevation = Number(raster[index]);
               const valid = Number.isFinite(elevation) && (!Number.isFinite(noData) || elevation !== noData);
               if (valid) { validMask[index] = 1; validVertices++; }
-              const point = Cartesian3.fromDegrees(longitude, latitude, valid ? elevation : 0);
+              // GLO-90 supplies the measured ground elevation. soilDepth is an explicitly adjustable cover-depth scenario layered above it, not a measured soil raster.
+              const point = Cartesian3.fromDegrees(longitude, latitude, valid ? elevation + soilDepth : 0);
               positions[index * 3] = point.x;
               positions[index * 3 + 1] = point.y;
               positions[index * 3 + 2] = point.z;
@@ -174,14 +181,16 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           const primitive = new Primitive({
             geometryInstances: new GeometryInstance({
               geometry,
-              attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#b3a47b')) },
+              attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#c9a66b').withAlpha(0.28)) },
             }),
-            appearance: new PerInstanceColorAppearance({ flat: true, translucent: false, closed: false }),
+            appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false }),
             asynchronous: true,
             allowPicking: false,
+            show: showSoilLayer,
           });
           viewer.scene.primitives.add(primitive);
           primitives.push(primitive);
+          soilPrimitivesRef.current = primitives;
           loaded++;
         }
 
@@ -218,24 +227,52 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         try { primitive.destroy(); } catch { /* Cesium may already have destroyed it with the viewer. */ }
       }
       viewer?.destroy();
+      soilPrimitivesRef.current = [];
       viewer = null;
       viewerRef.current = null;
     };
-  }, [open, selectedSite?.lat, selectedSite?.lon, selectedSite?.name]);
+  }, [open, selectedSite?.lat, selectedSite?.lon, selectedSite?.name, soilDepth]);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+    const layer = viewer.imageryLayers.length ? viewer.imageryLayers.get(0) : null;
+    if (layer) layer.show = showSatellite;
+  }, [showSatellite]);
+
+  useEffect(() => {
+    for (const primitive of soilPrimitivesRef.current) {
+      if (!primitive.isDestroyed()) primitive.show = showSoilLayer;
+    }
+  }, [showSoilLayer]);
 
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950/95 p-3 md:p-5" role="dialog" aria-modal="true" aria-label="Cesium Copernicus DEM terrain preview">
-      <div className="mb-2 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-sm font-mono font-bold tracking-wider text-sky-200">CESIUMJS · COPERNICUS DEM DETAIL</div>
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-mono font-bold tracking-wider text-sky-200">CESIUMJS · GLO-90 GEOtiff + SOIL / SAND LAYER</div>
           <div className="mt-1 text-xs text-slate-300">{status}</div>
           {error && <div className="mt-2 max-w-4xl text-xs text-rose-300">{error}</div>}
         </div>
         <button onClick={onClose} className="shrink-0 rounded border border-slate-600 px-3 py-2 text-xs font-mono text-slate-100 hover:bg-slate-800">CLOSE</button>
       </div>
+      <div className="mb-2 grid gap-3 rounded border border-slate-700 bg-slate-900/90 p-3 lg:grid-cols-[minmax(240px,1fr)_auto]">
+        <div className="min-w-0">
+          <div className="flex items-center justify-between gap-3"><label htmlFor="glo90-soil-depth" className="text-[10px] font-mono font-bold text-amber-100">SOIL / SAND COVER SCENARIO · {soilDepthDraft} m</label><span className="text-[9px] text-slate-400">0–100 m</span></div>
+          <input id="glo90-soil-depth" aria-label="Soil or sand cover depth scenario in metres" type="range" min="0" max="100" step="1" value={soilDepthDraft} onChange={event => setSoilDepthDraft(Number(event.target.value))} className="mt-2 w-full accent-amber-400" />
+          <div className="flex justify-between text-[9px] text-slate-500"><span>0 m · measured DEM surface</span><span>39 m · Giza reference assumption</span><span>100 m</span></div>
+          <div className="mt-1 text-[9px] text-slate-400">The GLO-90 GeoTIFF provides ground elevation, not soil thickness. This slider adds a visible cover-depth scenario; 39 m is your Giza assumption and is not represented as globally measured soil data.</div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          <button type="button" onClick={() => setShowSatellite(value => !value)} aria-pressed={showSatellite} className={`rounded border px-3 py-2 text-[10px] font-mono font-bold ${showSatellite ? 'border-cyan-300 bg-cyan-950 text-cyan-100' : 'border-slate-600 text-slate-300'}`}>{showSatellite ? 'SATELLITE ON' : 'SATELLITE OFF'}</button>
+          <button type="button" onClick={() => setShowSoilLayer(value => !value)} aria-pressed={showSoilLayer} className={`rounded border px-3 py-2 text-[10px] font-mono font-bold ${showSoilLayer ? 'border-amber-300 bg-amber-950 text-amber-100' : 'border-slate-600 text-slate-300'}`}>{showSoilLayer ? 'SOIL LAYER ON' : 'SOIL LAYER OFF'}</button>
+          <button type="button" onClick={() => { setSoilDepthDraft(0); setSoilDepth(0); }} className="rounded border border-slate-600 px-3 py-2 text-[10px] font-mono text-slate-200 hover:bg-slate-800">RESET TO DEM</button>
+          <button type="button" onClick={() => setSoilDepth(soilDepthDraft)} disabled={soilDepth === soilDepthDraft} className="rounded border border-emerald-400/70 bg-emerald-950/70 px-3 py-2 text-[10px] font-mono font-bold text-emerald-100 disabled:opacity-40">APPLY DEPTH</button>
+        </div>
+      </div>
       <div ref={hostRef} className="min-h-0 flex-1 overflow-hidden rounded border border-slate-700" />
-      <div className="pt-2 text-[10px] text-slate-500">Terrain geometry uses measured local Copernicus GeoTIFF elevations. The mesh is display-resampled; the source raster is not modified.</div>
+      <div className="pt-2 text-[10px] text-slate-500">GLO-90 source elevations are retained as the ground reference; the displayed mesh is resampled to 129×129 vertices per tile. Satellite imagery is from Esri and its providers. Soil/sand thickness is an adjustable scenario, not a measured global dataset.</div>
     </div>
   );
 };
