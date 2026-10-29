@@ -8,11 +8,11 @@
  */
 export const COPERNICUS_GRID_WIDTH = 360;
 export const COPERNICUS_GRID_HEIGHT = 180;
-export const COPERNICUS_DATASET = 'Copernicus DEM GLO-90 (2021)';
+export const COPERNICUS_DATASET = 'Global Terrain-RGB elevation tiles (SRTM/ASTER-derived)';
 
 const CACHE_DB = 'neuropulse-copernicus-dem';
 const CACHE_STORE = 'rasters';
-const CACHE_KEY = 'copernicus-glo90-global-1deg-v1';
+const CACHE_KEY = 'terrain-rgb-global-1deg-v2';
 // Open-Meteo accepts up to 100 coordinates per request. Use the full batch to reduce
 // the global grid to 648 calls, checkpoint every 500 samples, and resume safely.
 const BATCH_SIZE = 100;
@@ -79,107 +79,150 @@ async function writeCache(values: Float32Array, completedSamples = values.length
   });
 }
 
-type SamplePoint = { index: number; latitude: number; longitude: number };
+type SamplePoint = { index: number; latitude: number; longitude: number; tileX: number; tileY: number; pixelX: number; pixelY: number };
+
+const TERRAIN_ZOOM = 4;
+const TILE_SIZE = 256;
+const WORLD_PIXELS = TILE_SIZE * (2 ** TERRAIN_ZOOM);
+const TERRAIN_TILE_URL = (x: number, y: number) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${TERRAIN_ZOOM}/${x}/${y}.png`;
 
 function createPoints(): SamplePoint[] {
   const points: SamplePoint[] = [];
+  const maxMercatorLat = 85.0511287798066;
   for (let y = 0; y < COPERNICUS_GRID_HEIGHT; y++) {
-    // Sample each 1-degree cell at its centre to avoid ambiguous tile edges.
     const latitude = 89.5 - y;
+    const clampedLatitude = Math.max(-maxMercatorLat, Math.min(maxMercatorLat, latitude));
+    const latRad = clampedLatitude * Math.PI / 180;
+    const pixelY = Math.max(0, Math.min(WORLD_PIXELS - 1, Math.floor((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2 * WORLD_PIXELS)));
+    const tileY = Math.floor(pixelY / TILE_SIZE);
     for (let x = 0; x < COPERNICUS_GRID_WIDTH; x++) {
-      points.push({ index: y * COPERNICUS_GRID_WIDTH + x, latitude, longitude: -179.5 + x });
+      const longitude = -179.5 + x;
+      const pixelX = ((Math.floor((longitude + 180) / 360 * WORLD_PIXELS) % WORLD_PIXELS) + WORLD_PIXELS) % WORLD_PIXELS;
+      points.push({
+        index: y * COPERNICUS_GRID_WIDTH + x,
+        latitude,
+        longitude,
+        tileX: Math.floor(pixelX / TILE_SIZE),
+        tileY,
+        pixelX: pixelX % TILE_SIZE,
+        pixelY: pixelY % TILE_SIZE,
+      });
     }
   }
   return points;
 }
 
-async function fetchBatch(points: SamplePoint[], signal: AbortSignal): Promise<Array<{ index: number; elevation: number }>> {
-  const latitude = points.map(point => point.latitude.toFixed(1)).join(',');
-  const longitude = points.map(point => point.longitude.toFixed(1)).join(',');
-  const url = `https://api.open-meteo.com/v1/elevation?latitude=${latitude}&longitude=${longitude}`;
+async function fetchTerrainTile(x: number, y: number, signal: AbortSignal): Promise<ImageData> {
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < 5; attempt++) {
-    if (signal.aborted) throw new DOMException('Copernicus elevation load cancelled', 'AbortError');
+    if (signal.aborted) throw new DOMException('Elevation tile load cancelled', 'AbortError');
     try {
-      const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
-      if (response.status === 429) {
-        const retryAfter = response.headers.get('Retry-After');
-        throw new Error(`HTTP 429: elevation service rate-limited the request${retryAfter ? `; Retry-After: ${retryAfter}` : ''}. Stopped immediately to avoid hammering the service. Your saved checkpoint is retained.`);
+      const response = await fetch(TERRAIN_TILE_URL(x, y), { signal, headers: { Accept: 'image/png' } });
+      if (response.status === 404) {
+        throw new Error(`Terrain elevation tile is missing for XYZ ${TERRAIN_ZOOM}/${x}/${y}; refusing to fabricate elevation values.`);
       }
-      if (response.status >= 500) {
-        const retryAfterHeader = response.headers.get('Retry-After');
-        const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
-        const backoffMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-          ? Math.min(60_000, retryAfterSeconds * 1000)
-          : Math.min(30_000, 1_500 * (2 ** attempt));
-        lastError = new Error(`Copernicus elevation sampling service returned HTTP ${response.status}. ${attempt < 4 ? 'Retrying shortly.' : 'Automatic retry limit reached.'}`);
-        if (attempt < 4) await new Promise(resolve => setTimeout(resolve, backoffMs));
-        continue;
+      if (response.status === 429 || response.status >= 500) {
+        const retryAfter = Number(response.headers.get('Retry-After') || '');
+        const delay = Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.min(60_000, retryAfter * 1000)
+          : Math.min(30_000, 1_000 * (2 ** attempt));
+        lastError = new Error(`Terrain tile server returned HTTP ${response.status} for ${TERRAIN_ZOOM}/${x}/${y}.`);
+        if (attempt < 4) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw lastError;
       }
-      if (!response.ok) throw new Error(`Copernicus elevation sampling failed (HTTP ${response.status})`);
-      const data = await response.json() as { elevation?: unknown };
-      const elevations = data.elevation;
-      if (!Array.isArray(elevations) || elevations.length !== points.length) {
-        throw new Error('Copernicus elevation service returned an incomplete sample batch.');
+      if (!response.ok) throw new Error(`Terrain tile request failed with HTTP ${response.status} for ${TERRAIN_ZOOM}/${x}/${y}.`);
+      const bitmap = await createImageBitmap(await response.blob());
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = TILE_SIZE;
+        canvas.height = TILE_SIZE;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) throw new Error('Canvas 2D context unavailable for terrain tile decoding.');
+        context.drawImage(bitmap, 0, 0, TILE_SIZE, TILE_SIZE);
+        return context.getImageData(0, 0, TILE_SIZE, TILE_SIZE);
+      } finally {
+        bitmap.close();
       }
-      return points.map((point, i) => {
-        const elevation = Number(elevations[i]);
-        if (!Number.isFinite(elevation)) throw new Error(`Invalid Copernicus elevation sample at ${point.latitude}, ${point.longitude}`);
-        return { index: point.index, elevation };
-      });
     } catch (error) {
       if (signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) throw error;
-      lastError = error instanceof Error ? error : new Error('Copernicus elevation request failed');
-      if (lastError.message.includes('HTTP 429')) throw lastError;
+      lastError = error instanceof Error ? error : new Error('Terrain tile request failed.');
+      if (lastError.message.includes('is missing')) throw lastError;
       if (attempt < 4) await new Promise(resolve => setTimeout(resolve, Math.min(15_000, 1_000 * (2 ** attempt))));
     }
   }
-  throw lastError ?? new Error('Copernicus elevation request failed after retries.');
+  throw lastError ?? new Error('Terrain tile request failed after retries.');
 }
 
+/**
+ * Builds a global 1-degree sample grid from real Terrain-RGB (Terrarium) elevation
+ * tiles. This avoids thousands of per-coordinate API calls. Tiles are fetched once,
+ * decoded locally, and the resulting measured raster is cached in IndexedDB.
+ */
 export async function loadCopernicusGlobalSamples(
   signal: AbortSignal,
   onProgress?: (completed: number, total: number, fromCache: boolean) => void,
 ): Promise<{ values: Float32Array; fromCache: boolean }> {
   const cached = await readCachedRaster();
-  if (signal.aborted) throw new DOMException('Copernicus elevation load cancelled', 'AbortError');
+  if (signal.aborted) throw new DOMException('Elevation tile load cancelled', 'AbortError');
   if (cached?.complete && cached.values.length === COPERNICUS_GRID_WIDTH * COPERNICUS_GRID_HEIGHT) {
     onProgress?.(cached.values.length, cached.values.length, true);
     return { values: cached.values, fromCache: true };
   }
 
   const points = createPoints();
-  const batches: SamplePoint[][] = [];
-  for (let i = 0; i < points.length; i += BATCH_SIZE) batches.push(points.slice(i, i + BATCH_SIZE));
-  const values = cached?.values ?? new Float32Array(points.length);
-  // Resume from the last complete checkpoint so a failed request never causes a full restart.
-  const resumeSamples = cached && !cached.complete
-    ? Math.floor(cached.completedSamples / CHECKPOINT_SIZE) * CHECKPOINT_SIZE
-    : 0;
-  let nextBatch = Math.ceil(resumeSamples / BATCH_SIZE);
-  let completed = resumeSamples;
+  const total = points.length;
+  const values = new Float32Array(total);
+  const tiles = new Map<string, { x: number; y: number; points: SamplePoint[] }>();
+  for (const point of points) {
+    const key = `${point.tileX}/${point.tileY}`;
+    let tile = tiles.get(key);
+    if (!tile) {
+      tile = { x: point.tileX, y: point.tileY, points: [] };
+      tiles.set(key, tile);
+    }
+    tile.points.push(point);
+  }
+
+  const queue = [...tiles.values()];
+  let next = 0;
+  let completed = 0;
+  let lastCheckpoint = 0;
+  let firstError: unknown = null;
   const worker = async () => {
-    while (true) {
-      if (signal.aborted) throw new DOMException('Copernicus elevation load cancelled', 'AbortError');
-      const batchIndex = nextBatch++;
-      if (batchIndex >= batches.length) return;
-      const samples = await fetchBatch(batches[batchIndex], signal);
-      for (const sample of samples) values[sample.index] = sample.elevation;
-      completed += samples.length;
-      onProgress?.(completed, points.length, false);
-      if (completed % CHECKPOINT_SIZE === 0 || completed === points.length) {
-        await writeCache(values, completed, completed === points.length);
+    while (!firstError) {
+      if (signal.aborted) throw new DOMException('Elevation tile load cancelled', 'AbortError');
+      const tile = queue[next++];
+      if (!tile) return;
+      try {
+        const image = await fetchTerrainTile(tile.x, tile.y, signal);
+        for (const point of tile.points) {
+          const offset = (point.pixelY * TILE_SIZE + point.pixelX) * 4;
+          const red = image.data[offset];
+          const green = image.data[offset + 1];
+          const blue = image.data[offset + 2];
+          // Terrarium encoding: elevation (metres) = R*256 + G + B/256 - 32768.
+          values[point.index] = red * 256 + green + blue / 256 - 32768;
+        }
+        completed += tile.points.length;
+        onProgress?.(completed, total, false);
+        // The complete global raster is cached only after all tile-derived samples are ready.
+        if (completed - lastCheckpoint >= 4_000) lastCheckpoint = completed;
+      } catch (error) {
+        firstError = error;
+        throw error;
       }
-      // Leave a small gap between successful calls to avoid triggering provider burst limits.
-      if (nextBatch < batches.length && !signal.aborted) await new Promise(resolve => setTimeout(resolve, REQUEST_SPACING_MS));
     }
   };
-  // Discard any uncheckpointed tail from an interrupted previous attempt.
-  if (resumeSamples > 0 && cached) values.fill(0, resumeSamples);
-  // Workers run sequentially (CONCURRENCY=1), preserving contiguous checkpoint boundaries.
-  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
-  if (signal.aborted) throw new DOMException('Copernicus elevation load cancelled', 'AbortError');
-  if (values.some(value => !Number.isFinite(value))) throw new Error('Copernicus DEM returned missing or invalid global elevation samples.');
+
+  await Promise.all(Array.from({ length: Math.min(6, queue.length) }, () => worker()));
+  if (signal.aborted) throw new DOMException('Elevation tile load cancelled', 'AbortError');
+  if (firstError) throw firstError;
+  if (completed !== total || values.length !== total || values.some(value => !Number.isFinite(value))) {
+    throw new Error(`Terrain tile sampling incomplete: processed ${completed.toLocaleString()} of ${total.toLocaleString()} global elevation samples.`);
+  }
   await writeCache(values, values.length, true);
   return { values, fromCache: false };
 }
