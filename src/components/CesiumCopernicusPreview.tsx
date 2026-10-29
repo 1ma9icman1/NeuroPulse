@@ -23,6 +23,7 @@ import {
   Viewer,
 } from 'cesium';
 import { fromUrl } from 'geotiff';
+import { CONSTELLATION_EDGES, REAL_CELESTIAL_STARS } from '../data/celestialStars';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 type MapSite = { id?: string; name: string; lat: number; lon: number; category?: string; color?: string; desc?: string };
@@ -116,6 +117,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   siteCatalogueRef.current = siteCatalogue;
   const selectedSiteRef = useRef(selectedSite);
   selectedSiteRef.current = selectedSite;
+  const overlayFlagsRef = useRef({ triangulation: false, constellations: false, angles: false });
 
   useEffect(() => {
     if (!open || !hostRef.current) return;
@@ -234,6 +236,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             if (selected && selectedEntity) selectedEntity.position = new ConstantPositionProperty(Cartesian3.fromDegrees(
               selected.lon, selected.lat, sampleTileElevation(selected, terrainTilesRef.current) + (showSoilLayerRef.current ? depth : 0) + 300
             ));
+            drawGeometryOverlays();
             activeViewer.scene.requestRender();
             setStatus(`Visible sand/soil cover surface applied: +${depth} m across ${nextPrimitives.length} local GLO-90 tile(s). This is an offset surface scenario, not measured soil thickness.`);
           } catch (cause) {
@@ -270,6 +273,108 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             },
           });
         }
+        const overlayEntities = new Set<string>();
+        const clearOverlayEntities = () => {
+          for (const id of overlayEntities) {
+            const existing = viewer?.entities.getById(id);
+            if (existing) viewer?.entities.remove(existing);
+          }
+          overlayEntities.clear();
+        };
+        const addOverlayEntity = (entity: Parameters<typeof viewer.entities.add>[0]) => {
+          const added = viewer!.entities.add(entity);
+          overlayEntities.add(added.id);
+          return added;
+        };
+        const drawGeometryOverlays = () => {
+          if (!viewer || viewer.isDestroyed()) return;
+          clearOverlayEntities();
+          const flags = overlayFlagsRef.current;
+          const valid = siteCatalogueRef.current.filter(site => site && Number.isFinite(site.lat) && Number.isFinite(site.lon) && Math.abs(site.lat) <= 90 && Math.abs(site.lon) <= 180);
+          if (flags.triangulation || flags.angles) {
+            // Local nearest-neighbour triangles avoid an unbounded all-combinations mesh.
+            const seen = new Set<string>();
+            const triangles: [MapSite, MapSite, MapSite][] = [];
+            const distance = (a: MapSite, b: MapSite) => {
+              const rad = Math.PI / 180, dLat = (b.lat-a.lat)*rad, dLon = (b.lon-a.lon)*rad;
+              const h = Math.sin(dLat/2)**2 + Math.cos(a.lat*rad)*Math.cos(b.lat*rad)*Math.sin(dLon/2)**2;
+              return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0,1-h)));
+            };
+            for (const a of valid) {
+              const nearest = valid.filter(b => b !== a).map(b => ({ site:b, d:distance(a,b) })).sort((x,y)=>x.d-y.d).slice(0,2).map(x=>x.site);
+              if (nearest.length !== 2) continue;
+              const tri: [MapSite,MapSite,MapSite] = [a,nearest[0],nearest[1]];
+              const key = tri.map(s => `${s.id ?? s.name}:${s.lat.toFixed(5)}:${s.lon.toFixed(5)}`).sort().join('|');
+              if (!seen.has(key)) { seen.add(key); triangles.push(tri); }
+            }
+            const surfacePosition = (site: MapSite) => Cartesian3.fromDegrees(
+              site.lon, site.lat, sampleTileElevation(site, terrainTilesRef.current) + (showSoilLayerRef.current ? soilDepth : 0) + 350
+            );
+            triangles.forEach((tri, ti) => {
+              const points = tri.map(surfacePosition);
+              if (flags.triangulation) addOverlayEntity({
+                id: `neuro-triangle-${ti}`,
+                polyline: { positions: [...points, points[0]], width: 2, material: Color.fromCssColorString('#29e8ff'), arcType: 1, clampToGround: false }
+              });
+              if (flags.angles) {
+                // Calculate interior angles in a local tangent plane from the actual site coordinates.
+                const lat0 = tri.reduce((sum,s)=>sum+s.lat,0)/3 * Math.PI/180;
+                const xy = tri.map(s => ({ x: s.lon*Math.PI/180*Math.cos(lat0)*6371000, y: s.lat*Math.PI/180*6371000 }));
+                const angleAt = (p: {x:number;y:number}, q: {x:number;y:number}, r: {x:number;y:number}) => {
+                  const u={x:q.x-p.x,y:q.y-p.y}, v={x:r.x-p.x,y:r.y-p.y};
+                  const den=Math.hypot(u.x,u.y)*Math.hypot(v.x,v.y);
+                  return den ? Math.acos(Math.max(-1,Math.min(1,(u.x*v.x+u.y*v.y)/den)))*180/Math.PI : 0;
+                };
+                const angles = [angleAt(xy[0],xy[1],xy[2]),angleAt(xy[1],xy[0],xy[2]),angleAt(xy[2],xy[0],xy[1])];
+                tri.forEach((site, vi) => addOverlayEntity({
+                  id: `neuro-angle-${ti}-${vi}`,
+                  position: Cartesian3.fromDegrees(site.lon,site.lat,sampleTileElevation(site,terrainTilesRef.current)+(showSoilLayerRef.current?soilDepth:0)+500),
+                  label: { text: `${angles[vi].toFixed(1)}°`, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: 0, showBackground: true, backgroundColor: Color.fromCssColorString('#061421').withAlpha(0.85) }
+                }));
+              }
+            });
+          }
+          if (flags.constellations) {
+            const stars = new Map(REAL_CELESTIAL_STARS.map(star => [star.id, star]));
+            const radius = 9000000; // celestial reference sphere outside the Earth surface, not geographic site data
+            const starPosition = (star: typeof REAL_CELESTIAL_STARS[number]) => {
+              const ra = star.raHours * 15 * Math.PI / 180, dec = star.decDeg * Math.PI / 180;
+              return new Cartesian3(radius * Math.cos(dec) * Math.cos(ra), radius * Math.cos(dec) * Math.sin(ra), radius * Math.sin(dec));
+            };
+            for (const [fromId,toId] of CONSTELLATION_EDGES) {
+              const a=stars.get(fromId), b=stars.get(toId);
+              if (!a || !b) continue;
+              addOverlayEntity({
+                id: `neuro-constellation-${fromId}-${toId}`,
+                polyline: { positions: [starPosition(a),starPosition(b)], width: 2, material: Color.fromCssColorString('#a78bfa').withAlpha(0.9), arcType: 0, clampToGround: false }
+              });
+              addOverlayEntity({
+                id: `neuro-constellation-star-${fromId}`,
+                position: starPosition(a),
+                point: { pixelSize: 5, color: Color.fromCssColorString(a.color), outlineColor: Color.WHITE, outlineWidth: 1 },
+                label: { text: a.name, font: '11px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 2, style: 2, disableDepthTestDistance: 0 }
+              });
+              addOverlayEntity({
+                id: `neuro-constellation-star-${toId}`,
+                position: starPosition(b),
+                point: { pixelSize: 5, color: Color.fromCssColorString(b.color), outlineColor: Color.WHITE, outlineWidth: 1 },
+                label: { text: b.name, font: '11px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 2, style: 2, disableDepthTestDistance: 0 }
+              });
+            }
+          }
+          viewer.scene.requestRender();
+        };
+        const elevationToolHandler = (event: Event) => {
+          const detail = (event as CustomEvent<{action?: string}>).detail;
+          if (!detail?.action) return;
+          if (detail.action === 'clear') overlayFlagsRef.current = { triangulation: false, constellations: false, angles: false };
+          else if (detail.action === 'triangulate') overlayFlagsRef.current.triangulation = !overlayFlagsRef.current.triangulation;
+          else if (detail.action === 'constellations') overlayFlagsRef.current.constellations = !overlayFlagsRef.current.constellations;
+          else if (detail.action === 'angles') overlayFlagsRef.current.angles = !overlayFlagsRef.current.angles;
+          else if (detail.action === 'water-level' || detail.action === 'water-opacity' || detail.action === 'screenshot') return;
+          drawGeometryOverlays();
+        };
+        window.addEventListener('neuro-pulse-elevation-tool', elevationToolHandler);
         const clickHandler = viewer.screenSpaceEventHandler;
         const siteEntityFromPick = (position: { x: number; y: number }) => {
           const pickedItems = viewer?.scene.drillPick(position, 12) ?? [];
@@ -336,6 +441,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
       for (const primitive of primitives) {
         try { primitive.destroy(); } catch { /* Cesium may already have destroyed it with the viewer. */ }
       }
+      window.removeEventListener('neuro-pulse-elevation-tool', elevationToolHandler);
       viewer?.destroy();
       soilPrimitivesRef.current = [];
       terrainTilesRef.current = [];
