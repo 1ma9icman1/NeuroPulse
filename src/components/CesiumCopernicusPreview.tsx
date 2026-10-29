@@ -362,7 +362,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
       label: { text: selectedSite.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
     });
     viewer.camera.flyTo({ destination, orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 }, duration: 1 });
-  }, [selectedSite?.id, selectedSite?.name, selectedSite?.lat, selectedSite?.lon, showSoilLayer, soilDepth]);
+  }, [selectedSite?.id, selectedSite?.name, selectedSite?.lat, selectedSite?.lon]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
