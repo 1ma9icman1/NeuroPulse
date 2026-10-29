@@ -49,9 +49,25 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
   onSiteClick,
   onGlobeClick,
   onZoom,
-}) => {
+}, forwardedRef) => {
   const hostRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<Viewer | null>(null);\n  const autoRotateRef = useRef(false);\n  useImperativeHandle(forwardedRef, () => ({\n    pointOfView: (pov?: { lat?: number; lng?: number; altitude?: number }, duration = 0) => {\n      const viewer = viewerRef.current;\n      if (!viewer || viewer.isDestroyed()) return pov ? undefined : {};\n      if (pov && Number.isFinite(pov.lat) && Number.isFinite(pov.lng)) {\n        const altitude = Math.max(100, Number(pov.altitude ?? 2) * 6371000);\n        viewer.camera.flyTo({ destination: Cartesian3.fromDegrees(Number(pov.lng), Number(pov.lat), altitude), orientation: { heading: 0, pitch: CesiumMath.toRadians(-55), roll: 0 }, duration: Math.max(0, duration / 1000) });\n        return;\n      }\n      const p = viewer.camera.positionCartographic;\n      return { lat: CesiumMath.toDegrees(p.latitude), lng: CesiumMath.toDegrees(p.longitude), altitude: p.height / 6371000 };\n    },\n    controls: () => ({ get autoRotate() { return autoRotateRef.current; }, set autoRotate(value: boolean) { autoRotateRef.current = Boolean(value); } }),\n    renderer: () => ({ domElement: viewerRef.current?.canvas }),\n  }), []);
+  const viewerRef = useRef<Viewer | null>(null);
+  const autoRotateRef = useRef(false);
+  useImperativeHandle(forwardedRef, () => ({
+    pointOfView: (pov?: { lat?: number; lng?: number; altitude?: number }, duration = 0) => {
+      const viewer = viewerRef.current;
+      if (!viewer || viewer.isDestroyed()) return pov ? undefined : {};
+      if (pov && Number.isFinite(pov.lat) && Number.isFinite(pov.lng)) {
+        const altitude = Math.max(100, Number(pov.altitude ?? 2) * 6371000);
+        viewer.camera.flyTo({ destination: Cartesian3.fromDegrees(Number(pov.lng), Number(pov.lat), altitude), orientation: { heading: 0, pitch: CesiumMath.toRadians(-55), roll: 0 }, duration: Math.max(0, duration / 1000) });
+        return;
+      }
+      const p = viewer.camera.positionCartographic;
+      return { lat: CesiumMath.toDegrees(p.latitude), lng: CesiumMath.toDegrees(p.longitude), altitude: p.height / 6371000 };
+    },
+    controls: () => ({ get autoRotate() { return autoRotateRef.current; }, set autoRotate(value: boolean) { autoRotateRef.current = Boolean(value); } }),
+    renderer: () => ({ domElement: viewerRef.current?.canvas }),
+  }), []);
   const callbacksRef = useRef({ onSiteClick, onGlobeClick, onZoom });
   callbacksRef.current = { onSiteClick, onGlobeClick, onZoom };
   const sitesRef = useRef(sites);
@@ -230,7 +246,8 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
         });
       }, ScreenSpaceEventType.LEFT_CLICK);
 
-      viewer.camera.changed.addEventListener(() => {\n        if (autoRotateRef.current) viewer!.scene.camera.rotate(Cartesian3.UNIT_Z, 0.00003);
+      viewer.camera.changed.addEventListener(() => {
+        if (autoRotateRef.current) viewer!.scene.camera.rotate(Cartesian3.UNIT_Z, 0.00003);
         if (!viewer || viewer.isDestroyed()) return;
         callbacksRef.current.onZoom?.(viewer.camera.positionCartographic.height);
       });
