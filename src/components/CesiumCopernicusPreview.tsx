@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ArcGisMapServerImageryProvider,
+  ScreenSpaceEventType,
   BoundingSphere,
   Cartesian3,
   Color,
@@ -22,10 +23,13 @@ import {
 import { fromUrl } from 'geotiff';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
+type MapSite = { id?: string; name: string; lat: number; lon: number; category?: string; color?: string; desc?: string };
 type Props = {
   open: boolean;
-  onClose: () => void;
-  selectedSite: { name: string; lat: number; lon: number } | null;
+  onClose?: () => void;
+  selectedSite: MapSite | null;
+  siteCatalogue?: MapSite[];
+  onSelectSite?: (site: MapSite) => void;
 };
 
 type DemManifest = {
@@ -42,7 +46,7 @@ function safeTileUrl(filename: string): string {
   return `/copernicus-dem/${normalized.split('/').map(encodeURIComponent).join('/')}`;
 }
 
-export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, selectedSite }) => {
+export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, selectedSite, siteCatalogue = [], onSelectSite }) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const [status, setStatus] = useState('Waiting for local Copernicus DEM tiles…');
@@ -52,6 +56,12 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   const [showSoilLayer, setShowSoilLayer] = useState(true);
   const [showSatellite, setShowSatellite] = useState(true);
   const soilPrimitivesRef = useRef<Primitive[]>([]);
+  const showSoilLayerRef = useRef(showSoilLayer);
+  showSoilLayerRef.current = showSoilLayer;
+  const showSatelliteRef = useRef(showSatellite);
+  showSatelliteRef.current = showSatellite;
+  const onSelectSiteRef = useRef(onSelectSite);
+  onSelectSiteRef.current = onSelectSite;
 
   useEffect(() => {
     if (!open || !hostRef.current) return;
@@ -102,7 +112,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         );
         if (cancelled) return;
         const imageryLayer = viewer.imageryLayers.addImageryProvider(imagery);
-        imageryLayer.show = showSatellite;
+        imageryLayer.show = showSatelliteRef.current;
 
         const manifestResponse = await fetch('/copernicus-dem/manifest.json', { cache: 'no-store' });
         if (!manifestResponse.ok) {
@@ -181,13 +191,13 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           const primitive = new Primitive({
             geometryInstances: new GeometryInstance({
               geometry,
-              attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#c9a66b').withAlpha(0.28)) },
+              attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#c9a66b').withAlpha(0.48)) },
             }),
             appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false }),
             // This is a custom Geometry without a Cesium worker factory. Build synchronously to avoid Cesium's _workerName/_workerPath runtime error.
             asynchronous: false,
             allowPicking: false,
-            show: showSoilLayer,
+            show: showSoilLayerRef.current,
           });
           viewer.scene.primitives.add(primitive);
           primitives.push(primitive);
@@ -196,20 +206,52 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         }
 
         if (cancelled) return;
+        // Plot the existing NeuroPulse catalogue on the same Cesium world. Markers retain
+        // their exact catalogue coordinates; names are shown on selection to avoid a label cloud.
+        const validSites = siteCatalogue.filter(site =>
+          site && typeof site.name === 'string' && Number.isFinite(site.lat) && Number.isFinite(site.lon) &&
+          Math.abs(site.lat) <= 90 && Math.abs(site.lon) <= 180
+        );
+        for (const site of validSites) {
+          viewer.entities.add({
+            id: `neuropulse-site:${site.id ?? site.name}:${site.lat}:${site.lon}`,
+            name: site.name,
+            properties: { siteId: site.id ?? site.name, latitude: site.lat, longitude: site.lon, category: site.category ?? 'Research site' },
+            position: Cartesian3.fromDegrees(site.lon, site.lat, 120),
+            point: { pixelSize: 5, color: Color.fromCssColorString(site.color || '#57d7ff'), outlineColor: Color.BLACK.withAlpha(0.9), outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+          });
+        }
+        const clickHandler = viewer.screenSpaceEventHandler;
+        clickHandler.setInputAction((movement: { position: { x: number; y: number } }) => {
+          const picked = viewer?.scene.pick(movement.position);
+          const entity = picked?.id;
+          const props = entity?.properties;
+          const siteId = props?.siteId?.getValue?.();
+          if (typeof siteId !== 'string') return;
+          const match = validSites.find(site => String(site.id ?? site.name) === siteId || site.name === entity.name);
+          if (match) {
+            onSelectSiteRef.current?.(match);
+            viewer?.camera.flyTo({
+              destination: Rectangle.fromDegrees(match.lon - 0.8, Math.max(-89, match.lat - 0.6), match.lon + 0.8, Math.min(89, match.lat + 0.6)),
+              duration: 0.7,
+            });
+          }
+        }, ScreenSpaceEventType.LEFT_CLICK);
         const focus = selectedSite;
         if (focus) {
           viewer.entities.add({
+            id: 'neuropulse-selected-site',
             name: focus.name,
-            position: Cartesian3.fromDegrees(focus.lon, focus.lat, 100),
-            point: { pixelSize: 10, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2 },
-            label: { text: focus.name, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2 },
+            position: Cartesian3.fromDegrees(focus.lon, focus.lat, 180),
+            point: { pixelSize: 11, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+            label: { text: focus.name, font: '13px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
           });
           viewer.camera.flyTo({
-            destination: Rectangle.fromDegrees(focus.lon - 0.8, focus.lat - 0.6, focus.lon + 0.8, focus.lat + 0.6),
+            destination: Rectangle.fromDegrees(focus.lon - 0.8, Math.max(-89, focus.lat - 0.6), focus.lon + 0.8, Math.min(89, focus.lat + 0.6)),
             duration: 0.8,
           });
-        } else if (primitives.length > 0) {
-          viewer.camera.flyTo({ destination: Rectangle.fromDegrees(-180, -75, 180, 75), duration: 0.8 });
+        } else {
+          viewer.camera.setView({ destination: Cartesian3.fromDegrees(0, 20, 22000000) });
         }
         setStatus(`Rendered ${loaded} real GeoTIFF tile(s) from ${manifest.dataset} at ${manifest.resolutionMeters} m source resolution. Mesh is resampled to ${PREVIEW_GRID_SIZE}×${PREVIEW_GRID_SIZE} vertices per tile for interactive display.`);
       } catch (cause) {
@@ -232,7 +274,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
       viewer = null;
       viewerRef.current = null;
     };
-  }, [open, selectedSite?.lat, selectedSite?.lon, selectedSite?.name, soilDepth]);
+  }, [open, selectedSite?.lat, selectedSite?.lon, selectedSite?.name, soilDepth, siteCatalogue]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -249,16 +291,16 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950/95 p-3 md:p-5" role="dialog" aria-modal="true" aria-label="Cesium Copernicus DEM terrain preview">
+    <div className="absolute inset-0 z-20 flex flex-col overflow-hidden bg-slate-950/95 p-2" role="region" aria-label="Cesium world with GLO-90 soil and sand layer">
       <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-sm font-mono font-bold tracking-wider text-sky-200">CESIUMJS · GLO-90 GEOtiff + SOIL / SAND LAYER</div>
           <div className="mt-1 text-xs text-slate-300">{status}</div>
           {error && <div className="mt-2 max-w-4xl text-xs text-rose-300">{error}</div>}
         </div>
-        <button onClick={onClose} className="shrink-0 rounded border border-slate-600 px-3 py-2 text-xs font-mono text-slate-100 hover:bg-slate-800">CLOSE</button>
+        {onClose && <button onClick={onClose} className="shrink-0 rounded border border-slate-600 px-3 py-2 text-xs font-mono text-slate-100 hover:bg-slate-800">CLOSE</button>}
       </div>
-      <div className="mb-2 grid gap-3 rounded border border-slate-700 bg-slate-900/90 p-3 lg:grid-cols-[minmax(240px,1fr)_auto]">
+      <div className="mb-2 grid shrink-0 gap-2 rounded border border-slate-700 bg-slate-900/90 p-2 lg:grid-cols-[minmax(240px,1fr)_auto]">
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-3"><label htmlFor="glo90-soil-depth" className="text-[10px] font-mono font-bold text-amber-100">SOIL / SAND COVER SCENARIO · {soilDepthDraft} m</label><span className="text-[9px] text-slate-400">0–100 m</span></div>
           <input id="glo90-soil-depth" aria-label="Soil or sand cover depth scenario in metres" type="range" min="0" max="100" step="1" value={soilDepthDraft} onChange={event => setSoilDepthDraft(Number(event.target.value))} className="mt-2 w-full accent-amber-400" />
@@ -272,8 +314,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           <button type="button" onClick={() => setSoilDepth(soilDepthDraft)} disabled={soilDepth === soilDepthDraft} className="rounded border border-emerald-400/70 bg-emerald-950/70 px-3 py-2 text-[10px] font-mono font-bold text-emerald-100 disabled:opacity-40">APPLY DEPTH</button>
         </div>
       </div>
-      <div ref={hostRef} className="min-h-0 flex-1 overflow-hidden rounded border border-slate-700" />
-      <div className="pt-2 text-[10px] text-slate-500">GLO-90 source elevations are retained as the ground reference; the displayed mesh is resampled to 129×129 vertices per tile. Satellite imagery is from Esri and its providers. Soil/sand thickness is an adjustable scenario, not a measured global dataset.</div>
+      <div ref={hostRef} className="min-h-[220px] flex-1 overflow-hidden rounded border border-slate-700" />
+      <div className="shrink-0 pt-1 text-[9px] text-slate-500">GLO-90 source elevations are retained as the ground reference; the displayed mesh is resampled to 129×129 vertices per tile. Satellite imagery is from Esri and its providers. Soil/sand thickness is an adjustable scenario, not a measured global dataset.</div>
     </div>
   );
 };
