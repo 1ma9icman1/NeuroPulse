@@ -13,13 +13,13 @@ export const COPERNICUS_DATASET = 'Copernicus DEM GLO-90 (2021)';
 const CACHE_DB = 'neuropulse-copernicus-dem';
 const CACHE_STORE = 'rasters';
 const CACHE_KEY = 'copernicus-glo90-global-1deg-v1';
-// Open-Meteo's public endpoint has per-request coordinate limits. Keep HTTP requests
-// at 100 coordinates; checkpoint progress every 4,000 samples so interrupted loads resume.
-const BATCH_SIZE = 10;
+// Open-Meteo accepts up to 100 coordinates per request. Use the full batch to reduce
+// the global grid to 648 calls, checkpoint every 500 samples, and resume safely.
+const BATCH_SIZE = 100;
 const CHECKPOINT_SIZE = 500;
-// The public elevation endpoint rate-limits burst traffic. Keep global sampling serialized.
+// Serialized calls at 30 requests/minute: deliberately conservative versus published limits.
 const CONCURRENCY = 1;
-const REQUEST_SPACING_MS = 1_500;
+const REQUEST_SPACING_MS = 2_000;
 
 type CachedRaster = { key: string; width: number; height: number; values: ArrayBuffer; savedAt: number; completedSamples?: number; complete?: boolean };
 
