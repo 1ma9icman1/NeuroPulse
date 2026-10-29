@@ -8,6 +8,7 @@ import {
   Color,
   ColorGeometryInstanceAttribute,
   ComponentDatatype,
+  ConstantPositionProperty,
   CesiumTerrainProvider,
   TerrainProvider,
   EllipsoidTerrainProvider,
@@ -41,6 +42,15 @@ type DemManifest = {
 
 const PREVIEW_GRID_SIZE = 129;
 type CachedDemTile = { west: number; south: number; east: number; north: number; raster: ArrayLike<number>; noData: number };
+
+function sampleTileElevation(site: MapSite, tiles: CachedDemTile[]): number {
+  const tile = tiles.find(item => site.lon >= item.west && site.lon <= item.east && site.lat >= item.south && site.lat <= item.north);
+  if (!tile) return 0;
+  const x = Math.max(0, Math.min(PREVIEW_GRID_SIZE - 1, Math.round(((site.lon - tile.west) / (tile.east - tile.west)) * (PREVIEW_GRID_SIZE - 1))));
+  const y = Math.max(0, Math.min(PREVIEW_GRID_SIZE - 1, Math.round(((tile.north - site.lat) / (tile.north - tile.south)) * (PREVIEW_GRID_SIZE - 1))));
+  const value = Number(tile.raster[y * PREVIEW_GRID_SIZE + x]);
+  return Number.isFinite(value) && (!Number.isFinite(tile.noData) || value !== tile.noData) ? value : 0;
+}
 
 function buildSoilPrimitive(tile: CachedDemTile, soilDepth: number): Primitive {
   const count = PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE;
@@ -102,6 +112,10 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   showSatelliteRef.current = showSatellite;
   const onSelectSiteRef = useRef(onSelectSite);
   onSelectSiteRef.current = onSelectSite;
+  const siteCatalogueRef = useRef(siteCatalogue);
+  siteCatalogueRef.current = siteCatalogue;
+  const selectedSiteRef = useRef(selectedSite);
+  selectedSiteRef.current = selectedSite;
 
   useEffect(() => {
     if (!open || !hostRef.current) return;
@@ -209,6 +223,17 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               nextPrimitives.push(next);
             }
             soilPrimitivesRef.current = nextPrimitives;
+            for (const site of siteCatalogueRef.current) {
+              const entity = activeViewer.entities.getById(`neuropulse-site:${site.id ?? site.name}:${site.lat}:${site.lon}`);
+              if (entity) entity.position = new ConstantPositionProperty(Cartesian3.fromDegrees(
+                site.lon, site.lat, sampleTileElevation(site, terrainTilesRef.current) + (showSoilLayerRef.current ? depth : 0) + 250
+              ));
+            }
+            const selected = selectedSiteRef.current;
+            const selectedEntity = activeViewer.entities.getById('neuropulse-selected-site');
+            if (selected && selectedEntity) selectedEntity.position = new ConstantPositionProperty(Cartesian3.fromDegrees(
+              selected.lon, selected.lat, sampleTileElevation(selected, terrainTilesRef.current) + (showSoilLayerRef.current ? depth : 0) + 300
+            ));
             activeViewer.scene.requestRender();
             setStatus(`Visible sand/soil cover surface applied: +${depth} m across ${nextPrimitives.length} local GLO-90 tile(s). This is an offset surface scenario, not measured soil thickness.`);
           } catch (cause) {
@@ -221,7 +246,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         if (cancelled) return;
         // Plot every valid NeuroPulse site at its catalogue coordinates. Site labels stay visible;
         // their height is offset above the local DEM and the adjustable sand surface.
-        const validSites = siteCatalogue.filter(site =>
+        const validSites = siteCatalogueRef.current.filter(site =>
           site && typeof site.name === 'string' && Number.isFinite(site.lat) && Number.isFinite(site.lon) &&
           Math.abs(site.lat) <= 90 && Math.abs(site.lon) <= 180
         );
@@ -230,7 +255,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             id: `neuropulse-site:${site.id ?? site.name}:${site.lat}:${site.lon}`,
             name: site.name,
             properties: { siteId: site.id ?? site.name, latitude: site.lat, longitude: site.lon, category: site.category ?? 'Research site' },
-            position: Cartesian3.fromDegrees(site.lon, site.lat, 120),
+            position: Cartesian3.fromDegrees(site.lon, site.lat, sampleTileElevation(site, terrainTilesRef.current) + (showSoilLayerRef.current ? soilDepth : 0) + 250),
             point: { pixelSize: 9, color: Color.fromCssColorString(site.color || '#57d7ff'), outlineColor: Color.WHITE.withAlpha(0.95), outlineWidth: 2 },
             label: {
               text: site.name,
@@ -241,7 +266,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               outlineWidth: 3,
               style: 2,
               pixelOffset: new Cartesian2(0, -16),
-              disableDepthTestDistance: 0,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
             },
           });
         }
@@ -283,9 +308,9 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           viewer.entities.add({
             id: 'neuropulse-selected-site',
             name: focus.name,
-            position: Cartesian3.fromDegrees(focus.lon, focus.lat, 180),
+            position: Cartesian3.fromDegrees(focus.lon, focus.lat, sampleTileElevation(focus, terrainTilesRef.current) + (showSoilLayerRef.current ? soilDepth : 0) + 300),
             point: { pixelSize: 12, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2 },
-            label: { text: focus.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2 },
+            label: { text: focus.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
           });
           viewer.camera.flyTo({
             destination: Cartesian3.fromDegrees(focus.lon, focus.lat, 9000),
@@ -318,7 +343,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
       viewer = null;
       viewerRef.current = null;
     };
-  }, [open, siteCatalogue]);
+  }, [open]);
 
   useEffect(() => {
     if (soilDepth > -1) rebuildSoilRef.current?.(soilDepth);
@@ -332,9 +357,9 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
     if (existing) viewer.entities.remove(existing);
     viewer.entities.add({
       id: 'neuropulse-selected-site', name: selectedSite.name,
-      position: Cartesian3.fromDegrees(selectedSite.lon, selectedSite.lat, 180),
+      position: Cartesian3.fromDegrees(selectedSite.lon, selectedSite.lat, sampleTileElevation(selectedSite, terrainTilesRef.current) + (showSoilLayer ? soilDepth : 0) + 300),
       point: { pixelSize: 12, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2 },
-      label: { text: selectedSite.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2 },
+      label: { text: selectedSite.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
     });
     viewer.camera.flyTo({ destination, orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 }, duration: 1 });
   }, [selectedSite?.id, selectedSite?.name, selectedSite?.lat, selectedSite?.lon, showSoilLayer, soilDepth]);
