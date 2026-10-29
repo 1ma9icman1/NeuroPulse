@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { ELEVATION_DATASET, loadCopernicusGlobalSamples, resampleCopernicusGrid } from '../lib/copernicusDem';
+import { ELEVATION_DATASET, loadGlobalTerrainSamples, resampleCopernicusGrid } from '../lib/copernicusDem';
 import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle, Stars, Ruler, Camera, Eye, EyeOff, Map as MapIcon } from 'lucide-react';
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 import { FreeStreetImageryPanel } from './FreeStreetImageryPanel';
@@ -244,16 +244,16 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         setLoadError('');
         setLoadProgress({ completed: 0, total: 64800, fromCache: false });
         setDatasetInfo(`Loading measured elevations from ${ELEVATION_DATASET}…`);
-        const sampled = await loadCopernicusGlobalSamples(demAbortController.signal, (completed, total, fromCache) => {
+        const sampled = await loadGlobalTerrainSamples(demAbortController.signal, (completed, total, fromCache) => {
           if (cancelled) return;
           const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
           setLoadProgress({ completed, total, fromCache });
           setDatasetInfo(fromCache
             ? `Loaded cached Copernicus GLO-90 raster: ${total.toLocaleString()} / ${total.toLocaleString()} samples (100%).`
-            : `Downloading Copernicus GLO-90: ${completed.toLocaleString()} / ${total.toLocaleString()} samples (${percent}%).`);
+            : `Loading terrain tiles: ${completed.toLocaleString()} / ${total.toLocaleString()} samples (${percent}%).`);
         });
         if (cancelled) return;
-        setDatasetInfo('Resampling measured Copernicus elevations to the existing globe mesh…');
+        setDatasetInfo('Resampling measured terrain elevations to the existing globe mesh…');
         gridWidth = DEM_WIDTH;
         gridHeight = DEM_HEIGHT;
         heights = new Float32Array(resampleCopernicusGrid(sampled.values, gridWidth, gridHeight));
@@ -799,7 +799,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         </div>
       </div>
       <div className="relative min-h-0 flex-1">
-        <div ref={hostRef} className="absolute inset-0" aria-label="Interactive three-dimensional Copernicus DEM globe" />
+        <div ref={hostRef} className="absolute inset-0" aria-label="Interactive three-dimensional global terrain elevation globe" />
         <FreeStreetImageryPanel
           sites={siteCatalogue}
           selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
