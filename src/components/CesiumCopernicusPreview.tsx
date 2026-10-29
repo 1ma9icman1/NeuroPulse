@@ -3,6 +3,7 @@ import {
   ArcGisMapServerImageryProvider,
   ScreenSpaceEventType,
   BoundingSphere,
+  Cartesian2,
   Cartesian3,
   Color,
   ColorGeometryInstanceAttribute,
@@ -231,15 +232,26 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             properties: { siteId: site.id ?? site.name, latitude: site.lat, longitude: site.lon, category: site.category ?? 'Research site' },
             position: Cartesian3.fromDegrees(site.lon, site.lat, 120),
             point: { pixelSize: 9, color: Color.fromCssColorString(site.color || '#57d7ff'), outlineColor: Color.WHITE.withAlpha(0.95), outlineWidth: 2 },
+            label: {
+              text: site.name,
+              show: false,
+              font: '14px sans-serif',
+              fillColor: Color.WHITE,
+              outlineColor: Color.BLACK,
+              outlineWidth: 3,
+              style: 2,
+              pixelOffset: new Cartesian2(0, -16),
+              disableDepthTestDistance: 0,
+            },
           });
         }
         const clickHandler = viewer.screenSpaceEventHandler;
-        clickHandler.setInputAction((movement: { position: { x: number; y: number } }) => {
-          const pickedItems = viewer?.scene.drillPick(movement.position, 12) ?? [];
+        const siteEntityFromPick = (position: { x: number; y: number }) => {
+          const pickedItems = viewer?.scene.drillPick(position, 12) ?? [];
           const picked = pickedItems.find((item: any) => {
             const id = item?.id?.id ?? item?.id;
             return typeof id === 'string' && id.startsWith('neuropulse-site:');
-          }) ?? viewer?.scene.pick(movement.position);
+          }) ?? viewer?.scene.pick(position);
           const entity = picked?.id;
           const props = entity?.properties;
           const siteId = props?.siteId?.getValue?.();
@@ -247,10 +259,22 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             (typeof siteId === 'string' && String(site.id ?? site.name) === siteId) ||
             (entity?.name && site.name === entity.name)
           );
-          if (!match) return;
+          return match ? { match, entity } : null;
+        };
+        let hoveredSiteEntity: any = null;
+        clickHandler.setInputAction((movement: { endPosition: { x: number; y: number } }) => {
+          const result = siteEntityFromPick(movement.endPosition);
+          if (hoveredSiteEntity?.label) hoveredSiteEntity.label.show = false;
+          hoveredSiteEntity = result?.entity ?? null;
+          if (hoveredSiteEntity?.label) hoveredSiteEntity.label.show = true;
+          if (viewer?.canvas) viewer.canvas.style.cursor = result ? 'pointer' : 'default';
+        }, ScreenSpaceEventType.MOUSE_MOVE);
+        clickHandler.setInputAction((movement: { position: { x: number; y: number } }) => {
+          const result = siteEntityFromPick(movement.position);
+          if (!result) return;
+          const { match } = result;
           onSelectSiteRef.current?.(match);
-          // Fly to a real camera height over the exact catalogue coordinate instead of
-          // fitting a geographic rectangle (whose apparent zoom varies by latitude).
+          // Keep a close, overhead view centred on the exact site coordinate.
           viewer?.camera.flyTo({
             destination: Cartesian3.fromDegrees(match.lon, match.lat, 9000),
             orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
