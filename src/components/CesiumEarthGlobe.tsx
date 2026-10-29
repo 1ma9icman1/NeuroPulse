@@ -151,7 +151,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
           const selected = selectedRef.current && siteId(selectedRef.current) === id;
           const old = viewer.entities.getById(id);
           if (old) viewer.entities.remove(old);
-          const entity = viewer.entities.add({
+          viewer.entities.add({
             id,
             name: site.name,
             properties: { neuroPulseSite: true, siteId: site.id ?? site.name },
@@ -286,8 +286,8 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
       viewer.entities.add({
         id, name: site.name, properties: { neuroPulseSite: true, siteId: site.id ?? site.name },
         position: Cartesian3.fromDegrees(site.lon, site.lat, Math.max(0, Number(site.altitude) || 0) + (selected ? 100 : 40)),
-        point: { pixelSize: selected ? 13 : site.isCity ? 8 : 9, color: Color.fromCssColorString(selected ? '#ffffff' : site.color || (site.isCity ? '#7dd3fc' : '#fbbf24')), outlineColor: Color.fromCssColorString(selected ? '#22d3ee' : '#07111f'), outlineWidth: selected ? 3 : 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
-        label: { text: site.name, show: selected || site.isCity, font: selected ? 'bold 14px sans-serif' : '12px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, pixelOffset: new Cartesian2(0, -14), disableDepthTestDistance: Number.POSITIVE_INFINITY },
+        point: { pixelSize: selected ? 13 : site.isCity ? 8 : 9, color: Color.fromCssColorString(selected ? '#ffffff' : site.color || (site.isCity ? '#7dd3fc' : '#fbbf24')), outlineColor: Color.fromCssColorString(selected ? '#22d3ee' : '#07111f'), outlineWidth: selected ? 3 : 2 },
+        label: { text: site.name, show: selected || site.showLabel === true, font: selected ? 'bold 14px sans-serif' : '12px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, pixelOffset: new Cartesian2(0, -14) },
       });
     }
     viewer.scene.requestRender();
