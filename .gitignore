@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local Copernicus DEM GeoTIFF tiles can be many gigabytes; keep them out of Git.
+public/copernicus-dem/
