@@ -271,7 +271,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               outlineWidth: 3,
               style: 2,
               pixelOffset: new Cartesian2(0, -16),
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+              disableDepthTestDistance: 0,
             },
           });
         }
@@ -414,7 +414,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             name: focus.name,
             position: Cartesian3.fromDegrees(focus.lon, focus.lat, sampleTileElevation(focus, terrainTilesRef.current) + (showSoilLayerRef.current ? soilDepth : 0) + 300),
             point: { pixelSize: 12, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2 },
-            label: { text: focus.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+            label: { text: focus.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: 0 },
           });
           viewer.camera.flyTo({
             destination: Cartesian3.fromDegrees(focus.lon, focus.lat, 9000),
@@ -465,7 +465,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
       id: 'neuropulse-selected-site', name: selectedSite.name,
       position: Cartesian3.fromDegrees(selectedSite.lon, selectedSite.lat, sampleTileElevation(selectedSite, terrainTilesRef.current) + (showSoilLayer ? soilDepth : 0) + 300),
       point: { pixelSize: 12, color: Color.CYAN, outlineColor: Color.WHITE, outlineWidth: 2 },
-      label: { text: selectedSite.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+      label: { text: selectedSite.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, disableDepthTestDistance: 0 },
     });
     viewer.camera.flyTo({ destination, orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 }, duration: 1 });
   }, [selectedSite?.id, selectedSite?.name, selectedSite?.lat, selectedSite?.lon]);
