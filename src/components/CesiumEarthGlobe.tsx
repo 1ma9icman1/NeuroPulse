@@ -164,7 +164,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
             },
             label: {
               text: site.name,
-              show: true,
+              show: selected || site.showLabel === true,
               font: selected ? 'bold 14px sans-serif' : '12px sans-serif',
               fillColor: Color.WHITE,
               outlineColor: Color.BLACK,
