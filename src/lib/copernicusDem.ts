@@ -13,12 +13,15 @@ export const COPERNICUS_DATASET = 'Copernicus DEM GLO-90 (2021)';
 const CACHE_DB = 'neuropulse-copernicus-dem';
 const CACHE_STORE = 'rasters';
 const CACHE_KEY = 'copernicus-glo90-global-1deg-v1';
+// Open-Meteo's public endpoint has per-request coordinate limits. Keep HTTP requests
+// at 100 coordinates; checkpoint progress every 4,000 samples so interrupted loads resume.
 const BATCH_SIZE = 100;
+const CHECKPOINT_SIZE = 4_000;
 // The public elevation endpoint rate-limits burst traffic. Keep global sampling serialized.
 const CONCURRENCY = 1;
 const REQUEST_SPACING_MS = 300;
 
-type CachedRaster = { key: string; width: number; height: number; values: ArrayBuffer; savedAt: number };
+type CachedRaster = { key: string; width: number; height: number; values: ArrayBuffer; savedAt: number; completedSamples?: number; complete?: boolean };
 
 function openCache(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);
@@ -34,25 +37,28 @@ function openCache(): Promise<IDBDatabase | null> {
   });
 }
 
-async function readCache(): Promise<Float32Array | null> {
+async function readCachedRaster(): Promise<{ values: Float32Array; completedSamples: number; complete: boolean } | null> {
   const db = await openCache();
   if (!db) return null;
   return new Promise(resolve => {
     const request = db.transaction(CACHE_STORE, 'readonly').objectStore(CACHE_STORE).get(CACHE_KEY);
     request.onsuccess = () => {
       const value = request.result as CachedRaster | undefined;
-      if (!value || value.width !== COPERNICUS_GRID_WIDTH || value.height !== COPERNICUS_GRID_HEIGHT) {
+      if (!value || value.width !== COPERNICUS_GRID_WIDTH || value.height !== COPERNICUS_GRID_HEIGHT || value.values.byteLength !== COPERNICUS_GRID_WIDTH * COPERNICUS_GRID_HEIGHT * Float32Array.BYTES_PER_ELEMENT) {
+        db.close();
         resolve(null);
         return;
       }
-      resolve(new Float32Array(value.values.slice(0)));
+      const values = new Float32Array(value.values.slice(0));
+      const complete = value.complete === true || value.completedSamples === undefined;
+      resolve({ values, completedSamples: complete ? values.length : Math.max(0, Math.min(values.length, value.completedSamples ?? 0)), complete });
       db.close();
     };
     request.onerror = () => { db.close(); resolve(null); };
   });
 }
 
-async function writeCache(values: Float32Array): Promise<void> {
+async function writeCache(values: Float32Array, completedSamples = values.length, complete = true): Promise<void> {
   const db = await openCache();
   if (!db) return;
   await new Promise<void>(resolve => {
@@ -62,6 +68,8 @@ async function writeCache(values: Float32Array): Promise<void> {
       height: COPERNICUS_GRID_HEIGHT,
       values: values.slice().buffer,
       savedAt: Date.now(),
+      completedSamples,
+      complete,
     };
     const transaction = db.transaction(CACHE_STORE, 'readwrite');
     transaction.objectStore(CACHE_STORE).put(record);
@@ -132,19 +140,23 @@ export async function loadCopernicusGlobalSamples(
   signal: AbortSignal,
   onProgress?: (completed: number, total: number, fromCache: boolean) => void,
 ): Promise<{ values: Float32Array; fromCache: boolean }> {
-  const cached = await readCache();
+  const cached = await readCachedRaster();
   if (signal.aborted) throw new DOMException('Copernicus elevation load cancelled', 'AbortError');
-  if (cached && cached.length === COPERNICUS_GRID_WIDTH * COPERNICUS_GRID_HEIGHT) {
-    onProgress?.(cached.length, cached.length, true);
-    return { values: cached, fromCache: true };
+  if (cached?.complete && cached.values.length === COPERNICUS_GRID_WIDTH * COPERNICUS_GRID_HEIGHT) {
+    onProgress?.(cached.values.length, cached.values.length, true);
+    return { values: cached.values, fromCache: true };
   }
 
   const points = createPoints();
   const batches: SamplePoint[][] = [];
   for (let i = 0; i < points.length; i += BATCH_SIZE) batches.push(points.slice(i, i + BATCH_SIZE));
-  const values = new Float32Array(points.length);
-  let nextBatch = 0;
-  let completed = 0;
+  const values = cached?.values ?? new Float32Array(points.length);
+  // Resume from the last complete checkpoint so a failed request never causes a full restart.
+  const resumeSamples = cached && !cached.complete
+    ? Math.floor(cached.completedSamples / CHECKPOINT_SIZE) * CHECKPOINT_SIZE
+    : 0;
+  let nextBatch = Math.ceil(resumeSamples / BATCH_SIZE);
+  let completed = resumeSamples;
   const worker = async () => {
     while (true) {
       if (signal.aborted) throw new DOMException('Copernicus elevation load cancelled', 'AbortError');
@@ -154,14 +166,20 @@ export async function loadCopernicusGlobalSamples(
       for (const sample of samples) values[sample.index] = sample.elevation;
       completed += samples.length;
       onProgress?.(completed, points.length, false);
+      if (completed % CHECKPOINT_SIZE === 0 || completed === points.length) {
+        await writeCache(values, completed, completed === points.length);
+      }
       // Leave a small gap between successful calls to avoid triggering provider burst limits.
       if (nextBatch < batches.length && !signal.aborted) await new Promise(resolve => setTimeout(resolve, REQUEST_SPACING_MS));
     }
   };
+  // Discard any uncheckpointed tail from an interrupted previous attempt.
+  if (resumeSamples > 0 && cached) values.fill(0, resumeSamples);
+  // Workers run sequentially (CONCURRENCY=1), preserving contiguous checkpoint boundaries.
   await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
   if (signal.aborted) throw new DOMException('Copernicus elevation load cancelled', 'AbortError');
   if (values.some(value => !Number.isFinite(value))) throw new Error('Copernicus DEM returned missing or invalid global elevation samples.');
-  await writeCache(values);
+  await writeCache(values, values.length, true);
   return { values, fromCache: false };
 }
 
