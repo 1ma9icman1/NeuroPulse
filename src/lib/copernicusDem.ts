@@ -15,11 +15,11 @@ const CACHE_STORE = 'rasters';
 const CACHE_KEY = 'copernicus-glo90-global-1deg-v1';
 // Open-Meteo's public endpoint has per-request coordinate limits. Keep HTTP requests
 // at 100 coordinates; checkpoint progress every 4,000 samples so interrupted loads resume.
-const BATCH_SIZE = 25;
-const CHECKPOINT_SIZE = 4_000;
+const BATCH_SIZE = 10;
+const CHECKPOINT_SIZE = 500;
 // The public elevation endpoint rate-limits burst traffic. Keep global sampling serialized.
 const CONCURRENCY = 1;
-const REQUEST_SPACING_MS = 750;
+const REQUEST_SPACING_MS = 1_500;
 
 type CachedRaster = { key: string; width: number; height: number; values: ArrayBuffer; savedAt: number; completedSamples?: number; complete?: boolean };
 
@@ -102,17 +102,17 @@ async function fetchBatch(points: SamplePoint[], signal: AbortSignal): Promise<A
     if (signal.aborted) throw new DOMException('Copernicus elevation load cancelled', 'AbortError');
     try {
       const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
-      if (response.status === 429 || response.status >= 500) {
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        throw new Error(`HTTP 429: elevation service rate-limited the request${retryAfter ? `; Retry-After: ${retryAfter}` : ''}. Stopped immediately to avoid hammering the service. Your saved checkpoint is retained.`);
+      }
+      if (response.status >= 500) {
         const retryAfterHeader = response.headers.get('Retry-After');
         const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
         const backoffMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
           ? Math.min(60_000, retryAfterSeconds * 1000)
           : Math.min(30_000, 1_500 * (2 ** attempt));
-        lastError = new Error(
-          response.status === 429
-            ? `Copernicus elevation sampling service is rate-limiting requests (HTTP 429). ${attempt < 4 ? `Retrying after ${Math.ceil(backoffMs / 1000)} seconds.` : 'Automatic retry limit reached.'}`
-            : `Copernicus elevation sampling service returned HTTP ${response.status}. ${attempt < 4 ? 'Retrying shortly.' : 'Automatic retry limit reached.'}`
-        );
+        lastError = new Error(`Copernicus elevation sampling service returned HTTP ${response.status}. ${attempt < 4 ? 'Retrying shortly.' : 'Automatic retry limit reached.'}`);
         if (attempt < 4) await new Promise(resolve => setTimeout(resolve, backoffMs));
         continue;
       }
@@ -130,6 +130,7 @@ async function fetchBatch(points: SamplePoint[], signal: AbortSignal): Promise<A
     } catch (error) {
       if (signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) throw error;
       lastError = error instanceof Error ? error : new Error('Copernicus elevation request failed');
+      if (lastError.message.includes('HTTP 429')) throw lastError;
       if (attempt < 4) await new Promise(resolve => setTimeout(resolve, Math.min(15_000, 1_000 * (2 ** attempt))));
     }
   }
