@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { ELEVATION_DATASET, loadGlobalTerrainSamples, resampleCopernicusGrid } from '../lib/copernicusDem';
+import { ELEVATION_DATASET, loadGlobalTerrainSamples, resampleElevationGrid } from '../lib/copernicusDem';
 import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle, Stars, Ruler, Camera, Eye, EyeOff, Map as MapIcon } from 'lucide-react';
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 import { FreeStreetImageryPanel } from './FreeStreetImageryPanel';
@@ -249,14 +249,14 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
           setLoadProgress({ completed, total, fromCache });
           setDatasetInfo(fromCache
-            ? `Loaded cached Copernicus GLO-90 raster: ${total.toLocaleString()} / ${total.toLocaleString()} samples (100%).`
+            ? `Loaded cached global terrain raster: ${total.toLocaleString()} / ${total.toLocaleString()} samples (100%).`
             : `Loading terrain tiles: ${completed.toLocaleString()} / ${total.toLocaleString()} samples (${percent}%).`);
         });
         if (cancelled) return;
         setDatasetInfo('Resampling measured terrain elevations to the existing globe mesh…');
         gridWidth = DEM_WIDTH;
         gridHeight = DEM_HEIGHT;
-        heights = new Float32Array(resampleCopernicusGrid(sampled.values, gridWidth, gridHeight));
+        heights = new Float32Array(resampleElevationGrid(sampled.values, gridWidth, gridHeight));
         if (!heights.length || heights.some(value => !Number.isFinite(value))) {
           throw new Error('Copernicus DEM returned missing or invalid elevation samples.');
         }
@@ -437,7 +437,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           animationFrame = window.requestAnimationFrame(animate);
         };
         animate();
-        setDatasetInfo('Copernicus GLO-90 samples loaded. Zero-valued ocean cells follow the dataset convention; no bathymetry is invented.');
+        setDatasetInfo('Global terrain tile samples loaded. Tile-derived heights are used without synthetic elevation.');
         setLoading(false);
       } catch (error) {
         if (cancelled) return;
@@ -833,7 +833,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
           <button type="button" onClick={() => setSurfaceMode('satellite')} disabled={!surfaceTextureLoaded} aria-pressed={surfaceMode === 'satellite'} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${surfaceMode === 'satellite' ? 'border-cyan-300 bg-cyan-900/70 text-cyan-100' : 'border-slate-700 text-slate-300 hover:border-cyan-500 disabled:opacity-40'}`}>SATELLITE TEXTURE</button>
           <button type="button" onClick={() => setSurfaceMode('relief')} aria-pressed={surfaceMode === 'relief'} className={`rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${surfaceMode === 'relief' ? 'border-emerald-300 bg-emerald-900/70 text-emerald-100' : 'border-slate-700 text-slate-300 hover:border-emerald-500'}`}>ELEVATION RELIEF</button>
           <button type="button" onClick={() => setShowCountryBorders(value => !value)} aria-pressed={showCountryBorders} className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-[9px] font-mono font-bold transition-colors ${showCountryBorders ? 'border-amber-300 bg-amber-900/60 text-amber-100' : 'border-slate-700 text-slate-300 hover:border-amber-500'}`}><MapIcon className="h-3 w-3" /> COUNTRY BORDERS {showCountryBorders ? 'ON' : 'OFF'}</button>
-          <span className="text-[9px] text-slate-500">{surfaceTextureError ? 'Satellite service unavailable · shaded relief active' : surfaceMode === 'satellite' ? 'World imagery draped over Copernicus GLO-90 samples' : 'Elevation-colored, hill-shaded terrain'}</span>
+          <span className="text-[9px] text-slate-500">{surfaceTextureError ? 'Satellite service unavailable · shaded relief active' : surfaceMode === 'satellite' ? 'World imagery draped over global terrain elevation samples' : 'Elevation-colored, hill-shaded terrain'}</span>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 xl:col-span-2">
           <div className="min-w-0 text-[9px] text-slate-500">{datasetInfo} <span className="mx-1">·</span> <a className="text-sky-300 underline" href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">AWS Terrain Tiles</a><span className="mx-1">·</span><a className="text-sky-300 underline" href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noreferrer">Terrain data sources & attribution</a><span className="mx-1">·</span> <span>Imagery © Esri and its data providers</span></div>
