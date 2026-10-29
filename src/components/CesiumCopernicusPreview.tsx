@@ -219,8 +219,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         };
 
         if (cancelled) return;
-        // Plot the existing NeuroPulse catalogue on the same Cesium world. Markers retain
-        // their exact catalogue coordinates; names are shown on selection to avoid a label cloud.
+        // Plot every valid NeuroPulse site at its catalogue coordinates. Site labels stay visible;
+        // their height is offset above the local DEM and the adjustable sand surface.
         const validSites = siteCatalogue.filter(site =>
           site && typeof site.name === 'string' && Number.isFinite(site.lat) && Number.isFinite(site.lon) &&
           Math.abs(site.lat) <= 90 && Math.abs(site.lon) <= 180
@@ -337,7 +337,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
       label: { text: selectedSite.name, font: '14px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2 },
     });
     viewer.camera.flyTo({ destination, orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 }, duration: 1 });
-  }, [selectedSite?.id, selectedSite?.name, selectedSite?.lat, selectedSite?.lon]);
+  }, [selectedSite?.id, selectedSite?.name, selectedSite?.lat, selectedSite?.lon, showSoilLayer, soilDepth]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
