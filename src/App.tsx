@@ -289,7 +289,7 @@ export default function App() {
     'SOLAR FLARE EARTH': 'Dedicated animated solar-system map with NOAA live observations and replayable recorded flare events.',
     'ANCIENT SITES': 'Browse archaeological sites, monuments, and ancient structures.',
     'HISTORICAL SITES': 'Browse historic settlements, temples, tombs, and cultural landmarks.',
-    'UNDERGROUND CITIES': 'Browse underground cities, rock-cut settlements, cave systems, tunnels, bunkers, and subterranean heritage. Pins are approximate locality references; verify individual records against official or scholarly sources.'
+    'UNDERGROUND CITIES': 'Browse underground cities, rock-cut settlements, cave systems, tunnels, bunkers, and subterranean heritage. Pins are approximate locality references; verify individual records against official or scholarly sources.',
     'CITIES': 'Browse modern cities and urban reference locations.',
     'REFERENCE LOCATIONS': 'Browse geographic locations that do not fit a specialist category.',
     'ALIGNMENT ANALYSIS': 'Compare coordinates and test candidate alignments without treating proximity as proof.',
@@ -524,16 +524,6 @@ export default function App() {
               selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
               siteCatalogue={researchSites}
               onBack={() => setEarthAreaView('globe')}
-              onSelectSite={(site) => {
-                // Reuse the same in-app location workflow as the other Earth view:
-                // selecting an elevation marker loads its embedded Google Street View.
-                setSelectedGlobeSite(site);
-                setSelectedSiteId(site.id ?? site.name);
-                setShowSiteList(false);
-                setStreetFallbackNotice(false);
-                setStreetFrameLoaded(false);
-                setEarthAreaView('street');
-              }}
               onAssignChannel={(channel, latitude, longitude) => {
                 const lat = latitude * Math.PI / 180;
                 const lon = longitude * Math.PI / 180;
