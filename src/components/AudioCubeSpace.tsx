@@ -44,6 +44,7 @@ import {
   Sparkles,
   Sun,
   Camera,
+  Building2,
 } from 'lucide-react';
 import {
   REAL_CELESTIAL_STARS,
@@ -150,6 +151,8 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const earthSphereCacheKeyRef = useRef('');
   const [earthTextureLoaded, setEarthTextureLoaded] = useState(false);
   const [showCountryBorders, setShowCountryBorders] = useState(true);
+  const [showBuildings, setShowBuildings] = useState(false);
+  const [buildingsStatus, setBuildingsStatus] = useState('');
   const [countryBorderPaths, setCountryBorderPaths] = useState<Array<{ points: number[][]; name?: string }>>([]);
   useEffect(() => {
     let cancelled = false;
@@ -3922,11 +3925,15 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               </div>
             )}
             <button type="button" onClick={() => setShowCountryBorders(value => !value)} aria-pressed={showCountryBorders} title="Toggle country borders on the Earth map" className={`absolute right-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[10px] font-mono font-bold shadow-lg backdrop-blur transition-colors ${showCountryBorders ? 'border-amber-300/80 bg-slate-950/90 text-amber-100' : 'border-slate-600 bg-slate-950/80 text-slate-300 hover:border-amber-400'}`}><MapIcon className="h-3.5 w-3.5" /> BORDERS {showCountryBorders ? 'ON' : 'OFF'}</button>
+            <button type="button" onClick={() => setShowBuildings(value => !value)} aria-pressed={showBuildings} title="Stream global OpenStreetMap building models for the current Earth view" className={`absolute right-3 top-12 z-30 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[10px] font-mono font-bold shadow-lg backdrop-blur transition-colors ${showBuildings ? 'border-emerald-300/80 bg-slate-950/95 text-emerald-100' : 'border-slate-600 bg-slate-950/90 text-slate-200 hover:border-emerald-400'}`}><Building2 className="h-3.5 w-3.5" /> {showBuildings ? 'BUILDINGS ON' : 'RENDER BUILDINGS'}</button>
+            {buildingsStatus && showBuildings && <div role="status" className="absolute right-3 top-[5.4rem] z-30 max-w-[min(340px,75vw)] rounded-md border border-slate-700 bg-slate-950/90 px-2.5 py-1.5 text-[9px] font-mono text-slate-200 shadow-lg">{buildingsStatus}</div>}
             <CesiumEarthGlobe
               ref={globeRef}
               sites={visibleEarthSites.filter((site: any) => site.isCity ? showCities : (site.evidenceStatus ? showMeasuredSoundSites : showAncientStructures)).map((site: any) => ({ ...site, showLabel: site.isCity ? (earthZoomTier >= 2 || isMajorZoomCity(site)) : earthZoomTier >= 2 }))}
               selectedSite={selectedEarthSite}
               showCountryBorders={showCountryBorders}
+              showBuildings={showBuildings}
+              onBuildingsStatus={setBuildingsStatus}
               countryBorderPaths={countryBorderPaths}
               imagerySource={earthImagerySource}
               triangleEdges={triangleEdges}
