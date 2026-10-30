@@ -143,6 +143,52 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExagg
       attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band]).withAlpha(0.30)) },
     })];
   });
+  // Add a restrained topographic wire grid over the shaded DEM surface.
+  // Every eighth source vertex keeps the grid legible at regional scale without
+  // drawing all 513×513 raster cell edges.
+  const wireIndices: number[] = [];
+  const gridStep = 8;
+  for (let y = 0; y < PREVIEW_GRID_SIZE; y += gridStep) {
+    for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x += gridStep) {
+      const nextX = Math.min(PREVIEW_GRID_SIZE - 1, x + gridStep);
+      const a = y * PREVIEW_GRID_SIZE + x;
+      const b = y * PREVIEW_GRID_SIZE + nextX;
+      if (validMask[a] && validMask[b]) wireIndices.push(a, b);
+    }
+  }
+  for (let x = 0; x < PREVIEW_GRID_SIZE; x += gridStep) {
+    for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y += gridStep) {
+      const nextY = Math.min(PREVIEW_GRID_SIZE - 1, y + gridStep);
+      const a = y * PREVIEW_GRID_SIZE + x;
+      const b = nextY * PREVIEW_GRID_SIZE + x;
+      if (validMask[a] && validMask[b]) wireIndices.push(a, b);
+    }
+  }
+  // Include the final row and column so the wireframe closes at tile boundaries.
+  for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x += gridStep) {
+    const a = (PREVIEW_GRID_SIZE - 1) * PREVIEW_GRID_SIZE + x;
+    const b = (PREVIEW_GRID_SIZE - 1) * PREVIEW_GRID_SIZE + Math.min(PREVIEW_GRID_SIZE - 1, x + gridStep);
+    if (validMask[a] && validMask[b]) wireIndices.push(a, b);
+  }
+  for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y += gridStep) {
+    const a = y * PREVIEW_GRID_SIZE + PREVIEW_GRID_SIZE - 1;
+    const b = Math.min(PREVIEW_GRID_SIZE - 1, y + gridStep) * PREVIEW_GRID_SIZE + PREVIEW_GRID_SIZE - 1;
+    if (validMask[a] && validMask[b]) wireIndices.push(a, b);
+  }
+  if (wireIndices.length) {
+    const wireGeometry = new Geometry({
+      attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
+      indices: Uint32Array.from(wireIndices),
+      primitiveType: PrimitiveType.LINES,
+      vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
+      boundingSphere: BoundingSphere.fromVertices(positions),
+    });
+    instances.push(new GeometryInstance({
+      id: `copernicus-terrain-wireframe-${tile.west}-${tile.south}`,
+      geometry: wireGeometry,
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d9e8d9').withAlpha(0.48)) },
+    }));
+  }
   if (!instances.length) throw new Error('The DEM tile contains no valid terrain triangles.');
   return new Primitive({
     geometryInstances: instances,
