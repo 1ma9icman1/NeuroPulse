@@ -2,7 +2,7 @@ name: Build verification # Copernicus DEM branch verification
 
 on:
   push:
-    branches: [main, feature/knowledge-graph-interface, feature/copernicus-dem-windows]
+    branches: [main, feature/knowledge-graph-interface, feature/copernicus-dem-windows, feature/unified-cesium-earth]
   pull_request:
     branches: [main]
 
