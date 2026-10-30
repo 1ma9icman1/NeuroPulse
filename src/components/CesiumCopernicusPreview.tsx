@@ -66,21 +66,30 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExagg
   let maxElevation = -Infinity;
   let elevationSum = 0;
 
+  // Pass 1: calculate the DEM statistics before using the mean to position vertices.
+  // Keeping this separate avoids reading meanElevation before it is initialized.
+  for (let index = 0; index < count; index++) {
+    const elevation = Number(tile.raster[index]);
+    const valid = Number.isFinite(elevation) && (!Number.isFinite(tile.noData) || elevation !== tile.noData);
+    if (!valid) continue;
+    validMask[index] = 1;
+    elevations[index] = elevation;
+    validVertices++;
+    minElevation = Math.min(minElevation, elevation);
+    maxElevation = Math.max(maxElevation, elevation);
+    elevationSum += elevation;
+  }
+  if (validVertices < count * 0.9) throw new Error('Too many invalid elevation samples in a cached DEM tile.');
+  const meanElevation = elevationSum / validVertices;
+
+  // Pass 2: build the 3D vertex positions using the now-initialized mean.
   for (let y = 0; y < PREVIEW_GRID_SIZE; y++) {
     const latitude = tile.north - (y / (PREVIEW_GRID_SIZE - 1)) * (tile.north - tile.south);
     for (let x = 0; x < PREVIEW_GRID_SIZE; x++) {
       const index = y * PREVIEW_GRID_SIZE + x;
       const longitude = tile.west + (x / (PREVIEW_GRID_SIZE - 1)) * (tile.east - tile.west);
-      const elevation = Number(tile.raster[index]);
-      const valid = Number.isFinite(elevation) && (!Number.isFinite(tile.noData) || elevation !== tile.noData);
-      if (valid) {
-        validMask[index] = 1;
-        elevations[index] = elevation;
-        validVertices++;
-        minElevation = Math.min(minElevation, elevation);
-        maxElevation = Math.max(maxElevation, elevation);
-        elevationSum += elevation;
-      }
+      const elevation = elevations[index];
+      const valid = validMask[index] === 1;
       const adjustedElevation = valid ? meanElevation + (elevation - meanElevation) * reliefExaggeration + soilDepth : meanElevation;
       const point = Cartesian3.fromDegrees(longitude, latitude, adjustedElevation);
       positions[index * 3] = point.x;
@@ -88,8 +97,6 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExagg
       positions[index * 3 + 2] = point.z;
     }
   }
-  if (validVertices < count * 0.9) throw new Error('Too many invalid elevation samples in a cached DEM tile.');
-  const meanElevation = elevationSum / validVertices;
   if (!Number.isFinite(minElevation) || !Number.isFinite(maxElevation) || maxElevation - minElevation < 0.01) {
     throw new Error(`DEM tile has no usable relief: min ${minElevation}, max ${maxElevation}. Check the GeoTIFF vertical band and no-data metadata.`);
   }
