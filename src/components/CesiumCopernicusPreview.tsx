@@ -131,7 +131,6 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExagg
       attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
       indices: Uint32Array.from(indices),
       primitiveType: PrimitiveType.TRIANGLES,
-      vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
       boundingSphere: BoundingSphere.fromVertices(positions),
     });
     // Per-vertex normals let Cesium shade slopes and ridgelines with real directional light,
@@ -202,7 +201,6 @@ function buildElevationWireframePrimitive(tile: CachedDemTile, soilDepth = 0, re
     attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
     indices: Uint32Array.from(indices),
     primitiveType: PrimitiveType.LINES,
-    vertexFormat: PerInstanceColorAppearance.FLAT_VERTEX_FORMAT,
     boundingSphere: BoundingSphere.fromVertices(positions),
   });
   return new Primitive({
@@ -570,12 +568,12 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           for (const site of validSites) {
             const height = sampleTileElevation(site, terrainTilesRef.current) +
               (showSoilLayerRef.current ? soilDepth : 0) + 250;
-            const screen = SceneTransforms.wgs84ToWindowCoordinates(
+            const screen = SceneTransforms.worldToWindowCoordinates(
               viewer!.scene,
               Cartesian3.fromDegrees(site.lon, site.lat, height)
             );
             if (!screen) continue;
-            const distance = Cartesian2.distance(position, screen);
+            const distance = Cartesian2.distance(new Cartesian2(position.x, position.y), screen);
             if (distance <= 24 && (!nearest || distance < nearest.distance)) nearest = { match: site, distance };
           }
           return nearest ? { match: nearest.match, entity: null } : null;
@@ -585,7 +583,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           const result = siteEntityFromPick(movement.endPosition);
           if (viewer?.canvas) viewer.canvas.style.cursor = result ? 'pointer' : 'default';
         }, ScreenSpaceEventType.MOUSE_MOVE);
-        sitePickHandler.setInputAction((movement: { position: { x: number; y: number } }) => {
+        sitePickHandler.setInputAction((movement: { position: Cartesian2 }) => {
           const result = siteEntityFromPick(movement.position);
           if (!result) return;
           const { match } = result;
