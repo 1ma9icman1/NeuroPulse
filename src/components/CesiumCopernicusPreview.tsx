@@ -140,13 +140,13 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExagg
     return [new GeometryInstance({
       id: `copernicus-elevation-band-${band}-${tile.west}-${tile.south}`,
       geometry,
-      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band]).withAlpha(1.0)) },
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band]).withAlpha(0.30)) },
     })];
   });
   if (!instances.length) throw new Error('The DEM tile contains no valid terrain triangles.');
   return new Primitive({
     geometryInstances: instances,
-    appearance: new PerInstanceColorAppearance({ flat: false, translucent: false, closed: false, faceForward: true }),
+    appearance: new PerInstanceColorAppearance({ flat: false, translucent: true, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
   });
