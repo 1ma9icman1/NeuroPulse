@@ -44,7 +44,7 @@ type DemManifest = {
   files: string[];
 };
 
-const PREVIEW_GRID_SIZE = 257;
+const PREVIEW_GRID_SIZE = 513;
 type CachedDemTile = { west: number; south: number; east: number; north: number; raster: ArrayLike<number>; noData: number };
 
 function sampleTileElevation(site: MapSite, tiles: CachedDemTile[]): number {
@@ -161,8 +161,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   const [error, setError] = useState('');
   const [soilDepth, setSoilDepth] = useState(39);
   const [soilDepthDraft, setSoilDepthDraft] = useState(39);
-  const [reliefExaggeration, setReliefExaggeration] = useState(4);
-  const [reliefExaggerationDraft, setReliefExaggerationDraft] = useState(4);
+  const [reliefExaggeration, setReliefExaggeration] = useState(3);
+  const [reliefExaggerationDraft, setReliefExaggerationDraft] = useState(3);
   const [showSoilLayer, setShowSoilLayer] = useState(true);
   const [showSatellite, setShowSatellite] = useState(true);
   const topographyPrimitivesRef = useRef<Primitive[]>([]);
@@ -246,10 +246,12 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         }
 
         let loaded = 0;
+        const terrainBuildStartedAt = performance.now();
         terrainTilesRef.current = [];
         for (const filename of manifest.files) {
           if (cancelled) return;
-          setStatus(`Reading measured ${manifest.dataset} tile ${loaded + 1} of ${manifest.files.length}…`);
+          const elapsedSeconds = (performance.now() - terrainBuildStartedAt) / 1000;
+          setStatus(`Building ${manifest.dataset} terrain: tile ${loaded + 1}/${manifest.files.length} · ${elapsedSeconds.toFixed(1)} s elapsed…`);
           const tiff = await fromUrl(safeTileUrl(filename));
           const image = await tiff.getImage();
           const bbox = image.getBoundingBox();
@@ -550,7 +552,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             viewer.camera.setView({ destination: Cartesian3.fromDegrees(0, 20, 22000000) });
           }
         }
-        setStatus(`Rendered ${loaded} real ${manifest.dataset} GeoTIFF tile(s) at ${manifest.resolutionMeters} m source resolution: elevation-colored 3D ground mesh. Display mesh is resampled to ${PREVIEW_GRID_SIZE}×${PREVIEW_GRID_SIZE} vertices per tile; resampling smooths the mesh but does not add source-data detail.`);
+        const terrainBuildSeconds = (performance.now() - terrainBuildStartedAt) / 1000;
+        setStatus(`Rendered ${loaded} real ${manifest.dataset} GeoTIFF tile(s) in ${terrainBuildSeconds.toFixed(1)} s at ${manifest.resolutionMeters} m source resolution. Mesh: ${PREVIEW_GRID_SIZE}×${PREVIEW_GRID_SIZE} vertices per tile; resampling smooths the mesh and does not add source-data detail.`);
       } catch (cause) {
         if (!cancelled) {
           const message = cause instanceof Error ? cause.message : 'Unable to initialize Cesium Copernicus terrain preview.';
@@ -630,15 +633,15 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           <p className="mt-1 text-[9px] text-slate-400">Offsets the displayed surface. It is a scenario input, not a globally measured soil-depth dataset.</p>
         </div>
         <div className="min-w-0">
-          <div className="flex items-center justify-between gap-2"><label htmlFor="glo90-relief" className="text-[10px] font-mono font-bold text-cyan-100">3D TERRAIN RELIEF · {reliefExaggerationDraft.toFixed(1)}×</label><span className="text-[9px] text-slate-400">1×–8×</span></div>
-          <input id="glo90-relief" aria-label="Vertical terrain relief exaggeration" type="range" min="1" max="8" step="0.5" value={reliefExaggerationDraft} onChange={event => setReliefExaggerationDraft(Number(event.target.value))} className="mt-2 w-full accent-cyan-400" />
-          <div className="mt-1 flex justify-between text-[9px] text-slate-500"><span>1× · source height</span><span>8× · visual emphasis</span></div>
+          <div className="flex items-center justify-between gap-2"><label htmlFor="glo90-relief" className="text-[10px] font-mono font-bold text-cyan-100">3D TERRAIN RELIEF · {reliefExaggerationDraft.toFixed(1)}×</label><span className="text-[9px] text-slate-400">3×–12×</span></div>
+          <input id="glo90-relief" aria-label="Vertical terrain relief exaggeration" type="range" min="3" max="12" step="0.5" value={reliefExaggerationDraft} onChange={event => setReliefExaggerationDraft(Number(event.target.value))} className="mt-2 w-full accent-cyan-400" />
+          <div className="mt-1 flex justify-between text-[9px] text-slate-500"><span>3× · starting relief</span><span>12× · visual emphasis</span></div>
           <p className="mt-1 text-[9px] text-slate-400">Uses measured DEM height differences; exaggeration is only for visibility and is clearly reported.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:max-w-[260px] xl:justify-end">
           <button type="button" onClick={() => setShowSatellite(value => !value)} aria-pressed={showSatellite} className={`rounded border px-3 py-2 text-[10px] font-mono font-bold ${showSatellite ? 'border-cyan-300 bg-cyan-950 text-cyan-100' : 'border-slate-600 text-slate-300'}`}>{showSatellite ? 'SATELLITE ON' : 'SATELLITE OFF'}</button>
           <button type="button" onClick={() => setShowSoilLayer(value => !value)} aria-pressed={showSoilLayer} className={`rounded border px-3 py-2 text-[10px] font-mono font-bold ${showSoilLayer ? 'border-amber-300 bg-amber-950 text-amber-100' : 'border-slate-600 text-slate-300'}`}>{showSoilLayer ? 'SURFACE OFFSET ON' : 'SURFACE OFFSET OFF'}</button>
-          <button type="button" onClick={() => { setSoilDepthDraft(0); setSoilDepth(0); setReliefExaggerationDraft(1); setReliefExaggeration(1); }} className="rounded border border-slate-600 px-3 py-2 text-[10px] font-mono text-slate-200 hover:bg-slate-800">RESET TO DEM</button>
+          <button type="button" onClick={() => { setSoilDepthDraft(0); setSoilDepth(0); setReliefExaggerationDraft(3); setReliefExaggeration(3); }} className="rounded border border-slate-600 px-3 py-2 text-[10px] font-mono text-slate-200 hover:bg-slate-800">RESET TO DEM</button>
           <button type="button" onClick={() => { setSoilDepth(soilDepthDraft); setReliefExaggeration(reliefExaggerationDraft); }} disabled={soilDepth === soilDepthDraft && reliefExaggeration === reliefExaggerationDraft} className="rounded border border-emerald-400/70 bg-emerald-950/70 px-3 py-2 text-[10px] font-mono font-bold text-emerald-100 disabled:opacity-40">APPLY TERRAIN</button>
         </div>
       </div>
