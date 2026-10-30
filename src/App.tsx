@@ -199,7 +199,7 @@ export default function App() {
       .filter((site) => !known.has(site.name.toLowerCase()))
       .map((site, index) => {
         const category: 'ancient' | 'astronomy' | 'acoustic' | 'custom' = 'ancient';
-        const normalized = { ...site, id: 'legacy-' + index + '-' + site.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), color: site.isCity ? '#60a5fa' : '#facc15', category,
+        const normalized = { ...site, id: 'legacy-' + index + '-' + site.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), color: (site as any).isCity ? '#60a5fa' : '#facc15', category,
           desc: /chankillo/i.test(site.name)
             ? 'UNESCO documents Chankillo as a solar observatory and ceremonial center used around 250–200 BCE. Its thirteen towers and two observation points track the annual sunrise and sunset range; this is a strong documented archaeoastronomy case. Source: UNESCO World Heritage Centre.'
             : /stonehenge/i.test(site.name)
