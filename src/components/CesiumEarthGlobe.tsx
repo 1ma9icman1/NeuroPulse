@@ -442,6 +442,8 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
     <div ref={hostRef} className="absolute inset-0 h-full w-full" aria-label="Cesium interactive Earth globe" />
     <CesiumSoilLayer
       viewer={viewerReady ? viewerRef.current : null}
+      sites={sites}
+      selectedSite={selectedSite}
       enabled={showSoilLayer}
       depth={soilDepth}
       reliefExaggeration={reliefExaggeration}
