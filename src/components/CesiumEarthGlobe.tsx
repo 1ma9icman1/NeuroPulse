@@ -16,6 +16,7 @@ import {
   Ion,
   HeightReference,
   createOsmBuildingsAsync,
+  createWorldTerrainAsync,
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { CesiumSoilLayer } from './CesiumSoilLayer';
@@ -145,6 +146,20 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
       viewer.scene.globe.enableLighting = true;
       viewer.scene.globe.depthTestAgainstTerrain = true;
       viewer.scene.backgroundColor = Color.fromCssColorString('#030814');
+
+      // Use the same Cesium World Terrain surface that 3D Tiles buildings are
+      // georeferenced against. Without an ion token, retain the ellipsoid fallback.
+      const terrainToken = import.meta.env.VITE_CESIUM_ION_ACCESS_TOKEN?.trim();
+      if (terrainToken) {
+        try {
+          Ion.defaultAccessToken = terrainToken;
+          const terrainProvider = await createWorldTerrainAsync({ requestVertexNormals: true });
+          if (disposed || !viewer || viewer.isDestroyed()) return;
+          viewer.terrainProvider = terrainProvider;
+        } catch (terrainError) {
+          console.warn('[NeuroPulse] Cesium World Terrain unavailable; using ellipsoid terrain:', terrainError);
+        }
+      }
 
       try {
         if (imagerySource === 'satellite') {
