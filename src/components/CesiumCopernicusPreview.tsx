@@ -56,7 +56,7 @@ function sampleTileElevation(site: MapSite, tiles: CachedDemTile[]): number {
   return Number.isFinite(value) && (!Number.isFinite(tile.noData) || value !== tile.noData) ? value : 0;
 }
 
-function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0): Primitive {
+function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExaggeration = 1): Primitive {
   const count = PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE;
   const positions = new Float64Array(count * 3);
   const elevations = new Float32Array(count);
@@ -64,6 +64,7 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0): Primitive 
   let validVertices = 0;
   let minElevation = Infinity;
   let maxElevation = -Infinity;
+  let elevationSum = 0;
 
   for (let y = 0; y < PREVIEW_GRID_SIZE; y++) {
     const latitude = tile.north - (y / (PREVIEW_GRID_SIZE - 1)) * (tile.north - tile.south);
@@ -78,8 +79,9 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0): Primitive 
         validVertices++;
         minElevation = Math.min(minElevation, elevation);
         maxElevation = Math.max(maxElevation, elevation);
+        elevationSum += elevation;
       }
-      const adjustedElevation = valid ? elevation + soilDepth : 0;
+      const adjustedElevation = valid ? meanElevation + (elevation - meanElevation) * reliefExaggeration + soilDepth : meanElevation;
       const point = Cartesian3.fromDegrees(longitude, latitude, adjustedElevation);
       positions[index * 3] = point.x;
       positions[index * 3 + 1] = point.y;
@@ -87,11 +89,15 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0): Primitive 
     }
   }
   if (validVertices < count * 0.9) throw new Error('Too many invalid elevation samples in a cached DEM tile.');
+  const meanElevation = elevationSum / validVertices;
+  if (!Number.isFinite(minElevation) || !Number.isFinite(maxElevation) || maxElevation - minElevation < 0.01) {
+    throw new Error(`DEM tile has no usable relief: min ${minElevation}, max ${maxElevation}. Check the GeoTIFF vertical band and no-data metadata.`);
+  }
 
   // This DEM-following mesh IS the displayed topographic surface. Soil depth shifts each
   // measured vertex vertically; no second soil sheet is drawn over the map.
   const bands: number[][] = Array.from({ length: 7 }, () => []);
-  const bandFor = (elevation: number) => { const adjusted = elevation + soilDepth; return adjusted < 0 ? 0 : adjusted < 100 ? 1 : adjusted < 500 ? 2 : adjusted < 1200 ? 3 : adjusted < 2500 ? 4 : adjusted < 4000 ? 5 : 6; };
+  const bandFor = (elevation: number) => { const adjusted = meanElevation + (elevation - meanElevation) * reliefExaggeration + soilDepth; return adjusted < 0 ? 0 : adjusted < 100 ? 1 : adjusted < 500 ? 2 : adjusted < 1200 ? 3 : adjusted < 2500 ? 4 : adjusted < 4000 ? 5 : 6; };
   for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y++) {
     for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x++) {
       const a = y * PREVIEW_GRID_SIZE + x, b = a + 1, c = a + PREVIEW_GRID_SIZE, d = c + 1;
@@ -148,11 +154,13 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   const [error, setError] = useState('');
   const [soilDepth, setSoilDepth] = useState(39);
   const [soilDepthDraft, setSoilDepthDraft] = useState(39);
+  const [reliefExaggeration, setReliefExaggeration] = useState(4);
+  const [reliefExaggerationDraft, setReliefExaggerationDraft] = useState(4);
   const [showSoilLayer, setShowSoilLayer] = useState(true);
   const [showSatellite, setShowSatellite] = useState(true);
   const topographyPrimitivesRef = useRef<Primitive[]>([]);
   const terrainTilesRef = useRef<CachedDemTile[]>([]);
-  const rebuildSoilRef = useRef<((depth: number) => void) | null>(null);
+  const rebuildSoilRef = useRef<((depth: number, exaggeration: number) => void) | null>(null);
   const showSoilLayerRef = useRef(showSoilLayer);
   showSoilLayerRef.current = showSoilLayer;
   const showSatelliteRef = useRef(showSatellite);
@@ -254,13 +262,13 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           const noData = rawNoData === null || rawNoData === undefined ? NaN : Number(rawNoData);
           const cachedTile: CachedDemTile = { west, south, east, north, raster, noData };
           terrainTilesRef.current.push(cachedTile);
-          const elevationPrimitive = buildElevationPrimitive(cachedTile, showSoilLayerRef.current ? soilDepth : 0);
+          const elevationPrimitive = buildElevationPrimitive(cachedTile, showSoilLayerRef.current ? soilDepth : 0, reliefExaggeration);
           viewer.scene.primitives.add(elevationPrimitive);
           primitives.push(elevationPrimitive);
           topographyPrimitivesRef.current = [...topographyPrimitivesRef.current, elevationPrimitive];
           loaded++;
         }
-        rebuildSoilRef.current = (depth: number) => {
+        rebuildSoilRef.current = (depth: number, exaggeration: number) => {
           const activeViewer = viewerRef.current;
           if (!activeViewer || activeViewer.isDestroyed()) return;
           try {
@@ -268,7 +276,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             // Rebuild the actual DEM-following topographic mesh at ground elevation + depth.
             // No separate translucent soil volume is added.
             for (const tile of terrainTilesRef.current) {
-              const next = buildElevationPrimitive(tile, showSoilLayerRef.current ? depth : 0);
+              const next = buildElevationPrimitive(tile, showSoilLayerRef.current ? depth : 0, exaggeration);
               activeViewer.scene.primitives.add(next);
               primitives.push(next);
               nextPrimitives.push(next);
@@ -290,7 +298,10 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             ));
             drawGeometryOverlays();
             activeViewer.scene.requestRender();
-            setStatus(`Topography rebuilt at measured GLO-90 elevation + ${showSoilLayerRef.current ? depth : 0} m across ${nextPrimitives.length} local tile(s). This is a surface-elevation scenario, not measured soil thickness.`);
+            const ranges = terrainTilesRef.current.map(tile => { const values = Array.from(tile.raster, Number).filter(value => Number.isFinite(value) && (!Number.isFinite(tile.noData) || value !== tile.noData)); return values.length ? { min: Math.min(...values), max: Math.max(...values) } : null; }).filter((range): range is {min:number;max:number} => !!range);
+            const min = Math.min(...ranges.map(range => range.min));
+            const max = Math.max(...ranges.map(range => range.max));
+            setStatus(`3D DEM rebuilt: source elevations ${min.toFixed(1)}–${max.toFixed(1)} m; vertical relief ${exaggeration.toFixed(1)}×; surface offset ${showSoilLayerRef.current ? depth : 0} m; ${nextPrimitives.length} tile(s). Relief exaggeration is a visualization control, not a change to measured elevations.`);
           } catch (cause) {
             const message = cause instanceof Error ? cause.message : 'Unknown terrain mesh error.';
             setError(`Could not rebuild the soil/sand surface: ${message}`);
@@ -489,7 +500,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           // Keep a close, overhead view centred on the exact site coordinate.
           viewer?.camera.flyTo({
             destination: Cartesian3.fromDegrees(match.lon, match.lat, 9000),
-            orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+            orientation: { heading: 0, pitch: -0.92, roll: 0 },
             duration: 1,
           });
         }, ScreenSpaceEventType.LEFT_CLICK);
@@ -504,7 +515,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           });
           viewer.camera.flyTo({
             destination: Cartesian3.fromDegrees(focus.lon, focus.lat, 9000),
-            orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+            orientation: { heading: 0, pitch: -0.92, roll: 0 },
             duration: 1,
           });
         } else {
@@ -518,7 +529,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             const spanMeters = Math.max(firstTile.east - firstTile.west, firstTile.north - firstTile.south) * 111000;
             viewer.camera.setView({
               destination: Cartesian3.fromDegrees(centerLon, centerLat, Math.max(18000, spanMeters * 1.55)),
-              orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
+              orientation: { heading: 0, pitch: -0.92, roll: 0 },
             });
           } else {
             viewer.camera.setView({ destination: Cartesian3.fromDegrees(0, 20, 22000000) });
@@ -553,8 +564,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   }, [open]);
 
   useEffect(() => {
-    if (soilDepth > -1) rebuildSoilRef.current?.(soilDepth);
-  }, [soilDepth, showSoilLayer]);
+    if (soilDepth > -1) rebuildSoilRef.current?.(soilDepth, reliefExaggeration);
+  }, [soilDepth, showSoilLayer, reliefExaggeration]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -582,8 +593,8 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
   useEffect(() => {
     // Turning the soil scenario off restores the measured DEM heights; turning it on
     // rebuilds the same topographic mesh at DEM + selected depth.
-    rebuildSoilRef.current?.(showSoilLayer ? soilDepth : 0);
-  }, [showSoilLayer, soilDepth]);
+    rebuildSoilRef.current?.(showSoilLayer ? soilDepth : 0, reliefExaggeration);
+  }, [showSoilLayer, soilDepth, reliefExaggeration]);
 
   if (!open) return null;
   return (
@@ -596,22 +607,28 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
         </div>
         {onClose && <button onClick={onClose} className="shrink-0 rounded border border-slate-600 px-3 py-2 text-xs font-mono text-slate-100 hover:bg-slate-800">BACK TO EARTH</button>}
       </div>
-      <div className="mb-2 grid shrink-0 gap-2 rounded border border-slate-700 bg-slate-900/90 p-2 lg:grid-cols-[minmax(240px,1fr)_auto]">
+      <div className="mb-2 grid shrink-0 gap-3 rounded border border-slate-700 bg-slate-900/95 p-3 xl:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto]">
         <div className="min-w-0">
-          <div className="flex items-center justify-between gap-3"><label htmlFor="glo90-soil-depth" className="text-[10px] font-mono font-bold text-amber-100">TOPOGRAPHY OFFSET SCENARIO · {soilDepthDraft} m</label><span className="text-[9px] text-slate-400">0–100 m</span></div>
-          <input id="glo90-soil-depth" aria-label="Soil or sand cover depth scenario in metres" type="range" min="0" max="100" step="1" value={soilDepthDraft} onChange={event => setSoilDepthDraft(Number(event.target.value))} className="mt-2 w-full accent-amber-400" />
-          <div className="flex justify-between text-[9px] text-slate-500"><span>0 m · measured DEM surface</span><span>39 m · Giza reference assumption</span><span>100 m</span></div>
-          <div className="mt-1 text-[9px] text-slate-400">The GLO-90 GeoTIFF provides ground elevation, not soil thickness. This slider shifts the displayed topographic surface upward by the selected amount; 39 m is your Giza assumption and is not represented as globally measured soil data.</div>
+          <div className="flex items-center justify-between gap-2"><label htmlFor="glo90-soil-depth" className="text-[10px] font-mono font-bold text-amber-100">SOIL / SAND SURFACE OFFSET · {soilDepthDraft} m</label><span className="text-[9px] text-slate-400">0–100 m</span></div>
+          <input id="glo90-soil-depth" aria-label="Soil or sand surface offset in metres" type="range" min="0" max="100" step="1" value={soilDepthDraft} onChange={event => setSoilDepthDraft(Number(event.target.value))} className="mt-2 w-full accent-amber-400" />
+          <div className="mt-1 flex justify-between text-[9px] text-slate-500"><span>0 m · DEM</span><span>39 m · Giza scenario</span><span>100 m</span></div>
+          <p className="mt-1 text-[9px] text-slate-400">Offsets the displayed surface. It is a scenario input, not a globally measured soil-depth dataset.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        <div className="min-w-0">
+          <div className="flex items-center justify-between gap-2"><label htmlFor="glo90-relief" className="text-[10px] font-mono font-bold text-cyan-100">3D TERRAIN RELIEF · {reliefExaggerationDraft.toFixed(1)}×</label><span className="text-[9px] text-slate-400">1×–8×</span></div>
+          <input id="glo90-relief" aria-label="Vertical terrain relief exaggeration" type="range" min="1" max="8" step="0.5" value={reliefExaggerationDraft} onChange={event => setReliefExaggerationDraft(Number(event.target.value))} className="mt-2 w-full accent-cyan-400" />
+          <div className="mt-1 flex justify-between text-[9px] text-slate-500"><span>1× · source height</span><span>8× · visual emphasis</span></div>
+          <p className="mt-1 text-[9px] text-slate-400">Uses measured DEM height differences; exaggeration is only for visibility and is clearly reported.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 xl:max-w-[260px] xl:justify-end">
           <button type="button" onClick={() => setShowSatellite(value => !value)} aria-pressed={showSatellite} className={`rounded border px-3 py-2 text-[10px] font-mono font-bold ${showSatellite ? 'border-cyan-300 bg-cyan-950 text-cyan-100' : 'border-slate-600 text-slate-300'}`}>{showSatellite ? 'SATELLITE ON' : 'SATELLITE OFF'}</button>
-          <button type="button" onClick={() => setShowSoilLayer(value => !value)} aria-pressed={showSoilLayer} className={`rounded border px-3 py-2 text-[10px] font-mono font-bold ${showSoilLayer ? 'border-amber-300 bg-amber-950 text-amber-100' : 'border-slate-600 text-slate-300'}`}>{showSoilLayer ? 'TOPOGRAPHY OFFSET ON' : 'TOPOGRAPHY OFFSET OFF'}</button>
-          <button type="button" onClick={() => { setSoilDepthDraft(0); setSoilDepth(0); }} className="rounded border border-slate-600 px-3 py-2 text-[10px] font-mono text-slate-200 hover:bg-slate-800">RESET TO DEM</button>
-          <button type="button" onClick={() => setSoilDepth(soilDepthDraft)} disabled={soilDepth === soilDepthDraft} className="rounded border border-emerald-400/70 bg-emerald-950/70 px-3 py-2 text-[10px] font-mono font-bold text-emerald-100 disabled:opacity-40">APPLY DEPTH</button>
+          <button type="button" onClick={() => setShowSoilLayer(value => !value)} aria-pressed={showSoilLayer} className={`rounded border px-3 py-2 text-[10px] font-mono font-bold ${showSoilLayer ? 'border-amber-300 bg-amber-950 text-amber-100' : 'border-slate-600 text-slate-300'}`}>{showSoilLayer ? 'SURFACE OFFSET ON' : 'SURFACE OFFSET OFF'}</button>
+          <button type="button" onClick={() => { setSoilDepthDraft(0); setSoilDepth(0); setReliefExaggerationDraft(1); setReliefExaggeration(1); }} className="rounded border border-slate-600 px-3 py-2 text-[10px] font-mono text-slate-200 hover:bg-slate-800">RESET TO DEM</button>
+          <button type="button" onClick={() => { setSoilDepth(soilDepthDraft); setReliefExaggeration(reliefExaggerationDraft); }} disabled={soilDepth === soilDepthDraft && reliefExaggeration === reliefExaggerationDraft} className="rounded border border-emerald-400/70 bg-emerald-950/70 px-3 py-2 text-[10px] font-mono font-bold text-emerald-100 disabled:opacity-40">APPLY TERRAIN</button>
         </div>
       </div>
       <div ref={hostRef} className="min-h-[220px] flex-1 overflow-hidden rounded border border-slate-700" />
-      <div className="shrink-0 pt-1 text-[9px] text-slate-500">Copernicus GLO-90 source elevations drive the 3D ground height and elevation color bands (blue below sea level, green lowlands, ochre uplands, pale high terrain). The soil-depth control vertically adjusts the displayed DEM topography itself; it does not draw a separate soil overlay. GLO-90 measures ground elevation, not global soil thickness. Satellite imagery is from Esri and its providers.</div>
+      <div className="shrink-0 pt-1 text-[9px] text-slate-500">Copernicus GLO-90 GeoTIFF values drive the actual 3D mesh heights. The relief control scales height differences around each tile's mean only for visibility; 1× is the source vertical scale. The surface offset is a scenario, not measured soil thickness. Satellite imagery is from Esri and its providers.</div>
     </div>
   );
 };
