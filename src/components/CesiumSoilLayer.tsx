@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Viewer, Primitive } from 'cesium';
+import { BoundingSphere, Cartesian3, Color, ColorGeometryInstanceAttribute, ComponentDatatype, Geometry, GeometryAttribute, GeometryInstance, GeometryPipeline, PerInstanceColorAppearance, Primitive, PrimitiveType, Viewer } from 'cesium';
 import { fromUrl } from 'geotiff';
 
 type DemManifest = {
