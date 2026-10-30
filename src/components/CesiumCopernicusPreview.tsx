@@ -298,9 +298,17 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
             ));
             drawGeometryOverlays();
             activeViewer.scene.requestRender();
-            const ranges = terrainTilesRef.current.map(tile => { const values = Array.from(tile.raster, Number).filter(value => Number.isFinite(value) && (!Number.isFinite(tile.noData) || value !== tile.noData)); return values.length ? { min: Math.min(...values), max: Math.max(...values) } : null; }).filter((range): range is {min:number;max:number} => !!range);
-            const min = Math.min(...ranges.map(range => range.min));
-            const max = Math.max(...ranges.map(range => range.max));
+            let min = Infinity;
+            let max = -Infinity;
+            for (const tile of terrainTilesRef.current) {
+              for (let index = 0; index < tile.raster.length; index++) {
+                const value = Number(tile.raster[index]);
+                if (!Number.isFinite(value) || (Number.isFinite(tile.noData) && value === tile.noData)) continue;
+                min = Math.min(min, value);
+                max = Math.max(max, value);
+              }
+            }
+            if (!Number.isFinite(min) || !Number.isFinite(max)) throw new Error('No valid numeric elevation samples remain in the loaded DEM tiles.');
             setStatus(`3D DEM rebuilt: source elevations ${min.toFixed(1)}–${max.toFixed(1)} m; vertical relief ${exaggeration.toFixed(1)}×; surface offset ${showSoilLayerRef.current ? depth : 0} m; ${nextPrimitives.length} tile(s). Relief exaggeration is a visualization control, not a change to measured elevations.`);
           } catch (cause) {
             const message = cause instanceof Error ? cause.message : 'Unknown terrain mesh error.';
