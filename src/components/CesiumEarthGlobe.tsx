@@ -17,6 +17,7 @@ import {
   createOsmBuildingsAsync,
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
+import { CesiumSoilLayer } from './CesiumSoilLayer';
 
 type EarthSite = {
   id?: string;
@@ -43,6 +44,10 @@ type Props = {
   showAlignmentTriangles?: boolean;
   showBuildings?: boolean;
   onBuildingsStatus?: (status: string) => void;
+  showSoilLayer?: boolean;
+  soilDepth?: number;
+  reliefExaggeration?: number;
+  onSoilStatus?: (status: string) => void;
 };
 
 const siteId = (site: EarthSite) => `np-earth-site:${site.id ?? site.name}:${Number(site.lat)}:${Number(site.lon)}`;
@@ -60,6 +65,10 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
   showAlignmentTriangles = false,
   showBuildings = false,
   onBuildingsStatus,
+  showSoilLayer = false,
+  soilDepth = 39,
+  reliefExaggeration = 3,
+  onSoilStatus,
 }, forwardedRef) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -429,7 +438,16 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
     viewer.scene.requestRender();
   }, [triangleEdges, showAlignmentTriangles]);
 
-  return <div ref={hostRef} className="absolute inset-0 h-full w-full" aria-label="Cesium interactive Earth globe" />;
+  return <>
+    <div ref={hostRef} className="absolute inset-0 h-full w-full" aria-label="Cesium interactive Earth globe" />
+    <CesiumSoilLayer
+      viewer={viewerReady ? viewerRef.current : null}
+      enabled={showSoilLayer}
+      depth={soilDepth}
+      reliefExaggeration={reliefExaggeration}
+      onStatus={onSoilStatus}
+    />
+  </>;
 });
 
 CesiumEarthGlobe.displayName = 'CesiumEarthGlobe';
