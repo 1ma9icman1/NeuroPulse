@@ -394,7 +394,7 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               }
             }
             if (!Number.isFinite(min) || !Number.isFinite(max)) throw new Error('No valid numeric elevation samples remain in the loaded DEM tiles.');
-            setStatus(`3D DEM rebuilt: source elevations ${min.toFixed(1)}–${max.toFixed(1)} m; vertical relief ${exaggeration.toFixed(1)}×; surface offset ${showSoilLayerRef.current ? depth : 0} m; ${nextPrimitives.length} tile(s). Relief exaggeration is a visualization control, not a change to measured elevations.`);
+            setStatus(`3D DEM rebuilt: source elevations ${min.toFixed(1)}–${max.toFixed(1)} m; vertical relief ${exaggeration.toFixed(1)}×; surface offset ${showSoilLayerRef.current ? depth : 0} m; ${terrainTilesRef.current.length} tile(s). Relief exaggeration is a visualization control, not a change to measured elevations.`);
           } catch (cause) {
             const message = cause instanceof Error ? cause.message : 'Unknown terrain mesh error.';
             setError(`Could not rebuild the soil/sand surface: ${message}`);
