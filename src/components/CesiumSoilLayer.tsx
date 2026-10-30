@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Viewer, Primitive, ArcGisMapServerImageryProvider, Color, Cartesian3 } from 'cesium';
+import { Viewer, Primitive } from 'cesium';
 import { fromUrl } from 'geotiff';
 
 type DemManifest = {
@@ -10,15 +10,6 @@ type DemManifest = {
 
 const PREVIEW_GRID_SIZE = 513;
 type CachedDemTile = { west: number; south: number; east: number; north: number; raster: ArrayLike<number>; noData: number };
-
-function sampleTileElevation(site: MapSite, tiles: CachedDemTile[]): number {
-  const tile = tiles.find(item => site.lon >= item.west && site.lon <= item.east && site.lat >= item.south && site.lat <= item.north);
-  if (!tile) return 0;
-  const x = Math.max(0, Math.min(PREVIEW_GRID_SIZE - 1, Math.round(((site.lon - tile.west) / (tile.east - tile.west)) * (PREVIEW_GRID_SIZE - 1))));
-  const y = Math.max(0, Math.min(PREVIEW_GRID_SIZE - 1, Math.round(((tile.north - site.lat) / (tile.north - tile.south)) * (PREVIEW_GRID_SIZE - 1))));
-  const value = Number(tile.raster[y * PREVIEW_GRID_SIZE + x]);
-  return Number.isFinite(value) && (!Number.isFinite(tile.noData) || value !== tile.noData) ? value : 0;
-}
 
 function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExaggeration = 1): Primitive {
   const count = PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE;
@@ -198,21 +189,18 @@ type SoilLayerProps = {
 
 export const CesiumSoilLayer: React.FC<SoilLayerProps> = ({ viewer, enabled, depth, reliefExaggeration, onStatus }) => {
   const [tiles, setTiles] = useState<CachedDemTile[]>([]);
-  const [loadError, setLoadError] = useState('');
   const loadGeneration = useRef(0);
   const activePrimitives = useRef<Primitive[]>([]);
 
   useEffect(() => {
     if (!enabled || !viewer || viewer.isDestroyed()) {
       setTiles([]);
-      setLoadError('');
       onStatus?.('Soil / sand layer off · Copernicus DEM not loaded');
       return;
     }
     const generation = ++loadGeneration.current;
     let cancelled = false;
     setTiles([]);
-    setLoadError('');
     onStatus?.('Loading local Copernicus GLO-90 DEM…');
     void (async () => {
       try {
@@ -239,7 +227,6 @@ export const CesiumSoilLayer: React.FC<SoilLayerProps> = ({ viewer, enabled, dep
       } catch (error) {
         if (cancelled || generation !== loadGeneration.current) return;
         const message = error instanceof Error ? error.message : String(error);
-        setLoadError(message);
         onStatus?.(`Soil / sand unavailable: ${message}`);
       }
     })();
