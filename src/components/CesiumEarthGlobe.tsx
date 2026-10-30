@@ -13,6 +13,8 @@ import {
   Viewer,
   Math as CesiumMath,
   Rectangle,
+  Ion,
+  createOsmBuildingsAsync,
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
@@ -39,6 +41,8 @@ type Props = {
   onZoom?: (altitude: number) => void;
   triangleEdges?: Array<{ startLat: number; startLng: number; endLat: number; endLng: number; triangleNames: string[] }>;
   showAlignmentTriangles?: boolean;
+  showBuildings?: boolean;
+  onBuildingsStatus?: (status: string) => void;
 };
 
 const siteId = (site: EarthSite) => `np-earth-site:${site.id ?? site.name}:${Number(site.lat)}:${Number(site.lon)}`;
@@ -54,9 +58,13 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
   onZoom,
   triangleEdges = [],
   showAlignmentTriangles = false,
+  showBuildings = false,
+  onBuildingsStatus,
 }, forwardedRef) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
+  const [viewerReady, setViewerReady] = React.useState(false);
+  const buildingsRef = useRef<any>(null);
   const autoRotateRef = useRef(false);
   useImperativeHandle(forwardedRef, () => ({
     pointOfView: (pov?: { lat?: number; lng?: number; altitude?: number }, duration = 0) => {
@@ -78,8 +86,8 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
     controls: () => ({ get autoRotate() { return autoRotateRef.current; }, set autoRotate(value: boolean) { autoRotateRef.current = Boolean(value); } }),
     renderer: () => ({ domElement: viewerRef.current?.canvas }),
   }), []);
-  const callbacksRef = useRef({ onSiteClick, onGlobeClick, onZoom });
-  callbacksRef.current = { onSiteClick, onGlobeClick, onZoom };
+  const callbacksRef = useRef({ onSiteClick, onGlobeClick, onZoom, onBuildingsStatus });
+  callbacksRef.current = { onSiteClick, onGlobeClick, onZoom, onBuildingsStatus };
   const sitesRef = useRef(sites);
   sitesRef.current = sites;
   const selectedRef = useRef(selectedSite);
@@ -115,6 +123,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
         requestRenderMode: true,
       });
       viewerRef.current = viewer;
+      setViewerReady(false);
       const controller = viewer.scene.screenSpaceCameraController;
       controller.enableInputs = true;
       controller.enableRotate = true;
@@ -153,6 +162,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
         console.warn('[NeuroPulse] Cesium Earth imagery failed; using ellipsoid globe:', error);
       }
       if (disposed || !viewer || viewer.isDestroyed()) return;
+      setViewerReady(true);
 
       const syncSites = () => {
         if (!viewer || viewer.isDestroyed()) return;
@@ -287,11 +297,60 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
     void start();
     return () => {
       disposed = true;
+      setViewerReady(false);
       if (pickHandler && !pickHandler.isDestroyed()) pickHandler.destroy();
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
       viewerRef.current = null;
     };
   }, [imagerySource]);
+
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    let cancelled = false;
+    let tileset: any = null;
+    if (!showBuildings) {
+      if (buildingsRef.current && viewer && !viewer.isDestroyed()) {
+        viewer.scene.primitives.remove(buildingsRef.current);
+      }
+      buildingsRef.current = null;
+      callbacksRef.current.onBuildingsStatus?.('Buildings off');
+      return;
+    }
+    if (!viewerReady || !viewer || viewer.isDestroyed()) return;
+    const ionToken = import.meta.env.VITE_CESIUM_ION_ACCESS_TOKEN?.trim();
+    if (!ionToken) {
+      callbacksRef.current.onBuildingsStatus?.('Cesium ion token required for global 3D buildings');
+      return;
+    }
+    Ion.defaultAccessToken = ionToken;
+    callbacksRef.current.onBuildingsStatus?.('Loading global OpenStreetMap 3D buildings…');
+    void (async () => {
+      try {
+        tileset = await createOsmBuildingsAsync();
+        if (cancelled || !viewer || viewer.isDestroyed()) {
+          tileset.destroy?.();
+          return;
+        }
+        buildingsRef.current = tileset;
+        viewer.scene.primitives.add(tileset);
+        viewer.scene.requestRender();
+        callbacksRef.current.onBuildingsStatus?.('Global 3D buildings loaded · OpenStreetMap');
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : String(error);
+          callbacksRef.current.onBuildingsStatus?.('3D buildings failed to load: ' + message);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (tileset && viewer && !viewer.isDestroyed()) {
+        viewer.scene.primitives.remove(tileset);
+        if (buildingsRef.current === tileset) buildingsRef.current = null;
+      }
+    };
+  }, [showBuildings, viewerReady]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
