@@ -18,6 +18,7 @@ import {
   Geometry,
   GeometryAttribute,
   GeometryInstance,
+  GeometryPipeline,
   PerInstanceColorAppearance,
   Primitive,
   PrimitiveType,
@@ -130,9 +131,12 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExagg
       attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
       indices: Uint32Array.from(indices),
       primitiveType: PrimitiveType.TRIANGLES,
-      vertexFormat: PerInstanceColorAppearance.FLAT_VERTEX_FORMAT,
+      vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
       boundingSphere: BoundingSphere.fromVertices(positions),
     });
+    // Per-vertex normals let Cesium shade slopes and ridgelines with real directional light,
+    // adding visible terrain depth instead of presenting the DEM as flat color bands.
+    GeometryPipeline.computeNormal(geometry);
     return [new GeometryInstance({
       id: `copernicus-elevation-band-${band}-${tile.west}-${tile.south}`,
       geometry,
@@ -142,7 +146,7 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExagg
   if (!instances.length) throw new Error('The DEM tile contains no valid terrain triangles.');
   return new Primitive({
     geometryInstances: instances,
-    appearance: new PerInstanceColorAppearance({ flat: true, translucent: false, closed: false, faceForward: true }),
+    appearance: new PerInstanceColorAppearance({ flat: false, translucent: false, closed: false, faceForward: true }),
     asynchronous: false,
     allowPicking: false,
   });
