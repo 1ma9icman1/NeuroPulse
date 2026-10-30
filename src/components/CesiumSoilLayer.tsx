@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BoundingSphere, Cartesian3, Color, ColorGeometryInstanceAttribute, ComponentDatatype, ConstantPositionProperty, Geometry, GeometryAttribute, GeometryInstance, GeometryPipeline, PerInstanceColorAppearance, Primitive, PrimitiveType, Viewer } from 'cesium';
+import { BoundingSphere, Cartesian3, Color, ColorGeometryInstanceAttribute, ComponentDatatype, ConstantPositionProperty, Geometry, GeometryAttribute, GeometryInstance, GeometryPipeline, PerInstanceColorAppearance, Primitive, PrimitiveType, Viewer, HeightReference } from 'cesium';
 import { fromUrl } from 'geotiff';
 
 type DemManifest = {
@@ -169,13 +169,24 @@ function buildElevationWireframePrimitive(tile: CachedDemTile, soilDepth = 0, re
   });
 }
 
-function sampleTileElevation(site: SoilSite, tiles: CachedDemTile[]): number | null {
+function sampleTileElevation(site: SoilSite, tiles: CachedDemTile[], soilDepth: number, reliefExaggeration: number): number | null {
   const tile = tiles.find(item => site.lon >= item.west && site.lon <= item.east && site.lat >= item.south && site.lat <= item.north);
   if (!tile) return null;
   const x = Math.max(0, Math.min(PREVIEW_GRID_SIZE - 1, Math.round(((site.lon - tile.west) / (tile.east - tile.west)) * (PREVIEW_GRID_SIZE - 1))));
   const y = Math.max(0, Math.min(PREVIEW_GRID_SIZE - 1, Math.round(((tile.north - site.lat) / (tile.north - tile.south)) * (PREVIEW_GRID_SIZE - 1))));
   const value = Number(tile.raster[y * PREVIEW_GRID_SIZE + x]);
-  return Number.isFinite(value) && (!Number.isFinite(tile.noData) || value !== tile.noData) ? value : null;
+  if (!Number.isFinite(value) || (Number.isFinite(tile.noData) && value === tile.noData)) return null;
+  let sum = 0;
+  let count = 0;
+  for (let index = 0; index < PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE; index++) {
+    const sample = Number(tile.raster[index]);
+    if (!Number.isFinite(sample) || (Number.isFinite(tile.noData) && sample === tile.noData)) continue;
+    sum += sample;
+    count++;
+  }
+  if (!count) return null;
+  const meanElevation = sum / count;
+  return meanElevation + (value - meanElevation) * reliefExaggeration + soilDepth;
 }
 
 function safeTileUrl(filename: string): string {
@@ -288,15 +299,24 @@ export const CesiumSoilLayer: React.FC<SoilLayerProps> = ({ viewer, sites, selec
         const entity = activeViewer.entities.getById(id);
         if (!entity) continue;
         const selected = selectedSite && (selectedSite.id ?? selectedSite.name) === (site.id ?? site.name);
-        const demHeight = enabled ? sampleTileElevation(site, tiles) : null;
-        const baseHeight = Math.max(0, Number(site.altitude) || 0) + (selected ? 100 : 40);
-        const height = demHeight === null ? baseHeight : demHeight + depth + (selected ? 100 : 40);
-        entity.position = new ConstantPositionProperty(Cartesian3.fromDegrees(Number(site.lon), Number(site.lat), height));
+        const demHeight = enabled ? sampleTileElevation(site, tiles, depth, reliefExaggeration) : null;
+        const marker = entity as any;
+        if (demHeight === null) {
+          entity.position = new ConstantPositionProperty(Cartesian3.fromDegrees(Number(site.lon), Number(site.lat), 0));
+          if (marker.point) marker.point.heightReference = HeightReference.CLAMP_TO_GROUND;
+          if (marker.label) marker.label.heightReference = HeightReference.CLAMP_TO_GROUND;
+        } else {
+          // Match the exact same exaggerated DEM surface used by the mesh, with only a
+          // 1.5 m lift to prevent z-fighting. No 40/100/250 m marker altitude offsets.
+          entity.position = new ConstantPositionProperty(Cartesian3.fromDegrees(Number(site.lon), Number(site.lat), demHeight + 1.5));
+          if (marker.point) marker.point.heightReference = HeightReference.NONE;
+          if (marker.label) marker.label.heightReference = HeightReference.NONE;
+        }
       }
       activeViewer.scene.requestRender();
     });
     return () => cancelAnimationFrame(frame);
-  }, [viewer, sites, selectedSite?.id, selectedSite?.name, enabled, tiles, depth]);
+  }, [viewer, sites, selectedSite?.id, selectedSite?.name, enabled, tiles, depth, reliefExaggeration]);
 
   useEffect(() => () => {
     const activeViewer = viewer;
