@@ -143,56 +143,75 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExagg
       attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString(bandColors[band]).withAlpha(0.30)) },
     })];
   });
-  // Add a restrained topographic wire grid over the shaded DEM surface.
-  // Every eighth source vertex keeps the grid legible at regional scale without
-  // drawing all 513×513 raster cell edges.
-  const wireIndices: number[] = [];
-  const gridStep = 8;
-  for (let y = 0; y < PREVIEW_GRID_SIZE; y += gridStep) {
-    for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x += gridStep) {
-      const nextX = Math.min(PREVIEW_GRID_SIZE - 1, x + gridStep);
-      const a = y * PREVIEW_GRID_SIZE + x;
-      const b = y * PREVIEW_GRID_SIZE + nextX;
-      if (validMask[a] && validMask[b]) wireIndices.push(a, b);
-    }
-  }
-  for (let x = 0; x < PREVIEW_GRID_SIZE; x += gridStep) {
-    for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y += gridStep) {
-      const nextY = Math.min(PREVIEW_GRID_SIZE - 1, y + gridStep);
-      const a = y * PREVIEW_GRID_SIZE + x;
-      const b = nextY * PREVIEW_GRID_SIZE + x;
-      if (validMask[a] && validMask[b]) wireIndices.push(a, b);
-    }
-  }
-  // Include the final row and column so the wireframe closes at tile boundaries.
-  for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x += gridStep) {
-    const a = (PREVIEW_GRID_SIZE - 1) * PREVIEW_GRID_SIZE + x;
-    const b = (PREVIEW_GRID_SIZE - 1) * PREVIEW_GRID_SIZE + Math.min(PREVIEW_GRID_SIZE - 1, x + gridStep);
-    if (validMask[a] && validMask[b]) wireIndices.push(a, b);
-  }
-  for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y += gridStep) {
-    const a = y * PREVIEW_GRID_SIZE + PREVIEW_GRID_SIZE - 1;
-    const b = Math.min(PREVIEW_GRID_SIZE - 1, y + gridStep) * PREVIEW_GRID_SIZE + PREVIEW_GRID_SIZE - 1;
-    if (validMask[a] && validMask[b]) wireIndices.push(a, b);
-  }
-  if (wireIndices.length) {
-    const wireGeometry = new Geometry({
-      attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
-      indices: Uint32Array.from(wireIndices),
-      primitiveType: PrimitiveType.LINES,
-      vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
-      boundingSphere: BoundingSphere.fromVertices(positions),
-    });
-    instances.push(new GeometryInstance({
-      id: `copernicus-terrain-wireframe-${tile.west}-${tile.south}`,
-      geometry: wireGeometry,
-      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d9e8d9').withAlpha(0.48)) },
-    }));
-  }
   if (!instances.length) throw new Error('The DEM tile contains no valid terrain triangles.');
   return new Primitive({
     geometryInstances: instances,
     appearance: new PerInstanceColorAppearance({ flat: false, translucent: true, closed: false, faceForward: true }),
+    asynchronous: false,
+    allowPicking: false,
+  });
+}
+
+
+function buildElevationWireframePrimitive(tile: CachedDemTile, soilDepth = 0, reliefExaggeration = 1): Primitive {
+  const count = PREVIEW_GRID_SIZE * PREVIEW_GRID_SIZE;
+  const positions = new Float64Array(count * 3);
+  const validMask = new Uint8Array(count);
+  let elevationSum = 0;
+  let validCount = 0;
+  for (let index = 0; index < count; index++) {
+    const value = Number(tile.raster[index]);
+    if (!Number.isFinite(value) || (Number.isFinite(tile.noData) && value === tile.noData)) continue;
+    validMask[index] = 1;
+    elevationSum += value;
+    validCount++;
+  }
+  if (!validCount) throw new Error('No valid DEM samples available for the terrain wireframe.');
+  const meanElevation = elevationSum / validCount;
+  for (let y = 0; y < PREVIEW_GRID_SIZE; y++) {
+    const latitude = tile.north - (y / (PREVIEW_GRID_SIZE - 1)) * (tile.north - tile.south);
+    for (let x = 0; x < PREVIEW_GRID_SIZE; x++) {
+      const index = y * PREVIEW_GRID_SIZE + x;
+      const longitude = tile.west + (x / (PREVIEW_GRID_SIZE - 1)) * (tile.east - tile.west);
+      const elevation = Number(tile.raster[index]);
+      const adjusted = validMask[index] ? meanElevation + (elevation - meanElevation) * reliefExaggeration + soilDepth : meanElevation;
+      const point = Cartesian3.fromDegrees(longitude, latitude, adjusted);
+      positions[index * 3] = point.x;
+      positions[index * 3 + 1] = point.y;
+      positions[index * 3 + 2] = point.z;
+    }
+  }
+  const indices: number[] = [];
+  const step = 8;
+  for (let y = 0; y < PREVIEW_GRID_SIZE; y += step) {
+    for (let x = 0; x < PREVIEW_GRID_SIZE - 1; x += step) {
+      const a = y * PREVIEW_GRID_SIZE + x;
+      const b = y * PREVIEW_GRID_SIZE + Math.min(PREVIEW_GRID_SIZE - 1, x + step);
+      if (validMask[a] && validMask[b]) indices.push(a, b);
+    }
+  }
+  for (let x = 0; x < PREVIEW_GRID_SIZE; x += step) {
+    for (let y = 0; y < PREVIEW_GRID_SIZE - 1; y += step) {
+      const a = y * PREVIEW_GRID_SIZE + x;
+      const b = Math.min(PREVIEW_GRID_SIZE - 1, y + step) * PREVIEW_GRID_SIZE + x;
+      if (validMask[a] && validMask[b]) indices.push(a, b);
+    }
+  }
+  if (!indices.length) throw new Error('The DEM tile contains no valid wireframe edges.');
+  const geometry = new Geometry({
+    attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
+    indices: Uint32Array.from(indices),
+    primitiveType: PrimitiveType.LINES,
+    vertexFormat: PerInstanceColorAppearance.FLAT_VERTEX_FORMAT,
+    boundingSphere: BoundingSphere.fromVertices(positions),
+  });
+  return new Primitive({
+    geometryInstances: new GeometryInstance({
+      id: `copernicus-terrain-wireframe-${tile.west}-${tile.south}`,
+      geometry,
+      attributes: { color: ColorGeometryInstanceAttribute.fromColor(Color.fromCssColorString('#d9e8d9').withAlpha(0.48)) },
+    }),
+    appearance: new PerInstanceColorAppearance({ flat: true, translucent: true, closed: false }),
     asynchronous: false,
     allowPicking: false,
   });
@@ -324,7 +343,10 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
           const elevationPrimitive = buildElevationPrimitive(cachedTile, showSoilLayerRef.current ? soilDepth : 0, reliefExaggeration);
           viewer.scene.primitives.add(elevationPrimitive);
           primitives.push(elevationPrimitive);
-          topographyPrimitivesRef.current = [...topographyPrimitivesRef.current, elevationPrimitive];
+          const wireframePrimitive = buildElevationWireframePrimitive(cachedTile, showSoilLayerRef.current ? soilDepth : 0, reliefExaggeration);
+          viewer.scene.primitives.add(wireframePrimitive);
+          primitives.push(wireframePrimitive);
+          topographyPrimitivesRef.current = [...topographyPrimitivesRef.current, elevationPrimitive, wireframePrimitive];
           loaded++;
         }
         rebuildSoilRef.current = (depth: number, exaggeration: number) => {
@@ -339,6 +361,10 @@ export const CesiumCopernicusPreview: React.FC<Props> = ({ open, onClose, select
               activeViewer.scene.primitives.add(next);
               primitives.push(next);
               nextPrimitives.push(next);
+              const wireframe = buildElevationWireframePrimitive(tile, showSoilLayerRef.current ? depth : 0, exaggeration);
+              activeViewer.scene.primitives.add(wireframe);
+              primitives.push(wireframe);
+              nextPrimitives.push(wireframe);
             }
             for (const oldPrimitive of topographyPrimitivesRef.current) {
               if (!oldPrimitive.isDestroyed()) activeViewer.scene.primitives.remove(oldPrimitive);
