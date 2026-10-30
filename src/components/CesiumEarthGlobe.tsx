@@ -14,6 +14,7 @@ import {
   Math as CesiumMath,
   Rectangle,
   Ion,
+  HeightReference,
   createOsmBuildingsAsync,
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
@@ -142,7 +143,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
       controller.enableZoom = true;
       viewer.scene.globe.show = true;
       viewer.scene.globe.enableLighting = true;
-      viewer.scene.globe.depthTestAgainstTerrain = false;
+      viewer.scene.globe.depthTestAgainstTerrain = true;
       viewer.scene.backgroundColor = Color.fromCssColorString('#030814');
 
       try {
@@ -187,9 +188,10 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
             id,
             name: site.name,
             properties: { neuroPulseSite: true, siteId: site.id ?? site.name },
-            position: Cartesian3.fromDegrees(Number(site.lon), Number(site.lat), Math.max(0, Number(site.altitude) || 0) + (selected ? 100 : 40)),
+            position: Cartesian3.fromDegrees(Number(site.lon), Number(site.lat), 0),
             point: {
               pixelSize: selected ? 16 : site.isCity ? 12 : 13,
+              heightReference: HeightReference.CLAMP_TO_GROUND,
               color: Color.fromCssColorString(selected ? '#ffffff' : site.color || (site.isCity ? '#7dd3fc' : '#fbbf24')),
               outlineColor: Color.fromCssColorString(selected ? '#22d3ee' : '#07111f'),
               outlineWidth: selected ? 3 : 2,
@@ -197,6 +199,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
             label: {
               text: site.name,
               show: selected || site.showLabel === true,
+              heightReference: HeightReference.CLAMP_TO_GROUND,
               font: selected ? 'bold 14px sans-serif' : '12px sans-serif',
               fillColor: Color.WHITE,
               outlineColor: Color.BLACK,
@@ -390,9 +393,9 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
       if (entity) viewer.entities.remove(entity);
       viewer.entities.add({
         id, name: site.name, properties: { neuroPulseSite: true, siteId: site.id ?? site.name },
-        position: Cartesian3.fromDegrees(Number(site.lon), Number(site.lat), Math.max(0, Number(site.altitude) || 0) + (selected ? 100 : 40)),
-        point: { pixelSize: selected ? 13 : site.isCity ? 8 : 9, color: Color.fromCssColorString(selected ? '#ffffff' : site.color || (site.isCity ? '#7dd3fc' : '#fbbf24')), outlineColor: Color.fromCssColorString(selected ? '#22d3ee' : '#07111f'), outlineWidth: selected ? 3 : 2 },
-        label: { text: site.name, show: selected || site.showLabel === true, font: selected ? 'bold 14px sans-serif' : '12px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, pixelOffset: new Cartesian2(0, -14) },
+        position: Cartesian3.fromDegrees(Number(site.lon), Number(site.lat), 0),
+        point: { pixelSize: selected ? 13 : site.isCity ? 8 : 9, heightReference: HeightReference.CLAMP_TO_GROUND, color: Color.fromCssColorString(selected ? '#ffffff' : site.color || (site.isCity ? '#7dd3fc' : '#fbbf24')), outlineColor: Color.fromCssColorString(selected ? '#22d3ee' : '#07111f'), outlineWidth: selected ? 3 : 2 },
+        label: { text: site.name, show: selected || site.showLabel === true, heightReference: HeightReference.CLAMP_TO_GROUND, font: selected ? 'bold 14px sans-serif' : '12px sans-serif', fillColor: Color.WHITE, outlineColor: Color.BLACK, outlineWidth: 3, style: 2, pixelOffset: new Cartesian2(0, -14) },
       });
     }
     viewer.scene.requestRender();
