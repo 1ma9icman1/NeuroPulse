@@ -165,7 +165,7 @@ export const CesiumEarthGlobe = forwardRef<any, Props>(({
             maximumLevel: 8,
           });
           if (disposed || !viewer || viewer.isDestroyed()) return;
-          imageryLayer = viewer.imageryLayers.addImageryProvider(provider);
+          viewer.imageryLayers.addImageryProvider(provider);
         }
       } catch (error) {
         console.warn('[NeuroPulse] Cesium Earth imagery failed; using ellipsoid globe:', error);
