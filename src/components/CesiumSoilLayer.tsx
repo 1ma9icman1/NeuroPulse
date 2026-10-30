@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BoundingSphere, Cartesian3, Color, ColorGeometryInstanceAttribute, ComponentDatatype, Geometry, GeometryAttribute, GeometryInstance, GeometryPipeline, PerInstanceColorAppearance, Primitive, PrimitiveType, Viewer } from 'cesium';
+import { BoundingSphere, Cartesian3, Color, ColorGeometryInstanceAttribute, ComponentDatatype, ConstantPositionProperty, Geometry, GeometryAttribute, GeometryInstance, GeometryPipeline, PerInstanceColorAppearance, Primitive, PrimitiveType, Viewer } from 'cesium';
 import { fromUrl } from 'geotiff';
 
 type DemManifest = {
@@ -171,6 +171,15 @@ function buildElevationWireframePrimitive(tile: CachedDemTile, soilDepth = 0, re
   });
 }
 
+function sampleTileElevation(site: SoilSite, tiles: CachedDemTile[]): number | null {
+  const tile = tiles.find(item => site.lon >= item.west && site.lon <= item.east && site.lat >= item.south && site.lat <= item.north);
+  if (!tile) return null;
+  const x = Math.max(0, Math.min(PREVIEW_GRID_SIZE - 1, Math.round(((site.lon - tile.west) / (tile.east - tile.west)) * (PREVIEW_GRID_SIZE - 1))));
+  const y = Math.max(0, Math.min(PREVIEW_GRID_SIZE - 1, Math.round(((tile.north - site.lat) / (tile.north - tile.south)) * (PREVIEW_GRID_SIZE - 1))));
+  const value = Number(tile.raster[y * PREVIEW_GRID_SIZE + x]);
+  return Number.isFinite(value) && (!Number.isFinite(tile.noData) || value !== tile.noData) ? value : null;
+}
+
 function safeTileUrl(filename: string): string {
   const normalized = filename.replace(/\\\\/g, '/').replace(/^\/+/, '');
   if (normalized.split('/').some(part => part === '..')) throw new Error('Invalid path in Copernicus DEM manifest.');
@@ -179,15 +188,18 @@ function safeTileUrl(filename: string): string {
 
 
 
+type SoilSite = { id?: string; name: string; lat: number; lon: number; altitude?: number };
 type SoilLayerProps = {
   viewer: Viewer | null;
+  sites: SoilSite[];
+  selectedSite?: SoilSite | null;
   enabled: boolean;
   depth: number;
   reliefExaggeration: number;
   onStatus?: (status: string) => void;
 };
 
-export const CesiumSoilLayer: React.FC<SoilLayerProps> = ({ viewer, enabled, depth, reliefExaggeration, onStatus }) => {
+export const CesiumSoilLayer: React.FC<SoilLayerProps> = ({ viewer, sites, selectedSite, enabled, depth, reliefExaggeration, onStatus }) => {
   const [tiles, setTiles] = useState<CachedDemTile[]>([]);
   const loadGeneration = useRef(0);
   const activePrimitives = useRef<Primitive[]>([]);
@@ -264,6 +276,29 @@ export const CesiumSoilLayer: React.FC<SoilLayerProps> = ({ viewer, enabled, dep
       if (!activeViewer.isDestroyed()) activeViewer.scene.requestRender();
     };
   }, [viewer, enabled, tiles, depth, reliefExaggeration]);
+
+  // Keep existing Earth catalogue markers on the actual local DEM surface without
+  // changing their WGS84 latitude/longitude. Restore their normal height when disabled.
+  useEffect(() => {
+    const activeViewer = viewer;
+    if (!activeViewer || activeViewer.isDestroyed()) return;
+    const frame = requestAnimationFrame(() => {
+      if (activeViewer.isDestroyed()) return;
+      for (const site of sites) {
+        if (!site || !Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
+        const id = `np-earth-site:${site.id ?? site.name}:${Number(site.lat)}:${Number(site.lon)}`;
+        const entity = activeViewer.entities.getById(id);
+        if (!entity) continue;
+        const selected = selectedSite && (selectedSite.id ?? selectedSite.name) === (site.id ?? site.name);
+        const demHeight = enabled ? sampleTileElevation(site, tiles) : null;
+        const baseHeight = Math.max(0, Number(site.altitude) || 0) + (selected ? 100 : 40);
+        const height = demHeight === null ? baseHeight : demHeight + depth + (selected ? 100 : 40);
+        entity.position = new ConstantPositionProperty(Cartesian3.fromDegrees(Number(site.lon), Number(site.lat), height));
+      }
+      activeViewer.scene.requestRender();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [viewer, sites, selectedSite?.id, selectedSite?.name, enabled, tiles, depth]);
 
   useEffect(() => () => {
     const activeViewer = viewer;
