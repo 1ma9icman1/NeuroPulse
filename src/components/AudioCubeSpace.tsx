@@ -194,6 +194,11 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
   const [earthTextureUrl, setEarthTextureUrl] = useState<string>(earthImagerySources.satellite);
   // Sea-level mode uses measured DEM elevations and ocean-connected flood fill.
   const [showSeaLevelOverlay, setShowSeaLevelOverlay] = useState(false);
+  // Copernicus GLO-90 is opt-in: no manifest or GeoTIFF is requested until enabled.
+  const [showSoilLayer, setShowSoilLayer] = useState(false);
+  const [soilDepth, setSoilDepth] = useState(39);
+  const [reliefExaggeration, setReliefExaggeration] = useState(3);
+  const [soilStatus, setSoilStatus] = useState('Off · local Copernicus DEM not loaded');
   const [seaLevelFloodPolygons, setSeaLevelFloodPolygons] = useState<Array<{ layerType: 'sea-level-flood'; geometry: { type: 'Polygon'; coordinates: number[][][] } }>>([]);
   const activateSeaLevelOverlay = (enabled: boolean) => setShowSeaLevelOverlay(enabled);
   useEffect(() => {
@@ -215,6 +220,13 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
     if (!sidebar || !panel) return;
     sidebar.scrollTop = Math.max(0, panel.offsetTop - sidebar.offsetTop);
   }, [showSeaLevelOverlay]);
+  useEffect(() => {
+    if (!showSoilLayer) return;
+    const sidebar = document.querySelector('.atlas-right') as HTMLElement | null;
+    const panel = sidebar?.querySelector('.atlas-soil-panel') as HTMLElement | null;
+    if (!sidebar || !panel) return;
+    sidebar.scrollTop = Math.max(0, panel.offsetTop - sidebar.offsetTop);
+  }, [showSoilLayer]);
   const builtInEarthSites = [
     { name: 'Göbekli Tepe', lat: 37.223, lon: 38.922, year: -9600 },
     { name: 'Jericho', lat: 31.871, lon: 35.444, year: -9000 },
@@ -3317,6 +3329,32 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
         </div>
       )}
 
+      {typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
+        <section className="atlas-panel atlas-soil-panel">
+          <div className="atlas-panel-heading">
+            <span className="flex items-center gap-2 text-amber-200"><Layers className="h-4 w-4" /> SOIL / SAND TERRAIN</span>
+            <button
+              type="button"
+              onClick={() => setShowSoilLayer(value => !value)}
+              aria-pressed={showSoilLayer}
+              className={`rounded border px-2.5 py-1 text-[10px] font-mono font-bold ${showSoilLayer ? 'border-amber-300 bg-amber-950 text-amber-100' : 'border-slate-600 bg-slate-900 text-slate-200'}`}
+            >{showSoilLayer ? 'LAYER ON · CLOSE' : 'LOAD SOIL LAYER'}</button>
+          </div>
+          <p className="mb-2 text-[10px] leading-relaxed text-slate-400">Loads local Copernicus GLO-90 GeoTIFF tiles into this same Earth globe. Nothing is downloaded or meshed until you turn this layer on.</p>
+          {showSoilLayer && <>
+            <label htmlFor="unified-soil-depth" className="mb-1 block text-[10px] font-mono text-amber-100">SURFACE OFFSET · {soilDepth} m</label>
+            <input id="unified-soil-depth" aria-label="Soil or sand surface offset in metres" type="range" min="0" max="100" step="1" value={soilDepth} onChange={event => setSoilDepth(Number(event.target.value))} className="mb-2 w-full accent-amber-400" />
+            <div className="mb-3 flex justify-between text-[9px] text-slate-500"><span>0 m · DEM</span><span>39 m · Giza scenario</span><span>100 m</span></div>
+            <label htmlFor="unified-soil-relief" className="mb-1 block text-[10px] font-mono text-cyan-100">3D RELIEF · {reliefExaggeration.toFixed(1)}×</label>
+            <input id="unified-soil-relief" aria-label="Terrain relief exaggeration" type="range" min="1" max="12" step="0.5" value={reliefExaggeration} onChange={event => setReliefExaggeration(Number(event.target.value))} className="mb-2 w-full accent-cyan-400" />
+            <p className="mb-2 text-[9px] leading-relaxed text-slate-500">The DEM provides measured elevation. Surface offset and relief exaggeration are visualization controls, not a global measured soil-depth dataset.</p>
+            <button type="button" onClick={() => { setSoilDepth(0); setReliefExaggeration(1); }} className="mb-2 w-full rounded border border-slate-600 px-2 py-1.5 text-[10px] font-mono text-slate-200 hover:bg-slate-800">RESET TO SOURCE DEM</button>
+          </>}
+          <div role="status" className="text-[9px] leading-relaxed text-slate-400">{soilStatus}</div>
+        </section>,
+        document.querySelector('.atlas-right')!
+      )}
+
       {showSeaLevelOverlay && typeof document !== 'undefined' && document.querySelector('.atlas-right') && createPortal(
         <section className="atlas-panel atlas-sea-level-panel max-h-[65vh] overflow-y-auto overscroll-contain" style={{ overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'auto' }}>
           <div className="atlas-panel-heading">
@@ -3934,6 +3972,10 @@ export const AudioCubeSpace: React.FC<AudioCubeSpaceProps> = ({
               showCountryBorders={showCountryBorders}
               showBuildings={showBuildings}
               onBuildingsStatus={setBuildingsStatus}
+              showSoilLayer={showSoilLayer}
+              soilDepth={soilDepth}
+              reliefExaggeration={reliefExaggeration}
+              onSoilStatus={setSoilStatus}
               countryBorderPaths={countryBorderPaths}
               imagerySource={earthImagerySource}
               triangleEdges={triangleEdges}
