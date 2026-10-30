@@ -233,7 +233,7 @@ export default function App() {
     ].map((site, index) => ({
       ...site,
       id: 'catalog-' + index + '-' + site.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      color: site.category === 'astronomy' ? '#a78bfa' : site.category === 'acoustic' ? '#fb923c' : site.isCity ? '#60a5fa' : '#facc15',
+      color: site.category === 'astronomy' ? '#a78bfa' : site.category === 'acoustic' ? '#fb923c' : (site as any).isCity ? '#60a5fa' : '#facc15',
       modules: [...new Set(['DATABASE', 'GLOBAL SEARCH', 'MAP OVERLAYS', ...(site.tags ?? []), ...researchModuleForSite(site as any)])],
       sourceUrl: site.sourceUrl,
     }));
