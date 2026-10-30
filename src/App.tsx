@@ -7,7 +7,6 @@ import {
   Signal, SlidersHorizontal, Star, Target, Waves, X, Zap, Volume2, ChevronUp, Mountain, Sun
 } from 'lucide-react';
 import { AudioCubeSpace } from './components/AudioCubeSpace';
-import { EarthElevation } from './components/EarthElevation';
 import { SiteResearchNotes } from './components/SiteResearchNotes';
 import { SolarFlareResearch } from './components/SolarFlareResearch';
 import { SolarFlareEarth } from './components/SolarFlareEarth';
@@ -535,7 +534,7 @@ export default function App() {
                 setSelectedSiteId(known?.id ?? site.name);
                 setSelectedGlobeSite(known ?? { ...site, id: site.name, category: site.category ?? 'Mapped site' });
               }}
-            /> : (earthAreaView === 'globe' || !selectedSite) ? <AudioCubeSpace
+            /> : (earthAreaView === 'globe' || earthAreaView === 'elevation' || !selectedSite) ? <AudioCubeSpace
               aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
               spatialMode={config.spatialMode} cameraView={config.cameraView}
               cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
@@ -707,7 +706,7 @@ export default function App() {
 
           {earthAreaView === 'elevation' && <section className="atlas-panel atlas-elevation-tools">
             <div className="atlas-panel-heading"><Mountain size={13} /> ELEVATION TOOLKIT <span className="atlas-panel-count">3D TERRAIN</span></div>
-            <div className="atlas-elevation-tool-note">NOAA height data and adjustable ocean datum are active. Water and terrain controls are first; geometry overlays are below.</div>
+            <div className="atlas-elevation-tool-note">Shared Earth workspace · Copernicus terrain is loaded only when the Soil / Sand layer is enabled. Water and geometry tools remain available here.</div>
             <div className="atlas-elevation-water-controls">
               <label>WATER ELEVATION <strong>{elevationWaterLevel > 0 ? '+' : ''}{elevationWaterLevel.toFixed(1)} m</strong></label>
               <input aria-label="Elevation workspace water level" type="range" min="-120" max="1000" step="1" value={elevationWaterLevel} onChange={event => { const value = Number(event.target.value); setElevationWaterLevel(value); window.dispatchEvent(new CustomEvent('neuro-pulse-elevation-tool', { detail: { action: 'water-level', value } })); }} />
@@ -734,7 +733,7 @@ export default function App() {
                 <div className="atlas-site-glyph"><MapPin size={26} /></div>
                 <div><h2>{selectedSite.name}</h2><div className="atlas-muted">{selectedSite.category ?? 'Recorded location'}</div></div>
               </div>
-              <div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('road')}>ROAD MAP IN EARTH VIEW</button><button onClick={() => setEarthAreaView('satellite')}>SATELLITE IN EARTH VIEW</button><button onClick={() => setEarthAreaView('street')}>STREET VIEW IN EARTH VIEW</button><button onClick={() => setEarthAreaView('elevation')} title="Open the third Earth workspace with NOAA terrain, bathymetry, and adjustable sea level">WATER ELEVATION · 3D EARTH</button></div><div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('satellite')} title="Show this location's aerial imagery inside NeuroPulse">OPEN AERIAL MAP IN APP</button></div>
+              <div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('road')}>ROAD MAP IN EARTH VIEW</button><button onClick={() => setEarthAreaView('satellite')}>SATELLITE IN EARTH VIEW</button><button onClick={() => setEarthAreaView('street')}>STREET VIEW IN EARTH VIEW</button><button onClick={() => setEarthAreaView('elevation')} title="Open water and terrain controls on the shared Earth globe">WATER ELEVATION · 3D EARTH</button></div><div className="atlas-site-map-actions"><button onClick={() => setEarthAreaView('satellite')} title="Show this location's aerial imagery inside NeuroPulse">OPEN AERIAL MAP IN APP</button></div>
               <div className="atlas-site-map-actions"><button onClick={() => toggleFavorite(selectedSite)} aria-pressed={isFavorite(selectedSite)}><Star size={14} fill={isFavorite(selectedSite) ? 'currentColor' : 'none'} /> {isFavorite(selectedSite) ? 'SAVED TO FAVORITES' : 'SAVE TO FAVORITES'}</button></div>
               <div className="atlas-site-assign-actions"><span>ASSIGN THIS LOCATION TO SPATIAL CHANNEL</span>{(['a','b','c'] as const).map(channel => <button key={channel} className={'assign-' + channel} onClick={() => window.dispatchEvent(new CustomEvent('neuro-pulse-assign-earth-site', { detail: { channel, latitude: selectedSite.lat, longitude: selectedSite.lon } }))}>ADD TO {channel.toUpperCase()}</button>)}</div>
               <div className="atlas-coordinates">
