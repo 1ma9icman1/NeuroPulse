@@ -85,7 +85,6 @@ function buildElevationPrimitive(tile: CachedDemTile, soilDepth = 0, reliefExagg
       attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
       indices: Uint32Array.from(indices),
       primitiveType: PrimitiveType.TRIANGLES,
-      vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
       boundingSphere: BoundingSphere.fromVertices(positions),
     });
     // Per-vertex normals let Cesium shade slopes and ridgelines with real directional light,
@@ -156,7 +155,6 @@ function buildElevationWireframePrimitive(tile: CachedDemTile, soilDepth = 0, re
     attributes: { position: new GeometryAttribute({ componentDatatype: ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }) } as never,
     indices: Uint32Array.from(indices),
     primitiveType: PrimitiveType.LINES,
-    vertexFormat: PerInstanceColorAppearance.FLAT_VERTEX_FORMAT,
     boundingSphere: BoundingSphere.fromVertices(positions),
   });
   return new Primitive({
