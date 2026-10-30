@@ -518,23 +518,7 @@ export default function App() {
         <section className="atlas-center">
           <div className="atlas-globe-stage">
             <div className="atlas-globe-grid" aria-hidden="true" />
-            {activeNav === 'SOLAR FLARE' ? <SolarFlareEarth onBack={() => { setActiveNav('GLOBAL SEARCH'); setEarthAreaView('globe'); }} /> : earthAreaView === 'elevation' ? <EarthElevation
-              key="water-elevation-earth"
-              selectedSite={selectedSite ? { name: selectedSite.name, lat: selectedSite.lat, lon: selectedSite.lon } : null}
-              siteCatalogue={researchSites}
-              onBack={() => setEarthAreaView('globe')}
-              onAssignChannel={(channel, latitude, longitude) => {
-                const lat = latitude * Math.PI / 180;
-                const lon = longitude * Math.PI / 180;
-                const radius = 3.42;
-                updatePosition(channel, { x: radius * Math.cos(lat) * Math.sin(lon), y: radius * Math.sin(lat), z: radius * Math.cos(lat) * Math.cos(lon) });
-              }}
-              onSelectSite={(site) => {
-                const known = researchSites.find((item: any) => item.name === site.name) as any;
-                setSelectedSiteId(known?.id ?? site.name);
-                setSelectedGlobeSite(known ?? { ...site, id: site.name, category: site.category ?? 'Mapped site' });
-              }}
-            /> : (earthAreaView === 'globe' || earthAreaView === 'elevation' || !selectedSite) ? <AudioCubeSpace
+            {activeNav === 'SOLAR FLARE' ? <SolarFlareEarth onBack={() => { setActiveNav('GLOBAL SEARCH'); setEarthAreaView('globe'); }} /> : (earthAreaView === 'globe' || earthAreaView === 'elevation' || !selectedSite) ? <AudioCubeSpace
               aPos={config.aPos} bPos={config.bPos} cPos={config.cPos}
               spatialMode={config.spatialMode} cameraView={config.cameraView}
               cameraYaw={config.cameraYaw} cameraPitch={config.cameraPitch} cameraZoom={config.cameraZoom}
