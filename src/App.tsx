@@ -181,6 +181,7 @@ export default function App() {
     setShowSiteList(false);
   }, []);
   const researchSites = useMemo(() => {
+    const normalizeName = (value: string) => value.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
     const core = DEFAULT_EARTH_POINTS.map((site) => ({
       ...site,
       modules: researchModuleForSite(site),
@@ -195,9 +196,12 @@ export default function App() {
         /petra/i.test(site.name) ? 'https://whc.unesco.org/en/list/326/' :
         /caral/i.test(site.name) ? 'https://whc.unesco.org/en/list/1269/' : undefined,
     }));
-    const known = new Set(core.map((site) => site.name.toLowerCase()));
+    const coreNames = new Set(core.map((site) => normalizeName(site.name)));
+    const catalogueNames = new Set(RESEARCH_CATALOG_SITES.map((site) => normalizeName(site.name)));
+    // The research catalogue contains the newer, source-linked site records.
+    // Do not let an older coarse legacy pin shadow a more specific catalogue record.
     const legacy = LEGACY_HISTORICAL_SITES
-      .filter((site) => !known.has(site.name.toLowerCase()))
+      .filter((site) => !coreNames.has(normalizeName(site.name)) && !catalogueNames.has(normalizeName(site.name)))
       .map((site, index) => {
         const category: 'ancient' | 'astronomy' | 'acoustic' | 'custom' = 'ancient';
         const normalized = { ...site, id: 'legacy-' + index + '-' + site.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), color: site.isCity ? '#60a5fa' : '#facc15', category,
@@ -235,7 +239,6 @@ export default function App() {
       modules: [...new Set(['DATABASE', 'GLOBAL SEARCH', 'MAP OVERLAYS', ...(site.tags ?? []), ...researchModuleForSite(site as any)])],
       sourceUrl: site.sourceUrl,
     }));
-    const normalizeName = (value: string) => value.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
     const seen = new Set([...core, ...legacy].map((site) => normalizeName(site.name)));
     const uniqueAdditions = additions.filter((site) => {
       const key = normalizeName(site.name);
