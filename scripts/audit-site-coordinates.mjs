@@ -22,7 +22,7 @@ const cataloguePaths = [
   'src/data/undergroundSiteCatalog.ts',
 ];
 const sites = [];
-const entryPattern = /\{\s*name:\s*(['"`])([^'"`]+)\1,\s*lat:\s*(-?\d+(?:\.\d+)?),\s*lon:\s*(-?\d+(?:\.\d+)?)/g;
+const entryPattern = /\{[^{}]*?\bname:\s*(['"`])((?:\\.|[^'"`\\])*)\1\s*,\s*lat:\s*(-?\d+(?:\.\d+)?),\s*lon:\s*(-?\d+(?:\.\d+)?)/g;
 
 for (const relativePath of cataloguePaths) {
   const cataloguePath = resolve(root, relativePath);
