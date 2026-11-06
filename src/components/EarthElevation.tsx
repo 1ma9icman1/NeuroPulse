@@ -5,6 +5,7 @@ import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 import { FreeStreetImageryPanel } from './FreeStreetImageryPanel';
 import { CesiumCopernicusPreview } from './CesiumCopernicusPreview';
+import { latitudeToTextureV, sampleSurfaceElevation } from '../lib/siteCoordinates';
 
 type Site = { name: string; lat: number; lon: number } | null;
 type CatalogueSite = { name: string; lat: number; lon: number; category?: string; color?: string };
@@ -292,7 +293,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         const uvs: number[] = [];
         const indices: number[] = [];
         for (let y = 0; y < gridHeight; y++) {
-          const lat = (90 - (y / (gridHeight - 1)) * 180) * Math.PI / 180;
+          const latitudeDegrees = 90 - (y / (gridHeight - 1)) * 180;
+          const lat = latitudeDegrees * Math.PI / 180;
           for (let x = 0; x < gridWidth; x++) {
             const lon = ((x / (gridWidth - 1)) * 360 - 180) * Math.PI / 180;
             const elevation = heights[y * gridWidth + x];
@@ -310,7 +312,9 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
               : surfaceModeRef.current === 'satellite' ? new THREE.Color('#ffffff') : elevationColor(elevation);
             colors.push(color.r, color.g, color.b);
             // Geographic equirectangular mapping: west/east across U, north/south across V.
-            uvs.push(x / (gridWidth - 1), 1 - y / (gridHeight - 1));
+            // ArcGIS imagery export covers 85°S–85°N, not the full ±90° ellipsoid.
+            // Clamp the polar caps and map the image to its actual geographic extent.
+            uvs.push(x / (gridWidth - 1), latitudeToTextureV(latitudeDegrees));
           }
         }
         for (let y = 0; y < gridHeight - 1; y++) {
@@ -359,9 +363,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
             for (; index < stop; index++) {
               const site = siteCatalogue[index];
               if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
-              const sx = Math.max(0, Math.min(gridWidth - 1, Math.round(((site.lon + 180) / 360) * (gridWidth - 1))));
-              const sy = Math.max(0, Math.min(gridHeight - 1, Math.round(((90 - site.lat) / 180) * (gridHeight - 1))));
-              const elevation = heights[sy * gridWidth + sx] || 0;
+              // Match the terrain mesh's bilinear interpolation at this exact WGS84 point.
+              const elevation = sampleSurfaceElevation(heights, gridWidth, gridHeight, site.lat, site.lon, seaLevelRef.current);
               const lat = site.lat * Math.PI / 180;
               const lon = site.lon * Math.PI / 180;
               const radius = BASE_RADIUS + Math.max(elevation, seaLevelRef.current) * HEIGHT_SCALE * terrainScaleRef.current + 0.8;
@@ -579,9 +582,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     if (!showTriangulation && !showAngleLabels) return;
     const valid = siteCatalogue.filter(site => Number.isFinite(site.lat) && Number.isFinite(site.lon)).slice(0, 90);
     const vectors = valid.map(site => {
-      const sx = Math.max(0, Math.min(state.width - 1, Math.round(((site.lon + 180) / 360) * (state.width - 1))));
-      const sy = Math.max(0, Math.min(state.height - 1, Math.round(((90 - site.lat) / 180) * (state.height - 1))));
-      const elevation = state.heights[sy * state.width + sx] || 0;
+      const elevation = sampleSurfaceElevation(state.heights, state.width, state.height, site.lat, site.lon, seaLevel);
       const lat = site.lat * Math.PI / 180;
       const lon = site.lon * Math.PI / 180;
       const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 1.8;
@@ -676,10 +677,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         const toVector = (lonValue: number, latValue: number) => {
           const lon = lonValue * Math.PI / 180;
           const lat = latValue * Math.PI / 180;
-          const x = Math.max(0, Math.min(state.width - 1, Math.round(((lonValue + 180) / 360) * (state.width - 1))));
-          const y = Math.max(0, Math.min(state.height - 1, Math.round(((90 - latValue) / 180) * (state.height - 1))));
-          const elevation = state.heights[y * state.width + x] || 0;
-          const radius = BASE_RADIUS + Math.max(elevation, seaLevelRef.current) * HEIGHT_SCALE * terrainScaleRef.current + 0.16;
+          const elevation = sampleSurfaceElevation(state.heights, state.width, state.height, latValue, lonValue, seaLevelRef.current);
+          const radius = BASE_RADIUS + elevation * HEIGHT_SCALE * terrainScaleRef.current + 0.16;
           return new THREE.Vector3(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
         };
         const addRing = (coordinates: number[][]) => {
@@ -738,9 +737,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
       if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
       const sprite = state.sitePoints.children[pointIndex] as THREE.Sprite | undefined;
       if (!sprite) break;
-      const sx = Math.max(0, Math.min(state.width - 1, Math.round(((site.lon + 180) / 360) * (state.width - 1))));
-      const sy = Math.max(0, Math.min(state.height - 1, Math.round(((90 - site.lat) / 180) * (state.height - 1))));
-      const elevation = state.heights[sy * state.width + sx] || 0;
+      const elevation = sampleSurfaceElevation(state.heights, state.width, state.height, site.lat, site.lon, seaLevel);
       const lat = site.lat * Math.PI / 180;
       const lon = site.lon * Math.PI / 180;
       const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.8;
@@ -762,9 +759,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
       if (state?.marker) state.marker.visible = false;
       return;
     }
-    const x = Math.max(0, Math.min(state.width - 1, Math.round(((selectedSite.lon + 180) / 360) * (state.width - 1))));
-    const y = Math.max(0, Math.min(state.height - 1, Math.round(((90 - selectedSite.lat) / 180) * (state.height - 1))));
-    const elevation = state.heights[y * state.width + x] || 0;
+    const elevation = sampleSurfaceElevation(state.heights, state.width, state.height, selectedSite.lat, selectedSite.lon, seaLevel);
     const lat = selectedSite.lat * Math.PI / 180;
     const lon = selectedSite.lon * Math.PI / 180;
     const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.8;
