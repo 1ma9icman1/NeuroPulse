@@ -22,18 +22,18 @@ const cataloguePaths = [
   'src/data/undergroundSiteCatalog.ts',
 ];
 const sites = [];
-const entryPattern = /\{[^{}]*?\bname:\s*(['"`])((?:\\.|[^'"`\\])*)\1\s*,\s*lat:\s*(-?\d+(?:\.\d+)?),\s*lon:\s*(-?\d+(?:\.\d+)?)/g;
+const entryPattern = /\{[^{}]*?\bname:\s*(?:'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)"|`((?:\\.|[^`\\])*)`)\s*,\s*lat:\s*(-?\d+(?:\.\d+)?),\s*lon:\s*(-?\d+(?:\.\d+)?)/g;
 
 for (const relativePath of cataloguePaths) {
   const cataloguePath = resolve(root, relativePath);
   if (!existsSync(cataloguePath)) continue;
   const source = readFileSync(cataloguePath, 'utf8');
   for (const match of source.matchAll(entryPattern)) {
-    const name = match[2].trim();
-    const lat = Number(match[3]);
-    const lon = Number(match[4]);
-    const latDigits = (match[3].split('.')[1] || '').length;
-    const lonDigits = (match[4].split('.')[1] || '').length;
+    const name = (match[1] ?? match[2] ?? match[3]).trim();
+    const lat = Number(match[4]);
+    const lon = Number(match[5]);
+    const latDigits = (match[4].split('.')[1] || '').length;
+    const lonDigits = (match[5].split('.')[1] || '').length;
     const valid = Number.isFinite(lat) && Number.isFinite(lon)
       && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
     sites.push({ sourceFile: relativePath, name, lat, lon, latDigits, lonDigits, valid });

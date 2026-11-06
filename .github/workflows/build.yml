@@ -2,7 +2,7 @@ name: Build verification # Copernicus DEM branch verification
 
 on:
   push:
-    branches: [main, feature/knowledge-graph-interface, feature/copernicus-dem-windows, fix/site-coordinate-alignment, fix/preserve-earth-camera-on-map-return, fix/cesium-workers-donki-streetview-fallback, feature/real-cme-direction-propagation, fix/restore-solar-event-live-playback]
+    branches: [main, feature/knowledge-graph-interface, feature/copernicus-dem-windows, fix/site-coordinate-alignment, fix/preserve-earth-camera-on-map-return, fix/cesium-workers-donki-streetview-fallback, feature/real-cme-direction-propagation, fix/restore-solar-event-live-playback, feature/site-catalogue-dedup-verification]
   pull_request:
     branches: [main]
 
@@ -25,6 +25,12 @@ jobs:
         run: npm run test:coordinates
       - name: Coordinate catalogue audit
         run: npm run audit:coordinates
+      - name: Upload coordinate audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-coordinate-audit
+          path: reports/site-coordinate-audit.csv
+          if-no-files-found: error
       - name: TypeScript validation
         run: npm run lint
       - name: Build production app

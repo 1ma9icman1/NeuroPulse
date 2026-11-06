@@ -1,4 +1,6 @@
 import test from 'node:test';
+import { RESEARCH_CATALOG_SITES } from '../src/data/researchSiteCatalog.ts';
+import { UNDERGROUND_SITE_CATALOG } from '../src/data/undergroundSiteCatalog.ts';
 import assert from 'node:assert/strict';
 import {
   googleMapsCoordinateUrl,
@@ -71,4 +73,26 @@ test('applies marker offset along the local outward direction', () => {
   ]);
   const [x, y, z] = sampleTriangulatedSurfacePosition(vertices, 2, 2, 0, 0, 1);
   assert.ok(Math.abs(Math.hypot(x, y, z) - (Math.hypot(5, 5, 10) + 1)) < 1e-10);
+});
+
+test('research catalogue is deduplicated and restored Egyptian pyramid entries remain present', () => {
+  const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const names = RESEARCH_CATALOG_SITES.map(site => normalize(site.name));
+  assert.equal(RESEARCH_CATALOG_SITES.length, 1290);
+  assert.equal(new Set(names).size, names.length, 'research catalogue contains duplicate normalized names');
+  for (const name of [
+    'Pyramid of Djedefre (Abu Rawash)',
+    'Pyramid of Sahure (Abusir)',
+    'Pyramid of Amenemhat III (Hawara)',
+    'Minor Step Pyramid of Elephantine',
+  ]) assert.ok(RESEARCH_CATALOG_SITES.some(site => site.name === name), name + ' missing');
+});
+
+test('underground catalogue is restored, unique, and uses valid WGS84 coordinates', () => {
+  assert.equal(UNDERGROUND_SITE_CATALOG.length, 31);
+  const names = UNDERGROUND_SITE_CATALOG.map(site => site.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim());
+  assert.equal(new Set(names).size, names.length, 'underground catalogue contains duplicate normalized names');
+  for (const site of UNDERGROUND_SITE_CATALOG) {
+    assert.equal(isValidWgs84Coordinate(site.lat, site.lon), true, site.name);
+  }
 });
