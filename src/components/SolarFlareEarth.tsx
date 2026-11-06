@@ -551,7 +551,11 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const cmeLiveAu = cme && !replaying ? Math.min(MAX_AU, cme.speedKmS * cmeLiveElapsedSeconds / 149597870.7) : 0;
   const frontAu = replaying ? cmeReplayAu : cmeLiveAu;
   const frontRadius = cme ? radiusAtAu(frontAu) : 0;
-  const cmeDirection = cme ? radians(cme.longitude) : 0;
+  // DONKI CME longitude is measured relative to the Earth-facing solar meridian.
+  // Rotate it into the same heliocentric frame used by the date-based planet orbits.
+  const earthHeliocentricForCme = heliocentricPoint(PLANETS[2], orbitDays);
+  const earthBearingOnMap = Math.atan2(-earthHeliocentricForCme.y, earthHeliocentricForCme.x);
+  const cmeDirection = cme ? earthBearingOnMap + radians(cme.longitude) : 0;
   const cmeHalfAngle = cme ? radians(Math.max(1, Math.min(89, cme.halfAngleDeg))) : 0;
   const cmeAxisX = Math.cos(cmeDirection);
   const cmeAxisY = -Math.sin(cmeDirection) * YSCALE;
@@ -617,9 +621,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   // During replay each planet glows only while the wavefront is passing it.
   const planetIsInImpact = (planet: Planet & { distanceAu: number }) => {
     if (!cme || !cme.impacts.some((impact) => impact.location.toLowerCase().includes(planet.name.toLowerCase()))) return false;
-    const longitudeDifference = Math.abs((((cme.longitude % 360) + 540) % 360) - 180);
-    const directionFacesEarth = longitudeDifference <= Math.max(0, cme.halfAngleDeg);
-    if (planet.name === 'EARTH' && !directionFacesEarth) return false;
+    // Only explicit WSA-ENLIL impactList entries can mark a planet/spacecraft as a target.
     const modelImpact = cme.impacts.some((impact) => impact.location.toLowerCase().includes(planet.name.toLowerCase()));
     if (!modelImpact) return false;
     const targetTime = cme.impacts.find((impact) => impact.location.toLowerCase().includes(planet.name.toLowerCase()))?.arrivalTime;
