@@ -173,6 +173,19 @@ export default function App() {
     if (earthAreaView === 'street') setStreetFrameLoaded(false);
   }, [earthAreaView, selectedSiteId, selectedGlobeSite?.lat, selectedGlobeSite?.lon]);
 
+  // Google Street View is cross-origin: an iframe "load" only confirms that the
+  // Google page shell loaded, not that a panorama exists. Give it a short preview
+  // window, then move to aerial imagery automatically so a blank panorama never
+  // traps the user. The user can retry Street View from the same fixed toolbar.
+  useEffect(() => {
+    if (earthAreaView !== 'street' || !selectedSite) return;
+    const timeout = window.setTimeout(() => {
+      setStreetFallbackNotice(true);
+      setEarthAreaView('satellite');
+    }, 15000);
+    return () => window.clearTimeout(timeout);
+  }, [earthAreaView, selectedSite?.lat, selectedSite?.lon]);
+
   const handleGlobeSiteSelect = useCallback((site: any) => {
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === site.name.toLowerCase());
     setSelectedSiteId(known?.id ?? site.name);
@@ -585,7 +598,28 @@ export default function App() {
               onOpenSolarFlare={() => { setActiveNav('SOLAR FLARE'); setShowSearchPanel(false); setEarthAreaView('globe'); }}
 
               showChannelElevationControls={audioMenuOpen && ['A/B/C AUDIO CONTROLS', 'TRINAURAL / SOLFEGGIO'].includes(activeNav)}
-            /></div>{earthAreaView !== 'globe' && selectedSite ? <div className="atlas-embedded-earth-map" style={{ position: 'absolute', inset: 0, zIndex: 5 }}><div className="atlas-map-toolbar"><strong>{earthAreaView === 'street' ? 'STREET VIEW' : earthAreaView === 'satellite' ? 'SATELLITE MAP' : 'LOCATION MAP'} · {siteGlyphFor(selectedSite.category || selectedSite.layerCategory || '', selectedSite.name, !!selectedSite.isCity)} {selectedSite.name}</strong><div className="atlas-map-toolbar-actions">{mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}{streetFallbackNotice && <span role="status">Street View unavailable — showing satellite map</span>}<button onClick={handleMapSnapshot} disabled={mapSnapshotLoading} title="Download a PNG snapshot of the selected location using an exportable basemap"><Camera size={14} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT MAP'}</button><button onClick={() => { setStreetFallbackNotice(false); setStreetFrameLoaded(false); setEarthAreaView('street'); }}>TRY STREET VIEW IN APP</button>{earthAreaView === 'street' && <button onClick={() => { setStreetFallbackNotice(true); setEarthAreaView('satellite'); }}>AERIAL FALLBACK IN APP</button>}<button onClick={() => setEarthAreaView('globe')}>← BACK TO EARTH GLOBE</button></div></div><iframe title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street') setStreetFrameLoaded(true); }} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} loading="eager" src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://www.arcgis.com/apps/mapviewer/index.html?basemapUrl=' + encodeURIComponent('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer') + '&center=' + selectedSite.lon + ',' + selectedSite.lat + '&level=14' : 'https://www.openstreetmap.org/export/embed.html?bbox=' + (selectedSite.lon-0.08) + ',' + (selectedSite.lat-0.06) + ',' + (selectedSite.lon+0.08) + ',' + (selectedSite.lat+0.06) + '&layer=mapnik&marker=' + selectedSite.lat + ',' + selectedSite.lon} /></div> : null}</>}
+            /></div>{earthAreaView !== 'globe' && selectedSite ? <div className="atlas-embedded-earth-map" style={{ position: 'absolute', inset: 0, zIndex: 5 }}>
+              <div className="atlas-map-toolbar">
+                <strong>{earthAreaView === 'street' ? 'STREET VIEW PREVIEW' : earthAreaView === 'satellite' ? 'SATELLITE IMAGERY' : 'LOCATION MAP'} · {siteGlyphFor(selectedSite.category || selectedSite.layerCategory || '', selectedSite.name, !!selectedSite.isCity)} {selectedSite.name}</strong>
+                <div className="atlas-map-toolbar-actions">
+                  <button className={earthAreaView === 'road' ? 'active' : ''} onClick={() => { setStreetFallbackNotice(false); setEarthAreaView('road'); }}>ROAD MAP</button>
+                  <button className={earthAreaView === 'satellite' ? 'active' : ''} onClick={() => { setStreetFallbackNotice(false); setEarthAreaView('satellite'); }}>SATELLITE</button>
+                  <button className={earthAreaView === 'street' ? 'active' : ''} onClick={() => { setStreetFallbackNotice(false); setStreetFrameLoaded(false); setEarthAreaView('street'); }}>TRY STREET VIEW</button>
+                </div>
+              </div>
+              <iframe key={String(selectedSite.lat) + ',' + String(selectedSite.lon) + ',' + earthAreaView} title={'Map view of ' + selectedSite.name} onLoad={() => { if (earthAreaView === 'street') setStreetFrameLoaded(true); }} onError={() => { if (earthAreaView === 'street') { setStreetFallbackNotice(true); setEarthAreaView('satellite'); } }} loading="eager" referrerPolicy="strict-origin-when-cross-origin" src={earthAreaView === 'street' ? 'https://maps.google.com/maps?layer=c&cbll=' + selectedSite.lat + ',' + selectedSite.lon + '&cbp=11,0,,0,0&output=svembed' : earthAreaView === 'satellite' ? 'https://www.arcgis.com/apps/mapviewer/index.html?basemapUrl=' + encodeURIComponent('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer') + '&center=' + selectedSite.lon + ',' + selectedSite.lat + '&level=14' : 'https://www.google.com/maps?q=' + selectedSite.lat + ',' + selectedSite.lon + '&z=14&output=embed'} />
+              <div className="atlas-map-footer">
+                <div className="atlas-map-footer-info">
+                  <strong>{streetFallbackNotice ? 'STREET VIEW UNAVAILABLE / UNCONFIRMED — SATELLITE FALLBACK ACTIVE' : earthAreaView === 'satellite' ? 'AERIAL VIEW' : earthAreaView === 'street' ? 'CHECKING STREET VIEW PANORAMA' : 'LOCATION MAP'}</strong>
+                  <span>{selectedSite.lat.toFixed(6)}° lat, {selectedSite.lon.toFixed(6)}° lon · {selectedSite.name}</span>
+                  {mapSnapshotNotice && <span role="status">{mapSnapshotNotice}</span>}
+                </div>
+                <div className="atlas-map-footer-actions">
+                  <button onClick={handleMapSnapshot} disabled={mapSnapshotLoading}><Camera size={13} /> {mapSnapshotLoading ? 'SAVING…' : 'SCREENSHOT'}</button>
+                  <button className="atlas-map-back-button" onClick={() => { setStreetFallbackNotice(false); setEarthAreaView('globe'); }}>← BACK TO EARTH</button>
+                </div>
+              </div>
+            </div> : null}</>}
             {earthAreaView !== 'elevation' && activeNav !== 'SOLAR FLARE' && <div className="atlas-globe-overlay atlas-globe-overlay-top"><span>EARTH REFERENCE FRAME</span><span>WGS84 · LAT / LON</span></div>}
 
           </div>

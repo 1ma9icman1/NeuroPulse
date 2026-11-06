@@ -23,6 +23,17 @@ const NOAA_AURORA_IMAGE = 'https://services.swpc.noaa.gov/images/animations/ovat
 const NOAA_SPACE_WEATHER = 'https://www.spaceweather.gov/';
 
 const DONKI = 'https://api.nasa.gov/DONKI/FLR';
+const NASA_API_KEY = import.meta.env.VITE_NASA_API_KEY || 'DEMO_KEY';
+const NASA_HISTORY_CACHE_KEY = 'neuropulse-nasa-donki-history';
+type CachedNasaHistory = { startDay: string; endDay: string; events: SolarEvent[]; savedAt: number };
+function readNasaHistoryCache(): CachedNasaHistory | null {
+  try {
+    const raw = localStorage.getItem(NASA_HISTORY_CACHE_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as CachedNasaHistory;
+    return value && typeof value.startDay === 'string' && typeof value.endDay === 'string' && Array.isArray(value.events) ? value : null;
+  } catch { return null; }
+}
 const LIGHT_SECONDS_PER_AU = 499.0048;
 const MAX_AU = 30.1;
 const MAX_REPLAY_SECONDS = LIGHT_SECONDS_PER_AU * MAX_AU;
@@ -269,7 +280,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const [protonRows, setProtonRows] = useState<Row[]>([]);
   const [kpRows, setKpRows] = useState<Row[]>([]);
   const [noaaEvents, setNoaaEvents] = useState<SolarEvent[]>([]);
-  const [nasaEvents, setNasaEvents] = useState<SolarEvent[]>([]);
+  const [nasaEvents, setNasaEvents] = useState<SolarEvent[]>(() => readNasaHistoryCache()?.events ?? []);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<number | null>(null);
@@ -345,15 +356,54 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const loadHistory = useCallback(async (startDay: string) => {
     setHistoryLoading(true);
     const endDay = addDays(startDay, 29);
+    const cached = readNasaHistoryCache();
+    if (cached?.startDay === startDay && cached.endDay === endDay) setNasaEvents(cached.events);
+
+    let lastError = 'request failed';
     try {
-      const url = DONKI + '?startDate=' + encodeURIComponent(startDay) + '&endDate=' + encodeURIComponent(endDay) + '&api_key=DEMO_KEY';
-      const response = await fetch(url, { cache: 'no-store', headers: { Accept: 'application/json' } });
-      if (!response.ok) throw new Error('NASA DONKI HTTP ' + response.status);
-      const data = rowsOf(await response.json());
-      setNasaEvents(data.map(nasaEvent).filter((event): event is SolarEvent => !!event));
-      setNotice('');
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const url = DONKI + '?startDate=' + encodeURIComponent(startDay) + '&endDate=' + encodeURIComponent(endDay) + '&api_key=' + encodeURIComponent(NASA_API_KEY);
+          const response = await fetch(url, { cache: 'no-store', headers: { Accept: 'application/json' } });
+          if (!response.ok) {
+            lastError = 'NASA DONKI HTTP ' + response.status;
+            const retryable = [429, 500, 502, 503, 504].includes(response.status);
+            if (retryable && attempt < 2) {
+              const retryAfter = Number(response.headers.get('Retry-After'));
+              const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+                ? Math.min(10000, retryAfter * 1000)
+                : 1200 * (2 ** attempt);
+              await new Promise(resolve => window.setTimeout(resolve, delayMs));
+              continue;
+            }
+            throw new Error(lastError);
+          }
+          const data = rowsOf(await response.json());
+          const parsed = data.map(nasaEvent).filter((event): event is SolarEvent => !!event);
+          setNasaEvents(parsed);
+          try {
+            localStorage.setItem(NASA_HISTORY_CACHE_KEY, JSON.stringify({ startDay, endDay, events: parsed, savedAt: Date.now() } satisfies CachedNasaHistory));
+          } catch { /* Browser storage may be unavailable or full. */ }
+          setNotice(parsed.length ? '' : 'NASA DONKI returned no flare records for this 30-day window. NOAA live feeds remain separate.');
+          return;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : 'request failed';
+          if (attempt < 2 && !lastError.includes('HTTP 4')) {
+            await new Promise(resolve => window.setTimeout(resolve, 1200 * (2 ** attempt)));
+            continue;
+          }
+          throw error;
+        }
+      }
+      throw new Error(lastError);
     } catch (error) {
-      setNotice('NASA history lookup failed: ' + (error instanceof Error ? error.message : 'request failed') + '. NOAA live feeds remain separate.');
+      const message = error instanceof Error ? error.message : lastError;
+      const cacheNote = cached
+        ? (cached.startDay === startDay && cached.endDay === endDay
+          ? ' Showing the last saved NASA results for this same date range.'
+          : ' The last successfully loaded NASA history is being retained.')
+        : ' No saved NASA history is available yet.';
+      setNotice('NASA history lookup failed after retries: ' + message + '.' + cacheNote + ' NOAA live feeds remain separate.');
     } finally {
       setHistoryLoading(false);
     }
