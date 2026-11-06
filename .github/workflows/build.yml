@@ -25,6 +25,12 @@ jobs:
         run: npm run test:coordinates
       - name: Coordinate catalogue audit
         run: npm run audit:coordinates
+      - name: Upload coordinate audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-coordinate-audit
+          path: reports/site-coordinate-audit.csv
+          if-no-files-found: error
       - name: TypeScript validation
         run: npm run lint
       - name: Build production app
