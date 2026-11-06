@@ -16,7 +16,7 @@ test('validates WGS84 latitude and longitude ranges', () => {
 });
 
 test('extracts coordinates from Google Maps URL forms without swapping axes', () => {
-  assert.deepEqual(parseGoogleMapsCoordinates('https://www.google.com/maps/@29.9792,31.1342,17z'), { lat: 29.9792, lon: 31.1342 });
+  assert.equal(parseGoogleMapsCoordinates('https://www.google.com/maps/@29.9792,31.1342,17z'), null, 'viewport centre is not the selected feature coordinate');
   assert.deepEqual(parseGoogleMapsCoordinates('https://www.google.com/maps/place/Test/data=!3m1!4b1!4m2!3m1!1s0x0!3m1!1s0x0!3d29.9792!4d31.1342'), { lat: 29.9792, lon: 31.1342 });
   assert.deepEqual(parseGoogleMapsCoordinates('https://www.google.com/maps?query=-13.1633,-72.5456'), { lat: -13.1633, lon: -72.5456 });
   assert.deepEqual(parseGoogleMapsCoordinates('-13.1633,-72.5456'), { lat: -13.1633, lon: -72.5456 });
