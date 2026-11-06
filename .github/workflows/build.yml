@@ -2,7 +2,7 @@ name: Build verification # Copernicus DEM branch verification
 
 on:
   push:
-    branches: [main, feature/knowledge-graph-interface, feature/copernicus-dem-windows, fix/site-coordinate-alignment, fix/preserve-earth-camera-on-map-return, fix/cesium-workers-donki-streetview-fallback, feature/real-cme-direction-propagation]
+    branches: [main, feature/knowledge-graph-interface, feature/copernicus-dem-windows, fix/site-coordinate-alignment, fix/preserve-earth-camera-on-map-return, fix/cesium-workers-donki-streetview-fallback, feature/real-cme-direction-propagation, fix/restore-solar-event-live-playback]
   pull_request:
     branches: [main]
 
