@@ -6,6 +6,7 @@ import {
   latitudeToTextureV,
   parseGoogleMapsCoordinates,
   sampleSurfaceElevation,
+  sampleTriangulatedSurfacePosition,
 } from '../src/lib/siteCoordinates.ts';
 
 test('validates WGS84 latitude and longitude ranges', () => {
@@ -51,4 +52,23 @@ test('samples exact mesh vertices without moving their geographic coordinate', (
   const grid = new Float32Array([100, 200, 300, 400]);
   assert.equal(sampleSurfaceElevation(grid, 2, 2, 90, -180), 100);
   assert.equal(sampleSurfaceElevation(grid, 2, 2, -90, 180), 400);
+});
+
+test('places markers on the same split triangle used by the terrain mesh', () => {
+  // a=(0,0,0), b=(1,0,0), c=(0,1,0), d=(1,1,1)
+  const vertices = new Float32Array([
+    0, 0, 0,  1, 0, 0,
+    0, 1, 0,  1, 1, 1,
+  ]);
+  assert.deepEqual(sampleTriangulatedSurfacePosition(vertices, 2, 2, 0, 0), [0.5, 0.5, 0]);
+  assert.deepEqual(sampleTriangulatedSurfacePosition(vertices, 2, 2, -45, 90), [0.75, 0.75, 0.5]);
+});
+
+test('applies marker offset along the local outward direction', () => {
+  const vertices = new Float32Array([
+    0, 0, 10,  10, 0, 10,
+    0, 10, 10,  10, 10, 10,
+  ]);
+  const [x, y, z] = sampleTriangulatedSurfacePosition(vertices, 2, 2, 0, 0, 1);
+  assert.ok(Math.abs(Math.hypot(x, y, z) - (Math.hypot(5, 5, 10) + 1)) < 1e-10);
 });
