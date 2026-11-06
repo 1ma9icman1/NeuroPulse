@@ -78,7 +78,7 @@ test('applies marker offset along the local outward direction', () => {
 test('research catalogue is deduplicated and restored Egyptian pyramid entries remain present', () => {
   const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const names = RESEARCH_CATALOG_SITES.map(site => normalize(site.name));
-  assert.equal(RESEARCH_CATALOG_SITES.length, 1260);
+  assert.equal(RESEARCH_CATALOG_SITES.length, 1290);
   assert.equal(new Set(names).size, names.length, 'research catalogue contains duplicate normalized names');
   for (const name of [
     'Pyramid of Djedefre (Abu Rawash)',
