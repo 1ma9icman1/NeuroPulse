@@ -212,7 +212,7 @@ function attachCmeData(events: SolarEvent[], cmeRows: Row[]): SolarEvent[] {
 // longitude/latitude is invented when a catalog record does not provide one.
 function solarDiskCoordinates(location?: string): { x: number; y: number; label: string } | null {
   if (!location) return null;
-  const match = location.toUpperCase().match(/\\b([NS])\\s*(\\d{1,2}(?:\\.\\d+)?)\\s*([EW])\\s*(\\d{1,3}(?:\\.\\d+)?)/);
+  const match = location.toUpperCase().match(/\b([NS])\s*(\d{1,2}(?:\.\d+)?)\s*([EW])\s*(\d{1,3}(?:\.\d+)?)/);
   if (!match) return null;
   const latitude = Math.min(90, Number(match[2])) * (match[1] === 'S' ? -1 : 1);
   const longitude = Math.min(180, Number(match[4])) * (match[3] === 'E' ? -1 : 1);
@@ -224,7 +224,7 @@ function solarDiskCoordinates(location?: string): { x: number; y: number; label:
   return {
     x: Math.sin(lon) * Math.cos(lat),
     y: -Math.sin(lat),
-    label: match[0].replace(/\\s+/g, ''),
+    label: match[0].replace(/\s+/g, ''),
   };
 }
 
@@ -911,8 +911,8 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
           </div>
           <div className="solar-earth-timeline-row">
             <span>{cme ? 'CME PROPAGATION · MEASURED SPEED EXTRAPOLATION' : 'EVENT HIGHLIGHT · NO CME TRAJECTORY'}</span>
-            {replaying ? <input aria-label="Solar flare propagation replay position" type="range" min="0" max="1000" value={replayProgress} onChange={(event) => { setReplayProgress(Number(event.target.value)); setPlaying(false); setReplaying(true); }} /> : <input aria-label="Solar system orbit speed" type="range" min="1" max="30" value={orbitSpeed} onChange={(event) => { const speed = Number(event.target.value); setOrbitSpeed(speed); setSimulationSpeed(speed); setRealTimeOrbit(false); setSimulationPlaying(true); }} />}
-            <select aria-label="Solar flare replay speed" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}><option value={1}>1× REAL TIME</option><option value={60}>60× PLAYBACK</option><option value={300}>300× PLAYBACK</option><option value={600}>600× PLAYBACK</option></select>
+            {replaying ? <input aria-label={cme ? "CME propagation replay position" : "Solar event highlight replay position"} type="range" min="0" max="1000" value={replayProgress} onChange={(event) => { setReplayProgress(Number(event.target.value)); setPlaying(false); setReplaying(true); }} /> : <input aria-label="Solar system orbit speed" type="range" min="1" max="30" value={orbitSpeed} onChange={(event) => { const speed = Number(event.target.value); setOrbitSpeed(speed); setSimulationSpeed(speed); setRealTimeOrbit(false); setSimulationPlaying(true); }} />}
+            <select aria-label="CME propagation replay speed" title={cme ? "Playback speed for the measured-speed CME trajectory" : "Event highlight replay uses a fixed 12-second clip; speed control applies only to CME tracks"} disabled={!cme} value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}><option value={1}>1× REAL TIME</option><option value={60}>60× PLAYBACK</option><option value={300}>300× PLAYBACK</option><option value={600}>600× PLAYBACK</option></select>
             <span className="solar-earth-timeline-time">{cme ? cme.speedKmS.toFixed(0) + ' km/s · ' + (cme.halfAngleDeg * 2).toFixed(0) + '° width' : selectedSolarCoordinates ? 'Recorded source region: ' + selectedSolarCoordinates.label : 'Source region not reported · no trajectory inferred'}</span>
           </div>
 
