@@ -548,7 +548,8 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const cmeReplayDurationSeconds = cme ? (MAX_AU * 149597870.7) / cme.speedKmS : 0;
   const cmeElapsedSeconds = replayProgress / 1000 * cmeReplayDurationSeconds;
   const cmeReplayAu = cme && replaying ? Math.min(MAX_AU, cme.speedKmS * cmeElapsedSeconds / 149597870.7) : 0;
-  const cmeLiveElapsedSeconds = cme ? Math.max(0, (Date.now() - selected!.beginMs) / 1000) : 0;
+  const cmePropagationStartMs = cme?.analysisTime ? Date.parse(cme.analysisTime) : selected?.beginMs ?? Date.now();
+  const cmeLiveElapsedSeconds = cme ? Math.max(0, (Date.now() - cmePropagationStartMs) / 1000) : 0;
   const cmeLiveAu = cme && !replaying ? Math.min(MAX_AU, cme.speedKmS * cmeLiveElapsedSeconds / 149597870.7) : 0;
   const frontAu = replaying ? cmeReplayAu : cmeLiveAu;
   const frontRadius = cme ? radiusAtAu(frontAu) : 0;
@@ -571,20 +572,20 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const feedStatus = loading && lastRefresh === null ? 'CONNECTING' : !simulationIsLive ? simulationSampleCount ? 'ARCHIVE SAMPLE' : 'NO DATA FOR DATE' : feedCount === 3 ? 'NOAA LIVE' : feedCount ? 'PARTIAL DATA' : 'FEED OFFLINE';
 
   useEffect(() => {
-    if (!playing || !selected) return;
+    if (!playing || !selected?.cme || cmeReplayDurationSeconds <= 0) return;
     let previous = Date.now();
     const id = window.setInterval(() => {
       const now = Date.now();
       const delta = Math.max(0, now - previous) / 1000;
       previous = now;
       setReplayProgress((progress) => {
-        const next = Math.min(1000, progress + delta * playbackSpeed / MAX_REPLAY_SECONDS * 1000);
+        const next = Math.min(1000, progress + delta * playbackSpeed / cmeReplayDurationSeconds * 1000);
         if (next >= 1000) setPlaying(false);
         return next;
       });
     }, 40);
     return () => window.clearInterval(id);
-  }, [playing, playbackSpeed, selected]);
+  }, [playing, playbackSpeed, selected, cmeReplayDurationSeconds]);
 
   const selectEvent = (event: SolarEvent) => {
     setSelectedId(event.id);
@@ -647,7 +648,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
         <div className="solar-earth-footnote">
           <span>DATA: <a href="https://services.swpc.noaa.gov/json/" target="_blank" rel="noreferrer">NOAA SWPC JSON</a> · <a href="https://api.nasa.gov/" target="_blank" rel="noreferrer">NASA DONKI</a></span>
           <span>{selected ? <><a href={selected.link || 'https://api.nasa.gov/DONKI/FLR'} target="_blank" rel="noreferrer">{selected.source} source <ExternalLink size={10} /></a> · {selected.location || 'source location not supplied'}</> : 'No event selected'}</span>
-          <span>Carrington entry is a historical reconstruction, not measured GOES data. Schematic light-front uses AU light travel; CME cone uses NASA DONKI fitted latitude/longitude, half-angle and km/s speed; impact targets/arrival times are shown only when supplied by WSA-ENLIL. Direction is projected onto this 2D heliocentric view; latitude is out of plane.</span>
+          <span>Carrington entry is a historical reconstruction, not measured GOES data. Schematic light-front uses AU light travel; NASA DONKI fitted CME longitude/latitude, half-angle and speed (km/s) drive the directional cone. Distance is a constant-speed extrapolation from the analysis timestamp, not a live in-situ measurement. Only WSA-ENLIL impactList entries count as modeled targets/arrival estimates. Longitude is projected onto this 2D heliocentric view; latitude is shown as out-of-plane inclination.</span>
         </div>
     </>
   );
@@ -847,7 +848,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             </div>
           </div>
           <div className="solar-earth-timeline-row">
-            <span>{cme ? 'CME PROPAGATION' : 'NO CME TRACK'}</span>
+            <span>{cme ? 'CME PROPAGATION · MEASURED SPEED EXTRAPOLATION' : 'NO CME TRACK'}</span>
             {replaying ? <input aria-label="Solar flare propagation replay position" type="range" min="0" max="1000" value={replayProgress} onChange={(event) => { setReplayProgress(Number(event.target.value)); setPlaying(false); setReplaying(true); }} /> : <input aria-label="Solar system orbit speed" type="range" min="1" max="30" value={orbitSpeed} onChange={(event) => { const speed = Number(event.target.value); setOrbitSpeed(speed); setSimulationSpeed(speed); setRealTimeOrbit(false); setSimulationPlaying(true); }} />}
             <select aria-label="Solar flare replay speed" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}><option value={1}>1× REAL TIME</option><option value={60}>60× PLAYBACK</option><option value={300}>300× PLAYBACK</option><option value={600}>600× PLAYBACK</option></select>
             <span className="solar-earth-timeline-time">{cme ? cme.speedKmS.toFixed(0) + ' km/s · ' + (cme.halfAngleDeg * 2).toFixed(0) + '° width' : 'No measured CME speed/direction available'}</span>
