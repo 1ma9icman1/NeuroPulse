@@ -105,3 +105,63 @@ export function sampleSurfaceElevation(
   const south = c + (d - c) * fx;
   return north + (south - north) * fy;
 }
+
+/**
+ * Interpolate the exact triangle used by the Three.js terrain index buffer.
+ * The mesh uses triangles (a,c,b) and (b,c,d), split along b-c. Returning
+ * the interpolated 3D point (rather than a radial height approximation)
+ * keeps icons and selected markers attached to the rendered terrain surface.
+ */
+export function sampleTriangulatedSurfacePosition(
+  positions: ArrayLike<number>,
+  width: number,
+  height: number,
+  lat: number,
+  lon: number,
+  outwardOffset = 0,
+): [number, number, number] {
+  if (!isValidWgs84Coordinate(lat, lon) || !Number.isInteger(width) || !Number.isInteger(height)
+    || width < 2 || height < 2 || positions.length !== width * height * 3
+    || !Number.isFinite(outwardOffset)) {
+    throw new RangeError('Invalid terrain geometry or WGS84 coordinate for surface positioning.');
+  }
+
+  const x = Math.max(0, Math.min(width - 1, ((lon + 180) / 360) * (width - 1)));
+  const y = Math.max(0, Math.min(height - 1, ((90 - lat) / 180) * (height - 1)));
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const x1 = Math.min(width - 1, x0 + 1);
+  const y1 = Math.min(height - 1, y0 + 1);
+  const u = x - x0;
+  const v = y - y0;
+  const a = (y0 * width + x0) * 3;
+  const b = (y0 * width + x1) * 3;
+  const c = (y1 * width + x0) * 3;
+  const d = (y1 * width + x1) * 3;
+
+  let px: number;
+  let py: number;
+  let pz: number;
+  if (u + v <= 1) {
+    const wa = 1 - u - v;
+    px = positions[a] * wa + positions[b] * u + positions[c] * v;
+    py = positions[a + 1] * wa + positions[b + 1] * u + positions[c + 1] * v;
+    pz = positions[a + 2] * wa + positions[b + 2] * u + positions[c + 2] * v;
+  } else {
+    const wb = 1 - v;
+    const wc = 1 - u;
+    const wd = u + v - 1;
+    px = positions[b] * wb + positions[c] * wc + positions[d] * wd;
+    py = positions[b + 1] * wb + positions[c + 1] * wc + positions[d + 1] * wd;
+    pz = positions[b + 2] * wb + positions[c + 2] * wc + positions[d + 2] * wd;
+  }
+
+  const magnitude = Math.hypot(px, py, pz);
+  if (magnitude > 0 && outwardOffset !== 0) {
+    const scale = outwardOffset / magnitude;
+    px += px * scale;
+    py += py * scale;
+    pz += pz * scale;
+  }
+  return [px, py, pz];
+}
