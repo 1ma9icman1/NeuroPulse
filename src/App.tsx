@@ -20,6 +20,7 @@ import { DEFAULT_EARTH_POINTS, LEGACY_HISTORICAL_SITES } from './data/earthData'
 import { REAL_CELESTIAL_STARS } from './data/celestialStars';
 import { ACOUSTIC_SITE_EVIDENCE } from './data/acousticSiteEvidence';
 import { RESEARCH_CATALOG_SITES } from './data/researchSiteCatalog';
+import { googleMapsCoordinateUrl, parseGoogleMapsCoordinates } from './lib/siteCoordinates';
 
 const INITIAL_CONFIG: TrinauralConfig = { aFreq:432,aFineTune:0,aWaveform:'sine',aGain:0.85,aMuted:false,aPos:{x:-4.5,y:1.5,z:0}, bFreq:442,bFineTune:0,bWaveform:'sine',bGain:0.85,bMuted:false,bPos:{x:4.5,y:1.5,z:0}, cFreq:452,cFineTune:0,cWaveform:'sine',cGain:0.85,cMuted:false,cPos:{x:0,y:2.5,z:3.5},isDeltaLocked:true,lockedDeltaAB:10,lockedDeltaBC:10,masterVolume:0.8,spatialMode:'trinaural-isolated',cameraView:'top',cameraYaw:30,cameraPitch:22,cameraZoom:4.6 };
 const CENTER: SpatialPosition = { x: 0, y: 0, z: 0 };
@@ -110,6 +111,8 @@ export default function App() {
   const [newEarthSiteLon, setNewEarthSiteLon] = useState('');
   const [newEarthSiteCategory, setNewEarthSiteCategory] = useState('ancient');
   const [newEarthSiteNotes, setNewEarthSiteNotes] = useState('');
+  const [newEarthSiteGoogleMapsUrl, setNewEarthSiteGoogleMapsUrl] = useState('');
+  const [siteCoordinateNotice, setSiteCoordinateNotice] = useState('');
   useEffect(() => { try { localStorage.setItem('neuropulse-custom-earth-sites', JSON.stringify(customEarthSites)); } catch { /* browser storage may be unavailable */ } }, [customEarthSites]);
   useEffect(() => { try { localStorage.setItem('neuropulse-favorite-sites', JSON.stringify(favoriteSites)); } catch { /* storage can be disabled */ } }, [favoriteSites]);
   const toggleFavorite = useCallback((site: any) => {
@@ -403,12 +406,27 @@ export default function App() {
   const handleAddEarthSite = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const name = newEarthSiteName.trim();
-    const lat = Number(newEarthSiteLat);
-    const lon = Number(newEarthSiteLon);
-    if (!name || !Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lon) || lon < -180 || lon > 180) return;
+    const coordinateSource = newEarthSiteGoogleMapsUrl.trim();
+    const parsed = parseGoogleMapsCoordinates(coordinateSource);
+    if (!name || !parsed) {
+      setSiteCoordinateNotice('Coordinates not imported. Paste a Google Maps URL containing the selected feature coordinates (!3d…!4d…) or enter an exact latitude,longitude pair copied from Google Maps.');
+      return;
+    }
+    const typedLat = newEarthSiteLat.trim() ? Number(newEarthSiteLat) : parsed.lat;
+    const typedLon = newEarthSiteLon.trim() ? Number(newEarthSiteLon) : parsed.lon;
+    if (!Number.isFinite(typedLat) || !Number.isFinite(typedLon)
+      || Math.abs(typedLat - parsed.lat) > 0.000001 || Math.abs(typedLon - parsed.lon) > 0.000001) {
+      setSiteCoordinateNotice('Coordinate mismatch: the latitude/longitude fields do not match the coordinates extracted from the Google Maps source. Re-paste the correct feature link.');
+      return;
+    }
+    const lat = parsed.lat;
+    const lon = parsed.lon;
     const site = {
       id: 'custom-' + Date.now(), name, lat, lon, category: newEarthSiteCategory,
-      desc: newEarthSiteNotes.trim() || 'User-added Earth reference site. Notes are user supplied; verify coordinates and any historical claims independently.',
+      desc: newEarthSiteNotes.trim() || 'User-added Earth reference site. Coordinates were extracted from the supplied Google Maps feature link; historical claims require independent verification.',
+      coordinateSourceUrl: coordinateSource,
+      coordinateStatus: 'coordinates-extracted-from-google-maps-feature-link',
+      googleMapsUrl: googleMapsCoordinateUrl(lat, lon),
       color: '#38bdf8', modules: ['DATABASE', 'GLOBAL SEARCH', 'MAP OVERLAYS', 'ANCIENT SITES', 'HISTORICAL SITES', 'TRIGONOMETRY'],
       isCustom: true,
     };
@@ -421,6 +439,7 @@ export default function App() {
     setShowSiteList(false);
     setShowAddEarthSite(false);
     setNewEarthSiteName(''); setNewEarthSiteLat(''); setNewEarthSiteLon(''); setNewEarthSiteNotes('');
+    setNewEarthSiteGoogleMapsUrl(''); setSiteCoordinateNotice('');
   };
 
   const handleRunSearch = () => {
@@ -494,14 +513,29 @@ export default function App() {
             <button type="button" className="atlas-add-site-launch" onClick={() => setShowAddEarthSite(value => !value)}><MapPin size={15} /> {showAddEarthSite ? 'CLOSE ADD EARTH SITE' : 'ADD EARTH SITE'}</button>
             {showAddEarthSite && <form className="atlas-add-site-form" onSubmit={handleAddEarthSite}>
               <label>SITE NAME<input required value={newEarthSiteName} onChange={event => setNewEarthSiteName(event.target.value)} placeholder="e.g. Research location" /></label>
+              <label>GOOGLE MAPS FEATURE URL OR EXACT COORDINATES
+                <input required value={newEarthSiteGoogleMapsUrl} onChange={event => {
+                  const value = event.target.value;
+                  setNewEarthSiteGoogleMapsUrl(value);
+                  const coordinate = parseGoogleMapsCoordinates(value);
+                  if (coordinate) {
+                    setNewEarthSiteLat(String(coordinate.lat));
+                    setNewEarthSiteLon(String(coordinate.lon));
+                    setSiteCoordinateNotice('Feature coordinates extracted. Confirm the Google Maps pin is on the actual entrance or structure before saving.');
+                  } else {
+                    setSiteCoordinateNotice('');
+                  }
+                }} placeholder="Paste Google Maps feature URL or latitude,longitude" />
+              </label>
               <div className="atlas-add-site-coordinates">
-                <label>LATITUDE<input required type="number" min="-90" max="90" step="any" value={newEarthSiteLat} onChange={event => setNewEarthSiteLat(event.target.value)} placeholder="-90 to 90" /></label>
-                <label>LONGITUDE<input required type="number" min="-180" max="180" step="any" value={newEarthSiteLon} onChange={event => setNewEarthSiteLon(event.target.value)} placeholder="-180 to 180" /></label>
+                <label>LATITUDE<input readOnly type="number" min="-90" max="90" step="any" value={newEarthSiteLat} placeholder="Extracted from Google Maps" /></label>
+                <label>LONGITUDE<input readOnly type="number" min="-180" max="180" step="any" value={newEarthSiteLon} placeholder="Extracted from Google Maps" /></label>
               </div>
+              {siteCoordinateNotice && <p role="status" className="text-[10px] text-amber-200">{siteCoordinateNotice}</p>}
               <label>CATEGORY<select value={newEarthSiteCategory} onChange={event => setNewEarthSiteCategory(event.target.value)}><option value="ancient">Ancient site</option><option value="historical">Historical site</option><option value="astronomy">Astronomy</option><option value="acoustic">Acoustic research</option><option value="reference">Reference location</option><option value="custom">Other / custom</option></select></label>
               <label>NOTES<textarea rows={3} value={newEarthSiteNotes} onChange={event => setNewEarthSiteNotes(event.target.value)} placeholder="Your observations, sources, or research notes" /></label>
               <button type="submit" className="atlas-add-site-save">SAVE SITE TO NEUROPULSE</button>
-              <p>Saved in this browser and added to the site catalogue. Coordinates are user entered.</p>
+              <p>Saved in this browser and added to the site catalogue. Coordinates are extracted from the supplied feature coordinate source; verify the pin against the actual structure or entrance.</p>
             </form>}
             {customEarthSites.length > 0 && <div className="atlas-custom-site-count">{customEarthSites.length} USER-ADDED SITE{customEarthSites.length === 1 ? '' : 'S'} SAVED</div>}
           </section>
