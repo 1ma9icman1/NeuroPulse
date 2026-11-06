@@ -42,7 +42,6 @@ function readNasaHistoryCache(): CachedNasaHistory | null {
 }
 const LIGHT_SECONDS_PER_AU = 499.0048;
 const MAX_AU = 30.1;
-const MAX_REPLAY_SECONDS = LIGHT_SECONDS_PER_AU * MAX_AU;
 // Historical anchor: Carrington observed the white-light flare on 1 September 1859.
 // The time is an approximate UTC mapping of the reported observation time, not instrument data.
 const CARRINGTON_EVENT: SolarEvent = {
@@ -542,7 +541,6 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
 
   const selected = events.find((event) => event.id === selectedId);
   const cme = selected?.cme;
-  const flareStrength = xrayFlux === null ? 0 : Math.max(0, Math.min(1, (Math.log10(Math.max(xrayFlux, 1e-9)) + 9) / 5));
   // CME front distance uses NASA's fitted radial speed (km/s), not light speed.
   // Replay spans the Sun-to-Neptune display distance at that measured speed.
   const cmeReplayDurationSeconds = cme ? (MAX_AU * 149597870.7) / cme.speedKmS : 0;
