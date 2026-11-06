@@ -35,7 +35,7 @@ export function parseGoogleMapsCoordinates(input: string): Wgs84Coordinate | nul
 
   try {
     const url = new URL(value);
-    for (const key of ['q', 'query', 'll', 'center']) {
+    for (const key of ['q', 'query']) {
       const parameter = url.searchParams.get(key);
       if (!parameter) continue;
       const match = parameter.trim().match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
