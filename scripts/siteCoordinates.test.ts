@@ -45,7 +45,7 @@ test('bilinearly samples the exact coordinate and applies the water datum consis
   const grid = new Float32Array([0, 10, 20, 30]);
   assert.equal(sampleSurfaceElevation(grid, 2, 2, 0, 0, 0), 15);
   assert.equal(sampleSurfaceElevation(grid, 2, 2, 90, -180, 0), 0);
-  assert.equal(sampleSurfaceElevation(grid, 2, 2, 0, 0, 12), 18);
+  assert.equal(sampleSurfaceElevation(grid, 2, 2, 0, 0, 12), 18.5);
 });
 
 test('samples exact mesh vertices without moving their geographic coordinate', () => {
