@@ -3,9 +3,15 @@ import { createPortal } from 'react-dom';
 import { Activity, AlertTriangle, CalendarClock, CircleDot, ExternalLink, Play, RefreshCw, Satellite, Sun, TimerReset, Zap } from 'lucide-react';
 
 type Row = Record<string, unknown>;
+type CmeImpact = { location: string; arrivalTime?: string; isGlancingBlow?: boolean };
+type CmeTrack = {
+  latitude: number; longitude: number; speedKmS: number; halfAngleDeg: number;
+  analysisTime?: string; type?: string; link?: string; impacts: CmeImpact[];
+};
 type SolarEvent = {
   id: string; beginMs: number; peakMs?: number; classType: string;
   location?: string; source: 'NOAA GOES' | 'NASA DONKI' | 'Historical reconstruction'; link?: string;
+  cme?: CmeTrack;
 };
 type Planet = { name: string; au: number; period: number; radius: number; size: number; color: string };
 type OrbitElements = {
@@ -36,7 +42,6 @@ function readNasaHistoryCache(): CachedNasaHistory | null {
 }
 const LIGHT_SECONDS_PER_AU = 499.0048;
 const MAX_AU = 30.1;
-const MAX_REPLAY_SECONDS = LIGHT_SECONDS_PER_AU * MAX_AU;
 // Historical anchor: Carrington observed the white-light flare on 1 September 1859.
 // The time is an approximate UTC mapping of the reported observation time, not instrument data.
 const CARRINGTON_EVENT: SolarEvent = {
@@ -168,6 +173,40 @@ function nasaEvent(row: Row, i: number): SolarEvent | null {
     location: s(row.sourceLocation, row.source_location) || undefined,
     source: 'NASA DONKI', link: s(row.link) || 'https://api.nasa.gov/DONKI/FLR',
   };
+}
+function attachCmeData(events: SolarEvent[], cmeRows: Row[]): SolarEvent[] {
+  const byFlareId = new Map<string, Row>();
+  for (const cme of cmeRows) {
+    for (const linked of rowsOf(cme.linkedEvents)) {
+      const id = s(linked.activityID, linked.activityId);
+      if (id) byFlareId.set(id, cme);
+    }
+  }
+  return events.map((event) => {
+    if (event.source !== 'NASA DONKI') return event;
+    const cme = byFlareId.get(event.id.replace(/^nasa-/, ''));
+    if (!cme) return event;
+    const analyses = rowsOf(cme.cmeAnalyses);
+    const analysis = analyses.find((item) => item.isMostAccurate === true) || analyses[analyses.length - 1];
+    if (!analysis) return event;
+    const latitude = n(analysis.latitude);
+    const longitude = n(analysis.longitude);
+    const speedKmS = n(analysis.speed);
+    const halfAngleDeg = n(analysis.halfAngle);
+    if (latitude === null || longitude === null || speedKmS === null || halfAngleDeg === null || speedKmS <= 0) return event;
+    const impacts = rowsOf(analysis.enlilList).flatMap((model) => rowsOf(model.impactList)).map((impact) => ({
+      location: s(impact.location),
+      arrivalTime: s(impact.arrivalTime) || undefined,
+      isGlancingBlow: typeof impact.isGlancingBlow === 'boolean' ? impact.isGlancingBlow : undefined,
+    })).filter((impact) => !!impact.location);
+    return { ...event, cme: {
+      latitude, longitude, speedKmS, halfAngleDeg,
+      analysisTime: s(analysis.time21_5) || undefined,
+      type: s(analysis.type) || undefined,
+      link: s(analysis.link) || s(cme.link) || undefined,
+      impacts,
+    }};
+  });
 }
 function radians(degrees: number): number { return degrees * Math.PI / 180; }
 function wrapDegrees(degrees: number): number { return ((degrees % 360) + 360) % 360; }
@@ -379,12 +418,22 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             throw new Error(lastError);
           }
           const data = rowsOf(await response.json());
-          const parsed = data.map(nasaEvent).filter((event): event is SolarEvent => !!event);
+          let parsed = data.map(nasaEvent).filter((event): event is SolarEvent => !!event);
+          let cmeStatus = '';
+          try {
+            const cmeUrl = 'https://api.nasa.gov/DONKI/CME?startDate=' + encodeURIComponent(startDay) + '&endDate=' + encodeURIComponent(endDay) + '&api_key=' + encodeURIComponent(NASA_API_KEY);
+            const cmeResponse = await fetch(cmeUrl, { cache: 'no-store', headers: { Accept: 'application/json' } });
+            if (!cmeResponse.ok) throw new Error('NASA CME HTTP ' + cmeResponse.status);
+            parsed = attachCmeData(parsed, rowsOf(await cmeResponse.json()));
+          } catch (error) {
+            cmeStatus = ' CME trajectory feed unavailable: ' + (error instanceof Error ? error.message : 'request failed') + '. No trajectory is inferred.';
+          }
           setNasaEvents(parsed);
           try {
             localStorage.setItem(NASA_HISTORY_CACHE_KEY, JSON.stringify({ startDay, endDay, events: parsed, savedAt: Date.now() } satisfies CachedNasaHistory));
           } catch { /* Browser storage may be unavailable or full. */ }
-          setNotice(parsed.length ? '' : 'NASA DONKI returned no flare records for this 30-day window. NOAA live feeds remain separate.');
+          const tracks = parsed.filter((event) => !!event.cme).length;
+          setNotice((parsed.length ? tracks + ' NASA flare records linked to measured CME analyses.' : 'NASA DONKI returned no flare records for this 30-day window.') + cmeStatus + ' NOAA live feeds remain separate.');
           return;
         } catch (error) {
           lastError = error instanceof Error ? error.message : 'request failed';
@@ -491,33 +540,54 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   }, [events, selectedId]);
 
   const selected = events.find((event) => event.id === selectedId);
-  const flareStrength = xrayFlux === null ? 0 : Math.max(0, Math.min(1, (Math.log10(Math.max(xrayFlux, 1e-9)) + 9) / 5));
-  const liveFront = simulationIsLive && xrayFlux !== null && xrayFlux >= 1e-7;
-  // A live propagation front is shown only while viewing current measured GOES data.
-  // Historical and future simulation dates never reuse today's live flare as if it happened then.
-  const liveFrontAu = Math.min(MAX_AU, 1 + Math.max(0, Date.now() - xrayTime) / 1000 / LIGHT_SECONDS_PER_AU);
-  const elapsed = replayProgress / 1000 * MAX_REPLAY_SECONDS;
-  const replayAu = Math.min(MAX_AU, elapsed / LIGHT_SECONDS_PER_AU);
-  const frontRadius = replaying ? radiusAtAu(replayAu) : liveFront ? radiusAtAu(liveFrontAu) : 0;
+  const cme = selected?.cme;
+  // CME front distance uses NASA's fitted radial speed (km/s), not light speed.
+  // Replay spans the Sun-to-Neptune display distance at that measured speed.
+  const cmeReplayDurationSeconds = cme ? (MAX_AU * 149597870.7) / cme.speedKmS : 0;
+  const cmeElapsedSeconds = replayProgress / 1000 * cmeReplayDurationSeconds;
+  const cmeReplayAu = cme && replaying ? Math.min(MAX_AU, cme.speedKmS * cmeElapsedSeconds / 149597870.7) : 0;
+  const cmePropagationStartMs = cme?.analysisTime ? Date.parse(cme.analysisTime) : selected?.beginMs ?? Date.now();
+  const cmeLiveElapsedSeconds = cme ? Math.max(0, (Date.now() - cmePropagationStartMs) / 1000) : 0;
+  const cmeLiveAu = cme && !replaying ? Math.min(MAX_AU, cme.speedKmS * cmeLiveElapsedSeconds / 149597870.7) : 0;
+  const frontAu = replaying ? cmeReplayAu : cmeLiveAu;
+  const frontRadius = cme ? radiusAtAu(frontAu) : 0;
+  // DONKI CME longitude is measured relative to the Earth-facing solar meridian.
+  // Rotate it into the same heliocentric frame used by the date-based planet orbits.
+  const earthHeliocentricForCme = heliocentricPoint(PLANETS[2], orbitDays);
+  const earthBearingOnMap = Math.atan2(-earthHeliocentricForCme.y, earthHeliocentricForCme.x);
+  const cmeDirection = cme ? earthBearingOnMap + radians(cme.longitude) : 0;
+  const cmeHalfAngle = cme ? radians(Math.max(1, Math.min(89, cme.halfAngleDeg))) : 0;
+  const cmeAxisX = Math.cos(cmeDirection);
+  const cmeAxisY = -Math.sin(cmeDirection) * YSCALE;
+  const cmeLeftX = Math.cos(cmeDirection - cmeHalfAngle);
+  const cmeLeftY = -Math.sin(cmeDirection - cmeHalfAngle) * YSCALE;
+  const cmeRightX = Math.cos(cmeDirection + cmeHalfAngle);
+  const cmeRightY = -Math.sin(cmeDirection + cmeHalfAngle) * YSCALE;
+  const cmeFrontX = CX + cmeAxisX * frontRadius;
+  const cmeFrontY = CY + cmeAxisY * frontRadius;
+  const cmeLeftFrontX = CX + cmeLeftX * frontRadius;
+  const cmeLeftFrontY = CY + cmeLeftY * frontRadius;
+  const cmeRightFrontX = CX + cmeRightX * frontRadius;
+  const cmeRightFrontY = CY + cmeRightY * frontRadius;
   const feedCount = [xrayRows, protonRows, kpRows].filter((data) => data.length > 0).length;
   const simulationSampleCount = [xrayForSimulation, protonForSimulation, kpForSimulation].filter(Boolean).length;
   const feedStatus = loading && lastRefresh === null ? 'CONNECTING' : !simulationIsLive ? simulationSampleCount ? 'ARCHIVE SAMPLE' : 'NO DATA FOR DATE' : feedCount === 3 ? 'NOAA LIVE' : feedCount ? 'PARTIAL DATA' : 'FEED OFFLINE';
 
   useEffect(() => {
-    if (!playing || !selected) return;
+    if (!playing || !selected?.cme || cmeReplayDurationSeconds <= 0) return;
     let previous = Date.now();
     const id = window.setInterval(() => {
       const now = Date.now();
       const delta = Math.max(0, now - previous) / 1000;
       previous = now;
       setReplayProgress((progress) => {
-        const next = Math.min(1000, progress + delta * playbackSpeed / MAX_REPLAY_SECONDS * 1000);
+        const next = Math.min(1000, progress + delta * playbackSpeed / cmeReplayDurationSeconds * 1000);
         if (next >= 1000) setPlaying(false);
         return next;
       });
     }, 40);
     return () => window.clearInterval(id);
-  }, [playing, playbackSpeed, selected]);
+  }, [playing, playbackSpeed, selected, cmeReplayDurationSeconds]);
 
   const selectEvent = (event: SolarEvent) => {
     setSelectedId(event.id);
@@ -550,12 +620,12 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   // A red impact is a moving pulse, not a permanent "has been hit" state.
   // During replay each planet glows only while the wavefront is passing it.
   const planetIsInImpact = (planet: Planet & { distanceAu: number }) => {
-    if (replaying && replayProgress >= 1000) return false;
-    if (!replaying && !liveFront) return false;
-    const wavefrontAu = replaying ? replayAu : liveFrontAu;
-    // Widen the pulse slightly during accelerated replay so it remains visible at higher playback speeds.
-    const impactBandAu = replaying ? Math.max(0.06, planet.au * 0.015) : 0.005;
-    return Math.abs(wavefrontAu - planet.distanceAu) <= impactBandAu;
+    if (!cme || !cme.impacts.some((impact) => impact.location.toLowerCase().includes(planet.name.toLowerCase()))) return false;
+    // Only explicit WSA-ENLIL impactList entries can mark a planet/spacecraft as a target.
+    const modelImpact = cme.impacts.some((impact) => impact.location.toLowerCase().includes(planet.name.toLowerCase()));
+    if (!modelImpact) return false;
+    const targetTime = cme.impacts.find((impact) => impact.location.toLowerCase().includes(planet.name.toLowerCase()))?.arrivalTime;
+    return targetTime ? Date.now() >= Date.parse(targetTime) - 30 * 60000 && Date.now() <= Date.parse(targetTime) + 6 * 3600000 : false;
   };
   const stateClass = !simulationIsLive ? simulationSampleCount ? 'partial' : 'offline' : feedCount === 3 ? 'online' : feedCount ? 'partial' : 'offline';
 
@@ -578,7 +648,7 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
         <div className="solar-earth-footnote">
           <span>DATA: <a href="https://services.swpc.noaa.gov/json/" target="_blank" rel="noreferrer">NOAA SWPC JSON</a> · <a href="https://api.nasa.gov/" target="_blank" rel="noreferrer">NASA DONKI</a></span>
           <span>{selected ? <><a href={selected.link || 'https://api.nasa.gov/DONKI/FLR'} target="_blank" rel="noreferrer">{selected.source} source <ExternalLink size={10} /></a> · {selected.location || 'source location not supplied'}</> : 'No event selected'}</span>
-          <span>Carrington entry is a historical reconstruction, not measured GOES data. Schematic light-front uses AU light travel; CME speed is not inferred.</span>
+          <span>Carrington entry is a historical reconstruction, not measured GOES data. Schematic light-front uses AU light travel; NASA DONKI fitted CME longitude/latitude, half-angle and speed (km/s) drive the directional cone. Distance is a constant-speed extrapolation from the analysis timestamp, not a live in-situ measurement. Only WSA-ENLIL impactList entries count as modeled targets/arrival estimates. Longitude is projected onto this 2D heliocentric view; latitude is shown as out-of-plane inclination.</span>
         </div>
     </>
   );
@@ -640,34 +710,14 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
             <ellipse cx={earthPlanet.x} cy={earthPlanet.y} rx={MOON_DISPLAY_DISTANCE} ry={MOON_DISPLAY_DISTANCE * YSCALE} transform={'rotate(-5.145 ' + earthPlanet.x + ' ' + earthPlanet.y + ')'} fill="none" stroke="#8c9baa" strokeWidth=".65" strokeDasharray="2 3" strokeOpacity=".72" />
           </g>
 
-          {frontRadius > 0 && <g className={replaying ? 'solar-earth-front solar-earth-front-replay' : 'solar-earth-front solar-earth-front-live'} style={{ pointerEvents: 'none' }}>
-            {/* Layered, warm-colour shock front: soft corona, incandescent edge, and hot inner rim. */}
-            <ellipse cx={CX} cy={CY} rx={frontRadius + 3} ry={(frontRadius + 3) * YSCALE} fill="none" stroke="#ff3b16" strokeWidth={Math.max(5, 12 * flareStrength)} opacity=".16" filter="url(#se-flare-corona-glow)" />
-            <ellipse cx={CX} cy={CY} rx={frontRadius} ry={frontRadius * YSCALE} fill="none" stroke="#ff5722" strokeWidth={Math.max(2.5, 4.5 * flareStrength)} opacity=".96" filter="url(#se-flare-edge-glow)" />
-            <ellipse cx={CX} cy={CY} rx={Math.max(2, frontRadius - 3)} ry={Math.max(2, frontRadius - 3) * YSCALE} fill="none" stroke="#ffbd55" strokeWidth="1.35" opacity=".98" />
-            <ellipse cx={CX} cy={CY} rx={Math.max(1, frontRadius - 5)} ry={Math.max(1, frontRadius - 5) * YSCALE} fill="none" stroke="#fff0b0" strokeWidth=".55" opacity=".88" />
-            {Array.from({ length: 36 }, (_, index) => {
-              const angle = index * Math.PI * 2 / 36 + orbitDays * .018;
-              const irregular = 1 + .035 * Math.sin(index * 2.17 + orbitDays * .35) + .018 * Math.sin(index * 4.7 - orbitDays * .21);
-              const r = frontRadius * irregular;
-              const x = CX + Math.cos(angle) * r;
-              const y = CY + Math.sin(angle) * r * YSCALE;
-              return <circle key={index} cx={x} cy={y} r={.7 + flareStrength * 1.15} fill={index % 4 === 0 ? '#fff2b0' : index % 2 === 0 ? '#ff8a32' : '#ff4b1f'} opacity={.55 + .35 * Math.abs(Math.sin(index * 1.8 + orbitDays))} />;
-            })}
+          {cme && frontRadius > 0 && <g className="solar-earth-cme-cone" pointerEvents="none">
+            <path d={'M ' + CX + ' ' + CY + ' L ' + cmeLeftFrontX + ' ' + cmeLeftFrontY + ' Q ' + cmeFrontX + ' ' + cmeFrontY + ' ' + cmeRightFrontX + ' ' + cmeRightFrontY + ' Z'} fill="#ff6a24" fillOpacity=".13" stroke="#ff9b52" strokeOpacity=".72" strokeWidth="1.1" />
+            <path d={'M ' + CX + ' ' + CY + ' L ' + cmeFrontX + ' ' + cmeFrontY} stroke="#ffd18a" strokeWidth="1.2" strokeDasharray="5 4" opacity=".9" />
+            <path d={'M ' + cmeLeftFrontX + ' ' + cmeLeftFrontY + ' Q ' + cmeFrontX + ' ' + cmeFrontY + ' ' + cmeRightFrontX + ' ' + cmeRightFrontY} fill="none" stroke="#ff4a24" strokeWidth="3" filter="url(#se-flare-edge-glow)" />
+            <circle cx={cmeFrontX} cy={cmeFrontY} r="3" fill="#fff0bd" stroke="#ff642d" strokeWidth="1.4" />
           </g>}
 
           <g className="solar-earth-solar-activity">
-            {Array.from({ length: 10 }, (_, index) => {
-              const angle = index * Math.PI * 2 / 10 + orbitDays * .007;
-              const length = 22 + flareStrength * 64 + (index % 3) * 7;
-              const x1 = CX + Math.cos(angle) * 18;
-              const y1 = CY + Math.sin(angle) * 18;
-              const x2 = CX + Math.cos(angle + .11) * (length + 15);
-              const y2 = CY + Math.sin(angle + .11) * (length * .78 + 15);
-              const mx = (x1 + x2) / 2 + Math.cos(angle + 1.2) * 18;
-              const my = (y1 + y2) / 2 + Math.sin(angle + 1.2) * 18;
-              return <path key={index} d={'M ' + x1 + ' ' + y1 + ' Q ' + mx + ' ' + my + ' ' + x2 + ' ' + y2} className="solar-earth-flare-ribbon" fill="none" stroke={index % 3 === 0 ? '#fff0a1' : index % 3 === 1 ? '#ffb347' : '#ff4a1f'} strokeWidth={1.1 + flareStrength * 2.2} strokeLinecap="round" filter="url(#se-flare-edge-glow)" style={{ opacity: flareStrength * .9, animationDelay: (-index * .21) + 's' }} />;
-            })}
             <circle cx={CX} cy={CY} r={18} fill="url(#se-sun-fill)" filter="url(#se-sun-glow)" />
             <defs><clipPath id="se-sun-euv-clip"><circle cx={CX} cy={CY} r="17" /></clipPath></defs>
             <circle cx={CX} cy={CY} r="18" fill="url(#se-sun-fill)" />
@@ -728,8 +778,8 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
           <text x={CX + PLANETS[2].radius + 10} y={CY - 17} className="solar-earth-distance-note">EARTH ORBIT · 1 AU (DISPLAY NOT TO SCALE)</text>
           <text x={CX + 8} y="27" className="solar-earth-map-caption">{closeView ? focusedPlanet + ' CLOSE VIEW' : 'HELIOCENTRIC VIEW / DATE-BASED ORBITS'}</text>
           <text x="18" y="579" className="solar-earth-map-small">{realTimeOrbit ? 'REAL TIME · UTC ORBIT + AXIAL ROTATION' : 'ORBIT SPEED: ' + simulationSpeed + ' SIMULATED DAYS / SECOND'}</text>
-          <text x="982" y="579" textAnchor="end" className="solar-earth-map-small">{replaying ? 'REPLAY FRONT: ' + replayAu.toFixed(2) + ' AU' : liveFront ? 'LIVE OBSERVED X-RAY FRONT: ' + liveFrontAu.toFixed(2) + ' AU' : 'LIVE MODE · WAITING FOR B-CLASS OR STRONGER X-RAYS'}</text>
-          {replaying && selected && <text x={CX + 28} y={CY + 26} className="solar-earth-selected-event-label">{selected.classType.toUpperCase()} · {replayAu.toFixed(2)} AU</text>}
+          <text x="982" y="579" textAnchor="end" className="solar-earth-map-small">{cme ? (replaying ? 'CME FRONT: ' + cmeReplayAu.toFixed(2) + ' AU' : 'CME FRONT: ' + cmeLiveAu.toFixed(2) + ' AU') : 'NO LINKED CME TRACK · NO DIRECTIONAL FRONT'}</text>
+          {selected && cme && <text x={CX + 28} y={CY + 26} className="solar-earth-selected-event-label">{selected.classType.toUpperCase()} · {cme.speedKmS.toFixed(0)} KM/S · {cme.longitude.toFixed(0)}° LON</text>}
         </svg>
 
       </div>
@@ -785,20 +835,23 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
           <div className="swpc-live-foot">Official NOAA SWPC imagery · readings are from measured feeds</div>
         </section>
 
-        <div className="solar-earth-map-key"><span><i className="se-key-sun" /> NOAA X-ray flux drives solar glow</span></div>
+        <div className="solar-earth-map-key"><span><i className="se-key-sun" /> NOAA X-ray flux drives measured solar activity</span></div>
+        <div className="solar-earth-map-key">
+          {cme ? <span>NASA CME ANALYSIS · {cme.speedKmS.toFixed(0)} km/s · lat {cme.latitude.toFixed(1)}° / lon {cme.longitude.toFixed(1)}° · half-angle {cme.halfAngleDeg.toFixed(1)}° · {cme.impacts.length ? 'ENLIL targets: ' + cme.impacts.map((impact) => impact.location + (impact.arrivalTime ? ' ETA ' + stamp(Date.parse(impact.arrivalTime)) : '')).join('; ') : 'No ENLIL target/arrival published'}</span> : <span>NO LINKED CME ANALYSIS · no direction, speed, or planet impact will be fabricated for this flare</span>}
+        </div>
         <div className="solar-earth-playback">
           <div className="solar-earth-playback-top">
             <div className="solar-earth-current-event"><span className="solar-earth-live-lamp" /><div><strong>{replaying && selected ? 'REPLAY · ' + selected.classType + ' SOLAR FLARE' : 'LIVE SOLAR OBSERVATIONS'}</strong><small>{replaying && selected ? stamp(selected.beginMs) + ' · estimated solar emission 8m 19s earlier' : stamp(xrayTime) + ' · GOES measures X-rays near Earth'}</small></div></div>
             <div className="solar-earth-playback-actions">
-              <button type="button" className={playing ? 'se-action se-action-hot' : 'se-action'} onClick={togglePlay} disabled={!selected}><Play size={12} />{playing ? 'PAUSE' : 'PLAY EVENT'}</button>
+              <button type="button" className={playing ? 'se-action se-action-hot' : 'se-action'} onClick={togglePlay} disabled={!selected?.cme}><Play size={12} />{playing ? 'PAUSE' : 'PLAY EVENT'}</button>
               <button type="button" className={realTimeOrbit && !replaying ? 'se-action se-action-hot' : 'se-action'} title="Return to current UTC time and real orbital rates" onClick={() => { setPlaying(false); setReplaying(false); setReplayProgress(0); setOrbitDays(Date.now() / MS_PER_DAY); setOrbitSpeed(1); setRealTimeOrbit(true); setSimulationPlaying(true); }}><TimerReset size={12} />LIVE TIME</button>
             </div>
           </div>
           <div className="solar-earth-timeline-row">
-            <span>{replaying ? 'LIGHT TRAVEL' : 'ORBIT SPEED'}</span>
+            <span>{cme ? 'CME PROPAGATION · MEASURED SPEED EXTRAPOLATION' : 'NO CME TRACK'}</span>
             {replaying ? <input aria-label="Solar flare propagation replay position" type="range" min="0" max="1000" value={replayProgress} onChange={(event) => { setReplayProgress(Number(event.target.value)); setPlaying(false); setReplaying(true); }} /> : <input aria-label="Solar system orbit speed" type="range" min="1" max="30" value={orbitSpeed} onChange={(event) => { const speed = Number(event.target.value); setOrbitSpeed(speed); setSimulationSpeed(speed); setRealTimeOrbit(false); setSimulationPlaying(true); }} />}
             <select aria-label="Solar flare replay speed" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}><option value={1}>1× REAL TIME</option><option value={60}>60× PLAYBACK</option><option value={300}>300× PLAYBACK</option><option value={600}>600× PLAYBACK</option></select>
-            <span className="solar-earth-timeline-time">{replaying ? (elapsed / 60).toFixed(1) + ' min / 4.2 hr' : realTimeOrbit ? '1 day / 24 hours · UTC' : orbitSpeed + ' simulated days / sec'}</span>
+            <span className="solar-earth-timeline-time">{cme ? cme.speedKmS.toFixed(0) + ' km/s · ' + (cme.halfAngleDeg * 2).toFixed(0) + '° width' : 'No measured CME speed/direction available'}</span>
           </div>
 
         </div>

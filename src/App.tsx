@@ -173,18 +173,6 @@ export default function App() {
     if (earthAreaView === 'street') setStreetFrameLoaded(false);
   }, [earthAreaView, selectedSiteId, selectedGlobeSite?.lat, selectedGlobeSite?.lon]);
 
-  // Google Street View is cross-origin: an iframe "load" only confirms that the
-  // Google page shell loaded, not that a panorama exists. Give it a short preview
-  // window, then move to aerial imagery automatically so a blank panorama never
-  // traps the user. The user can retry Street View from the same fixed toolbar.
-  useEffect(() => {
-    if (earthAreaView !== 'street' || !selectedSite) return;
-    const timeout = window.setTimeout(() => {
-      setStreetFallbackNotice(true);
-      setEarthAreaView('satellite');
-    }, 15000);
-    return () => window.clearTimeout(timeout);
-  }, [earthAreaView, selectedSite?.lat, selectedSite?.lon]);
 
   const handleGlobeSiteSelect = useCallback((site: any) => {
     const known = DEFAULT_EARTH_POINTS.find((point) => point.name.toLowerCase() === site.name.toLowerCase());
@@ -262,6 +250,19 @@ export default function App() {
     return [...core, ...legacy, ...uniqueAdditions, ...customEarthSites];
   }, [customEarthSites]);
   const selectedSite = selectedGlobeSite ?? researchSites.find((site) => String(site.id ?? site.name) === String(selectedSiteId)) ?? null;
+
+  // Google Street View is cross-origin: an iframe "load" only confirms that the
+  // Google page shell loaded, not that a panorama exists. Give it a short preview
+  // window, then move to aerial imagery automatically so a blank panorama never
+  // traps the user. The user can retry Street View from the same fixed toolbar.
+  useEffect(() => {
+    if (earthAreaView !== 'street' || !selectedSite) return;
+    const timeout = window.setTimeout(() => {
+      setStreetFallbackNotice(true);
+      setEarthAreaView('satellite');
+    }, 15000);
+    return () => window.clearTimeout(timeout);
+  }, [earthAreaView, selectedSite?.lat, selectedSite?.lon]);
 
   // Marker selections open Street View first. Google serves the embedded panorama when
   // coverage exists; because the iframe is cross-origin, NeuroPulse can detect load/network
