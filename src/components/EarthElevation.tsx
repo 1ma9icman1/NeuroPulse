@@ -5,7 +5,7 @@ import { ArrowLeft, LoaderCircle, Waves, Mountain, Database, RotateCcw, Triangle
 import { CONSTELLATION_LINE_SHAPES } from '../data/constellationLineData';
 import { FreeStreetImageryPanel } from './FreeStreetImageryPanel';
 import { CesiumCopernicusPreview } from './CesiumCopernicusPreview';
-import { latitudeToTextureV, sampleSurfaceElevation } from '../lib/siteCoordinates';
+import { latitudeToTextureV, sampleTriangulatedSurfacePosition } from '../lib/siteCoordinates';
 
 type Site = { name: string; lat: number; lon: number } | null;
 type CatalogueSite = { name: string; lat: number; lon: number; category?: string; color?: string };
@@ -363,11 +363,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
             for (; index < stop; index++) {
               const site = siteCatalogue[index];
               if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
-              // Match the terrain mesh's bilinear interpolation at this exact WGS84 point.
-              const elevation = sampleSurfaceElevation(heights, gridWidth, gridHeight, site.lat, site.lon, seaLevelRef.current);
-              const lat = site.lat * Math.PI / 180;
-              const lon = site.lon * Math.PI / 180;
-              const radius = BASE_RADIUS + Math.max(elevation, seaLevelRef.current) * HEIGHT_SCALE * terrainScaleRef.current + 0.8;
+              // Interpolate the exact rendered terrain triangle, not a nearby DEM cell.
+              const surfacePosition = sampleTriangulatedSurfacePosition(geometry!.getAttribute('position').array, gridWidth, gridHeight, site.lat, site.lon, 0.8);
               const iconTexture = createSiteIconTexture(site.category || '', site.name || '');
               const spriteMaterial = new THREE.SpriteMaterial({
                 map: iconTexture, transparent: true, depthWrite: false, toneMapped: false
@@ -378,7 +375,7 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
               
               
               sprite.scale.set(2.7, 2.7, 1);
-              sprite.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+              sprite.position.set(surfacePosition[0], surfacePosition[1], surfacePosition[2]);
               sitePoints.add(sprite);
             }
             if (index < siteCatalogue.length) markerBuildFrame = window.requestAnimationFrame(buildBatch);
@@ -582,11 +579,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
     if (!showTriangulation && !showAngleLabels) return;
     const valid = siteCatalogue.filter(site => Number.isFinite(site.lat) && Number.isFinite(site.lon)).slice(0, 90);
     const vectors = valid.map(site => {
-      const elevation = sampleSurfaceElevation(state.heights, state.width, state.height, site.lat, site.lon, seaLevel);
-      const lat = site.lat * Math.PI / 180;
-      const lon = site.lon * Math.PI / 180;
-      const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 1.8;
-      return { site, p: new THREE.Vector3(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon)) };
+      const position = sampleTriangulatedSurfacePosition(state.geometry.getAttribute('position').array, state.width, state.height, site.lat, site.lon, 1.8);
+      return { site, p: new THREE.Vector3(position[0], position[1], position[2]) };
     });
     const edgeKeys = new Set<string>();
     const positions: number[] = [];
@@ -677,9 +671,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
         const toVector = (lonValue: number, latValue: number) => {
           const lon = lonValue * Math.PI / 180;
           const lat = latValue * Math.PI / 180;
-          const elevation = sampleSurfaceElevation(state.heights, state.width, state.height, latValue, lonValue, seaLevelRef.current);
-          const radius = BASE_RADIUS + elevation * HEIGHT_SCALE * terrainScaleRef.current + 0.16;
-          return new THREE.Vector3(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+          const position = sampleTriangulatedSurfacePosition(state.geometry.getAttribute('position').array, state.width, state.height, latValue, lonValue, 0.16);
+          return new THREE.Vector3(position[0], position[1], position[2]);
         };
         const addRing = (coordinates: number[][]) => {
           if (coordinates.length < 2) return;
@@ -737,11 +730,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
       if (!Number.isFinite(site.lat) || !Number.isFinite(site.lon)) continue;
       const sprite = state.sitePoints.children[pointIndex] as THREE.Sprite | undefined;
       if (!sprite) break;
-      const elevation = sampleSurfaceElevation(state.heights, state.width, state.height, site.lat, site.lon, seaLevel);
-      const lat = site.lat * Math.PI / 180;
-      const lon = site.lon * Math.PI / 180;
-      const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.8;
-      sprite.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+      const position = sampleTriangulatedSurfacePosition(state.geometry.getAttribute('position').array, state.width, state.height, site.lat, site.lon, 0.8);
+      sprite.position.set(position[0], position[1], position[2]);
       pointIndex++;
     }
   }, [terrainScale, siteCatalogue, seaLevel]);
@@ -759,11 +749,8 @@ export const EarthElevation: React.FC<Props> = ({ selectedSite, siteCatalogue, o
       if (state?.marker) state.marker.visible = false;
       return;
     }
-    const elevation = sampleSurfaceElevation(state.heights, state.width, state.height, selectedSite.lat, selectedSite.lon, seaLevel);
-    const lat = selectedSite.lat * Math.PI / 180;
-    const lon = selectedSite.lon * Math.PI / 180;
-    const radius = BASE_RADIUS + Math.max(elevation, seaLevel) * HEIGHT_SCALE * terrainScale + 0.8;
-    state.marker!.position.set(radius * Math.cos(lat) * Math.sin(lon), radius * Math.sin(lat), radius * Math.cos(lat) * Math.cos(lon));
+    const position = sampleTriangulatedSurfacePosition(state.geometry.getAttribute('position').array, state.width, state.height, selectedSite.lat, selectedSite.lon, 0.8);
+    state.marker!.position.set(position[0], position[1], position[2]);
     state.marker!.visible = true;
   }, [selectedSite, seaLevel, terrainScale, loading]);
 
