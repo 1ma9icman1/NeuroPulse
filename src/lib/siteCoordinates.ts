@@ -23,8 +23,9 @@ export function parseGoogleMapsCoordinates(input: string): Wgs84Coordinate | nul
   if (!value) return null;
 
   const candidates: Array<[string, string]> = [];
+  // !3d/!4d identifies the selected Google Maps feature. The @lat,lon
+  // segment is only the current camera centre and is deliberately not trusted.
   const patterns = [
-    /@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
     /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
   ];
   for (const pattern of patterns) {
