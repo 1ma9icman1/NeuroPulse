@@ -11,7 +11,7 @@ type Props = {
 };
 
 const CACHE_TTL = 1000 * 60 * 60 * 24;
-const cacheKey = (site: StreetImagerySite) => `${site.lat.toFixed(4)},${site.lon.toFixed(4)}`;
+const cacheKey = (site: StreetImagerySite) => `${site.lat.toFixed(7)},${site.lon.toFixed(7)}`;
 
 function findPhotoRecords(payload: unknown): Record<string, unknown>[] {
   const found: Record<string, unknown>[] = [];
