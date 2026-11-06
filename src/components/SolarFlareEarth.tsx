@@ -208,6 +208,26 @@ function attachCmeData(events: SolarEvent[], cmeRows: Row[]): SolarEvent[] {
     }};
   });
 }
+// Parse a real heliographic active-region location such as N15W45. No
+// longitude/latitude is invented when a catalog record does not provide one.
+function solarDiskCoordinates(location?: string): { x: number; y: number; label: string } | null {
+  if (!location) return null;
+  const match = location.toUpperCase().match(/\b([NS])\s*(\d{1,2}(?:\.\d+)?)\s*([EW])\s*(\d{1,3}(?:\.\d+)?)/);
+  if (!match) return null;
+  const latitude = Math.min(90, Number(match[2])) * (match[1] === 'S' ? -1 : 1);
+  const longitude = Math.min(180, Number(match[4])) * (match[3] === 'E' ? -1 : 1);
+  const lat = radians(latitude);
+  const lon = radians(longitude);
+  // Orthographic projection of the visible solar hemisphere. Far-side regions
+  // are not plotted on the visible disk.
+  if (Math.cos(lon) * Math.cos(lat) <= 0) return null;
+  return {
+    x: Math.sin(lon) * Math.cos(lat),
+    y: -Math.sin(lat),
+    label: match[0].replace(/\s+/g, ''),
+  };
+}
+
 function radians(degrees: number): number { return degrees * Math.PI / 180; }
 function wrapDegrees(degrees: number): number { return ((degrees % 360) + 360) % 360; }
 function julianCenturies(unixDays: number): number {
@@ -524,6 +544,16 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const protonFlux = n(protonForSimulation?.flux, protonForSimulation?.value);
   const kp = n(kpForSimulation?.kp_index, kpForSimulation?.kp, kpForSimulation?.estimated_kp, kpForSimulation?.value);
   const xrayTime = rowTime(xrayForSimulation || {});
+  const liveNoaaEvent = useMemo(() => {
+    if (!xrayTime) return undefined;
+    return [...noaaEvents]
+      .filter((event) => Math.abs(event.beginMs - xrayTime) <= 6 * 60 * 60 * 1000)
+      .sort((a, b) => Math.abs(a.beginMs - xrayTime) - Math.abs(b.beginMs - xrayTime))[0];
+  }, [noaaEvents, xrayTime]);
+  const liveSolarCoordinates = solarDiskCoordinates(liveNoaaEvent?.location);
+  const liveXrayIsFresh = xrayTime > 0 && Date.now() - xrayTime >= -5 * 60 * 1000 && Date.now() - xrayTime <= 20 * 60 * 1000;
+  const liveXrayActivity = !replaying && simulationIsLive && liveXrayIsFresh && xrayFlux !== null && xrayFlux >= 1e-7;
+  const liveXrayStrength = xrayFlux === null ? 0 : Math.max(0, Math.min(1, (Math.log10(Math.max(xrayFlux, 1e-9)) + 9) / 5));
   const events = useMemo(() => {
     const merged = [CARRINGTON_EVENT, ...noaaEvents, ...nasaEvents].sort((a, b) => b.beginMs - a.beginMs);
     const distinct: SolarEvent[] = [];
@@ -541,9 +571,14 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
 
   const selected = events.find((event) => event.id === selectedId);
   const cme = selected?.cme;
+  const selectedSolarCoordinates = solarDiskCoordinates(selected?.location);
+  // A non-CME flare still has an event highlight replay. It is a short UI playback
+  // of the recorded event, not a claim about CME speed or travel distance.
+  const EVENT_HIGHLIGHT_DURATION_SECONDS = 12;
   // CME front distance uses NASA's fitted radial speed (km/s), not light speed.
   // Replay spans the Sun-to-Neptune display distance at that measured speed.
   const cmeReplayDurationSeconds = cme ? (MAX_AU * 149597870.7) / cme.speedKmS : 0;
+  const replayDurationSeconds = cme ? cmeReplayDurationSeconds : EVENT_HIGHLIGHT_DURATION_SECONDS;
   const cmeElapsedSeconds = replayProgress / 1000 * cmeReplayDurationSeconds;
   const cmeReplayAu = cme && replaying ? Math.min(MAX_AU, cme.speedKmS * cmeElapsedSeconds / 149597870.7) : 0;
   const cmePropagationStartMs = cme?.analysisTime ? Date.parse(cme.analysisTime) : selected?.beginMs ?? Date.now();
@@ -574,23 +609,29 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const feedStatus = loading && lastRefresh === null ? 'CONNECTING' : !simulationIsLive ? simulationSampleCount ? 'ARCHIVE SAMPLE' : 'NO DATA FOR DATE' : feedCount === 3 ? 'NOAA LIVE' : feedCount ? 'PARTIAL DATA' : 'FEED OFFLINE';
 
   useEffect(() => {
-    if (!playing || !selected?.cme || cmeReplayDurationSeconds <= 0) return;
+    if (!playing || !selected || replayDurationSeconds <= 0) return;
     let previous = Date.now();
     const id = window.setInterval(() => {
       const now = Date.now();
       const delta = Math.max(0, now - previous) / 1000;
       previous = now;
       setReplayProgress((progress) => {
-        const next = Math.min(1000, progress + delta * playbackSpeed / cmeReplayDurationSeconds * 1000);
+        // Only CME trajectories use the measured-speed multiplier. Events without
+        // a linked CME play as a fixed 12-second source-region highlight.
+        const rate = cme ? playbackSpeed : 1;
+        const next = Math.min(1000, progress + delta * rate / replayDurationSeconds * 1000);
         if (next >= 1000) setPlaying(false);
         return next;
       });
     }, 40);
     return () => window.clearInterval(id);
-  }, [playing, playbackSpeed, selected, cmeReplayDurationSeconds]);
+  }, [playing, playbackSpeed, selected, cme, replayDurationSeconds]);
 
   const selectEvent = (event: SolarEvent) => {
     setSelectedId(event.id);
+    setOrbitDays(event.beginMs / MS_PER_DAY);
+    setSimulationPlaying(false);
+    setRealTimeOrbit(false);
     setReplayProgress(0);
     setReplaying(true);
     setPlaying(false);
@@ -598,6 +639,9 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
   const togglePlay = () => {
     if (!selected) return;
     if (replayProgress >= 1000) setReplayProgress(0);
+    setOrbitDays(selected.beginMs / MS_PER_DAY);
+    setSimulationPlaying(false);
+    setRealTimeOrbit(false);
     setReplaying(true);
     setPlaying((value) => !value);
   };
@@ -718,6 +762,24 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
           </g>}
 
           <g className="solar-earth-solar-activity">
+            {replaying && selected && !cme && <g className="solar-earth-event-highlight" pointerEvents="none">
+              {selectedSolarCoordinates
+                ? <g>
+                    <circle cx={CX + selectedSolarCoordinates.x * 15} cy={CY + selectedSolarCoordinates.y * 15} r={3.5 + 2.5 * Math.sin(Math.PI * replayProgress / 1000)} fill="#fff0a8" stroke="#ff6b32" strokeWidth="1.5" opacity={playing ? .95 : .75} filter="url(#se-flare-edge-glow)" />
+                    <circle cx={CX + selectedSolarCoordinates.x * 15} cy={CY + selectedSolarCoordinates.y * 15} r="6.5" fill="none" stroke="#ff8a42" strokeWidth="1" opacity={.45 + .4 * Math.sin(Math.PI * replayProgress / 1000)} />
+                  </g>
+                : <circle cx={CX} cy={CY} r="20.5" fill="none" stroke="#ff9a48" strokeWidth="1.5" strokeDasharray="3 3" opacity={playing ? .9 : .55} />}
+              <text x={CX + 27} y={CY - 25} className="solar-earth-selected-event-label">{selected.classType.toUpperCase()} · {selectedSolarCoordinates ? selectedSolarCoordinates.label : 'SOURCE LOCATION NOT REPORTED'}</text>
+            </g>}
+            {liveXrayActivity && <g className="solar-earth-live-xray-highlight" pointerEvents="none">
+              {liveSolarCoordinates
+                ? <g>
+                    <circle cx={CX + liveSolarCoordinates.x * 15} cy={CY + liveSolarCoordinates.y * 15} r={3 + liveXrayStrength * 3} fill="#fff4b5" stroke="#ff632b" strokeWidth="1.5" opacity={.65 + liveXrayStrength * .3} filter="url(#se-flare-edge-glow)" />
+                    <circle cx={CX + liveSolarCoordinates.x * 15} cy={CY + liveSolarCoordinates.y * 15} r="7" fill="none" stroke="#ff8a42" strokeWidth="1.1" opacity={.35 + liveXrayStrength * .45} />
+                  </g>
+                : <circle cx={CX} cy={CY} r="20.5" fill="none" stroke="#ff9a48" strokeWidth="1.5" strokeDasharray="3 3" opacity={.35 + liveXrayStrength * .55} />}
+              <text x={CX + 27} y={CY - 25} className="solar-earth-selected-event-label">LIVE GOES {classFromFlux(xrayFlux)} · {liveSolarCoordinates ? liveSolarCoordinates.label : 'SOURCE LOCATION NOT REPORTED'}</text>
+            </g>}
             <circle cx={CX} cy={CY} r={18} fill="url(#se-sun-fill)" filter="url(#se-sun-glow)" />
             <defs><clipPath id="se-sun-euv-clip"><circle cx={CX} cy={CY} r="17" /></clipPath></defs>
             <circle cx={CX} cy={CY} r="18" fill="url(#se-sun-fill)" />
@@ -841,17 +903,17 @@ export function SolarFlareEarth({ onBack }: { onBack: () => void }) {
         </div>
         <div className="solar-earth-playback">
           <div className="solar-earth-playback-top">
-            <div className="solar-earth-current-event"><span className="solar-earth-live-lamp" /><div><strong>{replaying && selected ? 'REPLAY · ' + selected.classType + ' SOLAR FLARE' : 'LIVE SOLAR OBSERVATIONS'}</strong><small>{replaying && selected ? stamp(selected.beginMs) + ' · estimated solar emission 8m 19s earlier' : stamp(xrayTime) + ' · GOES measures X-rays near Earth'}</small></div></div>
+            <div className="solar-earth-current-event"><span className="solar-earth-live-lamp" /><div><strong>{replaying && selected ? 'REPLAY · ' + selected.classType + ' SOLAR FLARE' : 'LIVE SOLAR OBSERVATIONS'}</strong><small>{replaying && selected ? stamp(selected.beginMs) + ' · ' + (cme ? 'NASA CME analysis linked' : selectedSolarCoordinates ? 'Recorded source-region highlight; no CME path' : 'Source location unavailable; event highlight only') : stamp(xrayTime) + ' · GOES measures X-rays near Earth'}</small></div></div>
             <div className="solar-earth-playback-actions">
-              <button type="button" className={playing ? 'se-action se-action-hot' : 'se-action'} onClick={togglePlay} disabled={!selected?.cme}><Play size={12} />{playing ? 'PAUSE' : 'PLAY EVENT'}</button>
-              <button type="button" className={realTimeOrbit && !replaying ? 'se-action se-action-hot' : 'se-action'} title="Return to current UTC time and real orbital rates" onClick={() => { setPlaying(false); setReplaying(false); setReplayProgress(0); setOrbitDays(Date.now() / MS_PER_DAY); setOrbitSpeed(1); setRealTimeOrbit(true); setSimulationPlaying(true); }}><TimerReset size={12} />LIVE TIME</button>
+              <button type="button" className={playing ? 'se-action se-action-hot' : 'se-action'} onClick={togglePlay} disabled={!selected}><Play size={12} />{playing ? 'PAUSE' : 'PLAY EVENT'}</button>
+              <button type="button" className={realTimeOrbit && !replaying ? 'se-action se-action-hot' : 'se-action'} title="Switch to the latest measured NOAA observations and keep live feeds refreshing" onClick={() => { setPlaying(false); setReplaying(false); setReplayProgress(0); if (liveNoaaEvent) setSelectedId(liveNoaaEvent.id); setOrbitDays(Date.now() / MS_PER_DAY); setOrbitSpeed(1); setRealTimeOrbit(true); setSimulationPlaying(true); void refresh(); }}><Activity size={12} />PLAY LIVE DATA</button>
             </div>
           </div>
           <div className="solar-earth-timeline-row">
-            <span>{cme ? 'CME PROPAGATION · MEASURED SPEED EXTRAPOLATION' : 'NO CME TRACK'}</span>
-            {replaying ? <input aria-label="Solar flare propagation replay position" type="range" min="0" max="1000" value={replayProgress} onChange={(event) => { setReplayProgress(Number(event.target.value)); setPlaying(false); setReplaying(true); }} /> : <input aria-label="Solar system orbit speed" type="range" min="1" max="30" value={orbitSpeed} onChange={(event) => { const speed = Number(event.target.value); setOrbitSpeed(speed); setSimulationSpeed(speed); setRealTimeOrbit(false); setSimulationPlaying(true); }} />}
-            <select aria-label="Solar flare replay speed" value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}><option value={1}>1× REAL TIME</option><option value={60}>60× PLAYBACK</option><option value={300}>300× PLAYBACK</option><option value={600}>600× PLAYBACK</option></select>
-            <span className="solar-earth-timeline-time">{cme ? cme.speedKmS.toFixed(0) + ' km/s · ' + (cme.halfAngleDeg * 2).toFixed(0) + '° width' : 'No measured CME speed/direction available'}</span>
+            <span>{cme ? 'CME PROPAGATION · MEASURED SPEED EXTRAPOLATION' : 'EVENT HIGHLIGHT · NO CME TRAJECTORY'}</span>
+            {replaying ? <input aria-label={cme ? "CME propagation replay position" : "Solar event highlight replay position"} type="range" min="0" max="1000" value={replayProgress} onChange={(event) => { setReplayProgress(Number(event.target.value)); setPlaying(false); setReplaying(true); }} /> : <input aria-label="Solar system orbit speed" type="range" min="1" max="30" value={orbitSpeed} onChange={(event) => { const speed = Number(event.target.value); setOrbitSpeed(speed); setSimulationSpeed(speed); setRealTimeOrbit(false); setSimulationPlaying(true); }} />}
+            <select aria-label="CME propagation replay speed" title={cme ? "Playback speed for the measured-speed CME trajectory" : "Event highlight replay uses a fixed 12-second clip; speed control applies only to CME tracks"} disabled={!cme} value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))}><option value={1}>1× REAL TIME</option><option value={60}>60× PLAYBACK</option><option value={300}>300× PLAYBACK</option><option value={600}>600× PLAYBACK</option></select>
+            <span className="solar-earth-timeline-time">{cme ? cme.speedKmS.toFixed(0) + ' km/s · ' + (cme.halfAngleDeg * 2).toFixed(0) + '° width' : selectedSolarCoordinates ? 'Recorded source region: ' + selectedSolarCoordinates.label : 'Source region not reported · no trajectory inferred'}</span>
           </div>
 
         </div>
